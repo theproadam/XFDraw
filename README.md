@@ -7,7 +7,7 @@ XFDraw is a realtime, high performance, software renderer written in C++ control
 #### Depth Fill. 350k Triangles ~3.3ms
 ![Depth Fill Demo](https://i.imgur.com/OlIJDbv.png)
 
-#### Vignette Shader. 1080p [not pictured] ~0.6ms
+#### Vignette Shader. ~0.6ms (in 1080p, not shown)
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
 
 ### Example Shader Code (Used for vignette buffer building)
