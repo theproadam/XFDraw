@@ -1,0 +1,24 @@
+﻿Build started 2021-03-07 11:44:18 AM.
+     1>Project "C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\FinalShaderTests\FinalShaderTests.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D FINALSHADERTESTS_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Release\FinalShaderTests.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt FinalShaderTests.cpp
+         FinalShaderTests.cpp
+     1>FinalShaderTests.cpp(70): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>FinalShaderTests.cpp(71): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>FinalShaderTests.cpp(102): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>FinalShaderTests.cpp(103): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>FinalShaderTests.cpp(104): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>FinalShaderTests.cpp(123): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\Release\FinalShaderTests.dll" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\Release\FinalShaderTests.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\Release\FinalShaderTests.lib" /MACHINE:X86 /SAFESEH /DLL Release\FinalShaderTests.obj
+         Release\stdafx.obj
+         Release\xfcore.obj
+            Creating library C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\Release\FinalShaderTests.lib and object C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\Release\FinalShaderTests.exp
+         Generating code
+         Finished generating code
+         FinalShaderTests.vcxproj -> C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\Release\FinalShaderTests.dll
+     1>Done Building Project "C:\Users\Adam\documents\visual studio 2013\Projects\FinalShaderTests\FinalShaderTests\FinalShaderTests.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:00.67

@@ -1,0 +1,6 @@
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\bin\Release\cppShaderInitializer.exe.config
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\bin\Release\cppShaderInitializer.exe
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\bin\Release\cppShaderInitializer.pdb
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\obj\Release\cppShaderInitializer.exe
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\obj\Release\cppShaderInitializer.pdb
+C:\Users\Adam\documents\visual studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\obj\Release\cppShaderInitializer.csprojResolveAssemblyReference.cache

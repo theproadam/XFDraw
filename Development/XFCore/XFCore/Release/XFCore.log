@@ -1,0 +1,38 @@
+﻿Build started 2021-06-15 10:40:38 PM.
+     1>Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /Qpar- /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Release\XFCore.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot XFDebug.cpp
+     1>cl : Command line warning D9025: overriding '/fp:precise' with '/fp:fast'
+     1>cl : Command line warning D9025: overriding '/Os' with '/Ot'
+     1>cl : Command line warning D9025: overriding '/Oy-' with '/Oy'
+     1>cl : Command line warning D9035: option 'Og' has been deprecated and will be removed in a future release
+     1>cl : Command line warning D9002: ignoring unknown option '-ffast-math'
+     1>cl : Command line warning D9002: ignoring unknown option '-Of'
+     1>cl : Command line warning D9002: ignoring unknown option '-Oa'
+         XFDebug.cpp
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(48): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(56): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(70): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(78): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(489): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(491): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(504): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(506): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(1051): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(1080): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.dll" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.lib" /MACHINE:X86 /SAFESEH /DLL Release\stdafx.obj
+         Release\XF2D.obj
+         Release\XF3D.obj
+         Release\XFCore.obj
+         Release\XFDebug.obj
+         Release\XFPerf.obj
+            Creating library C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.lib and object C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.exp
+         Generating code
+         Finished generating code
+         XFCore.vcxproj -> C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.dll
+     1>Done Building Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:02.14
