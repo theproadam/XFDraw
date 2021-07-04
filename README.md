@@ -11,6 +11,7 @@ XFDraw is a realtime, high performance, software renderer written in C++ control
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
 
 ### Example Shader Code (Used for vignette buffer building)
+C++ Side:
 ```c++
 struct CreateVingetteBuffer
 {
@@ -31,5 +32,14 @@ struct CreateVingetteBuffer
 };
 DeclareShader(BuildVignette, CreateVingetteBuffer, main)
 ```
+C# Side:
+```c#
+Shader buildVignette = Shader.Load(shaderModules[2], typeof(CreateVingetteBuffer));
+buildVignette.AssignVariable("XY_Coords", VariableType.XYScreenCoordinates);
+buildVignette.AssignBuffer("outMultiplier", vignetteBuffer);
+buildVignette.SetValue("viewportMod", new Vector2(2f / ViewportWidth, 2f / ViewportHeight));
 
+//When done, perform the pass:
+GL.Pass(buildVignette);
+```
 
