@@ -22,6 +22,10 @@ namespace xfcore.Debug
         static extern void FillFlatDebug(int* iptr, float* dptr, float* p, int count, int stride, int iColor, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, int FC, int* P, int* T);
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void PhongBase(int* iptr, float* dptr, float* p, int count, int stride, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, PhongConfig pc, int FC);
+
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void SetParallelizationMode(bool useOpenMP, int LongThreadCount);
 
         [DllImport("kernel32.dll")]
@@ -81,7 +85,7 @@ namespace xfcore.Debug
                     if (depth.Height != target.Height || depth.Width != target.Width)
                         throw new Exception("Target and Depth must be of the same dimensions!");
 
-                    int bFCull = 1;
+                    int bFCull = 2;
 
                     if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
 
@@ -108,6 +112,42 @@ namespace xfcore.Debug
             }
         }
 
+        public static void DrawDepth(GLBuffer Buffer, GLTexture depth, Vector3 camPos, Vector3 camRot)
+        { 
+            
+        }
+
+        public static void DrawPhong(GLBuffer Buffer, GLTexture target, GLTexture depth, Vector3 camPos, Vector3 camRot, PhongConfig pc)
+        {
+            lock (target.ThreadLock)
+            {
+                lock (depth.ThreadLock)
+                {
+                    int stride = 6;
+                    int divV = (4 * 3 * 6);
+
+                    if (target.Stride != 4) throw new Exception("32bpp target required!");
+                    if (depth.Stride != 4) throw new Exception("32bpp target required!");
+
+                    if (depth.Height != target.Height || depth.Width != target.Width)
+                        throw new Exception("Target and Depth must be of the same dimensions!");
+
+                    int bFCull = 2;
+
+                    if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
+
+                    RenderSettings RS = new RenderSettings();
+                    RS.degFOV = 90f;
+                    RS.farZ = 1000f;
+                    RS.nearZ = 1f;
+                    RS.renderWidth = target.Width;
+                    RS.renderHeight = target.Height;
+
+                    //throw new Exception();
+                    PhongBase((int*)target.HEAP_ptr, (float*)depth.HEAP_ptr, (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, pc, bFCull);
+                }
+            }
+        }
 
 
         #region Debuggable
@@ -951,6 +991,18 @@ namespace xfcore.Debug
         {
             SetParallelizationMode(useOpenMP, 8);
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PhongConfig
+    {
+        public Vector3 lightPosition;
+        public Vector3 lightRotation;
+
+        public Vector3 lightColor;
+        public Vector3 objectColor;
+
+
     }
 }
 

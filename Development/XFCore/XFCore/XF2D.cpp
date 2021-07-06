@@ -60,6 +60,8 @@ extern "C"
 				for (int i = 0; i < iSize; ++i)
 				{
 					*((unsigned char**)(bptr + iInstr[i * 3])) += iInstr[i * 3 + 1];
+					//*((unsigned char**)(bptr + iInstr[i * 3])) += 4;
+
 				}
 			}
 		}

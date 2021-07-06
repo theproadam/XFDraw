@@ -56,6 +56,8 @@ namespace cppShaderInitializer
         static Vector2 KeyDelta = new Vector2(0, 0);
 
         static bool renderWireframe = false;
+        static double tTime = 0;
+        static int itrCountt = 0;
 
         [STAThread]
         static void Main(string[] args)
@@ -92,15 +94,19 @@ namespace cppShaderInitializer
 
             InitializeShaders(shaderModules);
 
-            STLImporter iImport = new STLImporter("UtahHR.stl");
-            cubeObject = ToGLBuffer.ToBuffer(iImport);
+            STLImporter iImport = new STLImporter("Teapot.stl");
+            //cubeObject = ToGLBuffer.ToBuffer(iImport);
+            
+            float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(iImport.AllTriangles, 45);
+            cubeObject = new GLBuffer(cNorm, 6);
 
            
-            
+
             InitializeFPSCounter();
 
             GL.Clear(depthBuffer);
             GL.Pass(buildVignette);
+            
 
             RT.Start();
             Application.Run(renderForm);
@@ -118,20 +124,32 @@ namespace cppShaderInitializer
             ComputeColor();
             GL.Clear(frameBuffer, cR, cG, cB);
          //   GL.Clear(frameBuffer);
-          //  GL.Clear(depthBuffer);
+           // GL.Clear(depthBuffer);
+
             
             sw.Start();
-        //    GLDebug.DrawWireframe(cubeObject, frameBuffer, cameraPosition, cameraRotation);
-         //   GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, renderWireframe);
+         //   GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, true);
+         //   GLDebug.DrawWireframe(cubeObject, frameBuffer, cameraPosition, cameraRotation);
+        //    GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, renderWireframe);
 
+            PhongConfig pc = new PhongConfig();
+            pc.lightColor = new Vector3(1, 1, 0);
+            pc.lightPosition = new Vector3(1500, 1500, 1500);
+            pc.lightRotation = Vector3.Normalize(new Vector3(-1,-1,-1));
+            pc.objectColor = new Vector3(10, 10, 10);
 
-           
+            GLDebug.DrawPhong(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, pc);
 
          //   GL.Draw(myShader, depthBuffer);//, 0, 12, GLMode.Triangle);
            
-            GLFast.VignetteMultiply(frameBuffer, vignetteBuffer); 
+            //GLFast.VignetteMultiply(frameBuffer, vignetteBuffer); 
+
+            GL.Pass(runVignette);
+
             sw.Stop();
+
             Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms";
+            
             sw.Reset();
 
             DrawText();
@@ -261,8 +279,11 @@ namespace cppShaderInitializer
                 g.DrawString("XF2  : " + LastFPS + " FPS", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 20, 200, 200));
                 g.DrawString("VRAM : " + GLInfo.RAMUsageMB.ToString("0.#") + "MB", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 40, 200, 200));
                 g.DrawString("Pixl : " + (GLInfo.PixelCount / 1024f).ToString("0.#") + "K", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
-             //   g.DrawString("tris : " + GLInfo.TriangleCount.ToString() + "", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
-                g.DrawString("mode : " + renderWireframe.ToString(), new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+                //g.DrawString("Pixl : " + px.ToString("0.#") + "G/s", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
+
+
+                g.DrawString("tris : " + GLInfo.TriangleCount.ToString() + "", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+              //  g.DrawString("mode : " + renderWireframe.ToString(), new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
 
             }
 

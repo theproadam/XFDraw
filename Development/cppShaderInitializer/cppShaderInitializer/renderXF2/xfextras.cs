@@ -444,9 +444,7 @@ namespace xfcore.Extras
                 }, 5);
             }
         }
-    }
-
-    
+    }   
 }
 
 namespace xfcore
@@ -666,5 +664,6 @@ namespace xfcore
         {
             return new Vector3((float)Math.Sin(EulerAnglesDEG.x / 57.2958f), (float)Math.Sin(EulerAnglesDEG.y / 57.2958f), (float)Math.Sin(EulerAnglesDEG.z / 57.2958f));
         }
+
     }
 }

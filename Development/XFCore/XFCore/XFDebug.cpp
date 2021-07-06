@@ -6,10 +6,21 @@
 #include "XFCore.h"
 #include <math.h>
 #include <ppl.h>
+
 using namespace Concurrency;
 
 #define M_PI 3.14159265358979323846f
 #define RETURN_VALUE
+
+struct PhongConfig
+{
+	vec3 lightPosition;
+	vec3 lightRotation;
+
+	vec3 lightColor;
+	vec3 objectColor;
+};
+
 
 inline void frtlzeromem(bool* dest, int count)
 {
@@ -1085,6 +1096,627 @@ void FillDebug(int index, float* p, int* iptr, float* dptr, int iColor, int stri
 }
 
 
+void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, int RH, vec3 ca, vec3 co, vec3 si,
+	float nearZ, float farZ, float tanVert, float tanHorz, float rw, float rh, float fw, float fh, float oh, float ow, int s1, int FACE_CULL, PhongConfig pc)
+{
+	float* VERTEX_DATA = (float*)alloca(stride * 3 * 4);
+
+	int BUFFER_SIZE = 3;
+
+	for (int b = 0; b < 3; ++b)
+	{
+		float X = *(p + (index * s1 + b * stride)) - ca.x;
+		float Y = *(p + (index * s1 + b * stride + 1)) - ca.y;
+		float Z = *(p + (index * s1 + b * stride + 2)) - ca.z;
+
+		float fiX = X * co.z - Z * si.z;
+		float fiZ = Z * co.z + X * si.z;
+		float ndY = Y * co.y + fiZ * si.y;
+
+		//Returns the newly rotated Vector
+		*(VERTEX_DATA + b * stride + 0) = fiX * co.x - ndY * si.x;
+		*(VERTEX_DATA + b * stride + 1) = ndY * co.x + fiX * si.x;
+		*(VERTEX_DATA + b * stride + 2) = fiZ * co.y - Y * si.y;
+
+		for (int a = 3; a < stride; a++)
+			VERTEX_DATA[b * stride + a] = *(p + (index * s1) + b * stride + a);
+	}
+	//TODO: Replace RTL_ZERO_MEMORY with a simple loop, it should be much faster
+
+	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
+	//bool* AP = (bool*)(VERTEX_DATA + 48);
+
+	//RtlZeroMemory(AP, BUFFER_SIZE);
+	frtlzeromem(AP, BUFFER_SIZE);
+
+#pragma region NearPlaneCFG
+
+	int v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] < nearZ)
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	//	OutputDebugString(L"\n");
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region NearPlane
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+
+		int API = 0;
+
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, nearZ, stride);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, nearZ, stride);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, nearZ, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, nearZ, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+					API += 3;
+				}
+			}
+		}
+
+		BUFFER_SIZE = API / 3;
+		VERTEX_DATA = strFLT;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+
+#pragma endregion
+
+#pragma region FarPlaneCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] > farZ)
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region FarPlane
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, farZ, stride);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, farZ, stride);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, farZ, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, farZ, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region RightFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * tanVert + ow < VERTEX_DATA[i * stride])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+#pragma endregion
+
+#pragma region RightFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanVert, ow, stride);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, tanVert, ow, stride);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanVert, ow, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, tanVert, ow, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region LeftFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * -tanVert - ow > VERTEX_DATA[i * stride])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+#pragma endregion
+
+#pragma region LeftFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanVert, -ow, stride);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, -tanVert, -ow, stride);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanVert, -ow, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, -tanVert, -ow, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region TopFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * tanHorz + oh < VERTEX_DATA[i * stride + 1])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region TopFOV
+
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanHorz, oh, stride);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, tanHorz, oh, stride);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanHorz, oh, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, tanHorz, oh, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+
+
+	}
+
+#pragma endregion
+
+#pragma region BottomFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * -tanHorz - oh > VERTEX_DATA[i * stride + 1])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region BottomFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanHorz, -oh, stride);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, -tanHorz, -oh, stride);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanHorz, -oh, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, -tanHorz, -oh, stride);
+					strFLT[API + 3] = VERTEX_DATA[i * stride];
+					strFLT[API + 4] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * stride + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+	}
+#pragma endregion
+
+	int PIXELC = 0;
+
+	int yMax = 0;
+	int yMin = RH;
+
+	if (true)
+		for (int im = 0; im < BUFFER_SIZE; im++)
+		{
+			VERTEX_DATA[im * stride + 2] = 1.0f / VERTEX_DATA[im * stride + 2];
+			VERTEX_DATA[im * stride + 0] = (rw + (VERTEX_DATA[im * stride + 0] * VERTEX_DATA[im * stride + 2]) * fw);
+			VERTEX_DATA[im * stride + 1] = (rh + (VERTEX_DATA[im * stride + 1] * VERTEX_DATA[im * stride + 2]) * fh);
+
+			if (VERTEX_DATA[im * stride + 1] > yMax) yMax = (int)(VERTEX_DATA[im * stride + 1]);
+			if (VERTEX_DATA[im * stride + 1] < yMin) yMin = (int)(VERTEX_DATA[im * stride + 1]);
+		}
+
+	if (FACE_CULL == 1 || FACE_CULL == 2)
+	{
+		float A = BACKFACECULLS(VERTEX_DATA, stride);
+		if (FACE_CULL == 2 && A > 0) return RETURN_VALUE;
+		else if (FACE_CULL == 1 && A < 0) return RETURN_VALUE;
+	}
+
+	if (yMax >= RH) yMax = RH - 1;
+	if (yMin < 0) yMin = 0;
+
+
+
+	float slopeZ;
+	float bZ;
+	float s;
+
+	float sA;
+	float sB;
+
+	//float* Intersects = (float*)alloca(16);
+	float* Intersects = (float*)alloca((4 + (stride - 3) * 5) * 4);
+	float* az = Intersects + 4 + (stride - 3) * 2;
+	float* slopeAstack = az + (stride - 3) + 0;
+	float* bAstack = slopeAstack + (stride - 3);
+
+
+
+	float* FROM;
+	float* TO;
+
+	int FromX;
+	int ToX;
+
+	int* RGB_iptr;
+	float* Z_fptr;
+
+	float zBegin;
+
+	float oValue = 0.0f;
+
+
+	for (int i = yMin; i <= yMax; ++i)
+	{
+		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride))
+		{
+			if (Intersects[0] > Intersects[stride - 1])
+			{
+				TO = Intersects;
+				FROM = Intersects + (stride - 1);
+			}
+			else
+			{
+				FROM = Intersects;
+				TO = Intersects + (stride - 1);
+			}
+
+			FromX = (int)FROM[0] == 0 ? 0 : FROM[0] + 1;
+			ToX = (int)TO[0];
+
+			#pragma region Z_Interpolation
+			slopeZ = (FROM[1] - TO[1]) / (FROM[0] - TO[0]);
+			bZ = -slopeZ * FROM[0] + FROM[1];
+			#pragma endregion
+
+			#pragma region BufferOverflowProtection
+			if (ToX >= RW) ToX = RW - 1;
+			if (FromX < 0) FromX = 0;
+			#pragma endregion
+
+			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
+			bool usingZ = ZDIFF != 0;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.00001f;
+
+			if (usingZ)
+				for (int b = 0; b < stride - 3; b++)
+				{
+					sA = (FROM[2 + b] - TO[2 + b]) / ZDIFF;
+					sB = -sA / FROM[1] + FROM[2 + b];
+
+					slopeAstack[b] = sA;
+					bAstack[b] = sB;
+				}
+			else
+			for (int b = 0; b < stride - 3; b++)
+				{
+					sA = (FROM[2 + b] - TO[2 + b]) / (FROM[0] - TO[0]);
+					sB = -sA * FROM[0] + FROM[2 + b];
+
+					slopeAstack[b] = sA;
+					bAstack[b] = sB;
+				}
+
+			RGB_iptr = iptr + i * RW;
+			Z_fptr = dptr + i * RW;
+
+			zBegin = slopeZ * (float)FromX + bZ;
+
+			vec3 Normal;
+			vec3 FragPos;
+
+			for (int o = FromX; o <= ToX; ++o)
+			{
+				s = farZ - (1.0f / zBegin - oValue);
+				zBegin += slopeZ;
+
+				if (Z_fptr[o] > s) continue;
+				Z_fptr[o] = s;
+
+				//Normal = 
+				//New Scope->
+				if (false)
+				{
+					float ambientStrength = 0.1;
+					vec3 ambient = pc.lightColor * ambientStrength;
+
+					// diffuse 
+					vec3 norm = normalize(Normal);
+					vec3 lightDir = normalize(pc.lightPosition - FragPos);
+					float diff = max(dot(norm, lightDir), 0.0);
+					vec3 diffuse = pc.lightColor * diff;
+
+					// specular
+					float specularStrength = 0.5;
+					vec3 viewDir = normalize(-FragPos); // the viewer is always at (0,0,0) in view-space, so viewDir is (0,0,0) - Position => -Position
+					vec3 reflectDir = reflect(-lightDir, norm);
+					float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+					vec3 specular = pc.lightColor * specularStrength * spec;
+
+					vec3 result = pc.objectColor * (ambient + diffuse + specular);
+					unsigned char* bptr = (unsigned char*)(RGB_iptr + o);
+					bptr[0] = result.z * 255.0;
+					bptr[1] = result.z * 255.0;
+					bptr[2] = result.z * 255.0;
+				}
+				RGB_iptr[o] = 2 * s;
+
+			}
+
+		}
+	}
+}
+
+
+
 extern "C"
 {
 	DLL void WireframeDebug(int* iptr, float* p, long count, long stride, long iColor, vec3 co, vec3 si, vec3 ca, RenderSettings rconfig, long* P_Count, long* T_Count)
@@ -1197,19 +1829,19 @@ extern "C"
 
 		
 
-	//	parallel_for(0, cnt, [&](int index)
-	//	{
-	//		FillDebug(index, p, iptr, dptr, iColor, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
-	//	});
+		parallel_for(0, cnt, [&](int index)
+		{
+			FillDebug(index, p, iptr, dptr, iColor, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
+		});
 		
 
-		
+		/*
 #pragma omp parallel for num_threads(4)
 		for (int index = 0; index < cnt; ++index)
 		{
 			FillDebug(index, p, iptr, dptr, iColor, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
 		}
-		
+		*/
 
 
 		if (enableLog)
@@ -1226,4 +1858,44 @@ extern "C"
 		*P_Count = PixelWriteCount;
 		*T_Count = TrisCount;
 	}
+
+	DLL void PhongBase(int* iptr, float* dptr, float* p, long count, long stride, vec3 co, vec3 si, vec3 ca, RenderSettings rconfig, PhongConfig pc, long FC)
+	{
+		float radsFOV = rconfig.degFOV * M_PI / 180.0f;
+
+		float nearZ = rconfig.nearZ, farZ = rconfig.farZ;
+		float fovCoefficient = (float)tan((M_PI / 2.0f) - (radsFOV / 2.0f));
+		float hFovCoefficient = ((float)rconfig.renderWidth / (float)rconfig.renderHeight) * (float)tan((M_PI / 2.0f) - (radsFOV / 2.0f));
+
+		float tanVert = (float)tan(radsFOV / 2.0f) * (1.0f - 0.0f);
+		float tanHorz = (float)tan(radsFOV / 2.0f) * ((float)rconfig.renderHeight / (float)rconfig.renderWidth) * (1.0f - 0.0f);
+
+		float rw = (rconfig.renderWidth - 1.0f) / 2.0f, rh = (rconfig.renderHeight - 1.0f) / 2.0f;
+
+		float fw = rw * fovCoefficient;
+		float fh = rh * hFovCoefficient;
+
+		float oh = 0;
+		float ow = 0;
+
+		int s1 = stride * 3;
+
+
+
+		int cnt = count;
+
+
+
+		parallel_for(0, cnt, [&](int index)
+		{
+			//FillDebug(index, p, iptr, dptr, iColor, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
+			FillPhong(index, p, iptr, dptr, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC, pc);
+
+		});
+
+
+
+	}
+
+
 }
