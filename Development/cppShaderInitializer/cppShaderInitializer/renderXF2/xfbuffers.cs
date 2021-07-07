@@ -55,6 +55,9 @@ namespace xfcore.Buffers
 
         public GLTexture(int width, int height, int ByteStride = 4)
         {
+            if (width <= 2 || height <= 2)
+                throw new Exception("GLTexture must be bigger than 2x2!");
+
             Width = width;
             Height = height;
             Size = width * height;
@@ -65,6 +68,9 @@ namespace xfcore.Buffers
 
         public GLTexture(int width, int height, Type ObjectStride)
         {
+            if (width <= 2 || height <= 2)
+                throw new Exception("GLTexture must be bigger than 2x2!");
+
             Width = width;
             Height = height;
             Size = width * height;
@@ -75,6 +81,9 @@ namespace xfcore.Buffers
 
         public void Resize(int newWidth, int newHeight)
         {
+            if (newWidth <= 2 || newHeight <= 2)
+                throw new Exception("GLTexture must be bigger than 2x2!");
+
             lock (ThreadLock)
             {
                 Interlocked.Add(ref Texture_RAM_Usage, -Size * Stride);

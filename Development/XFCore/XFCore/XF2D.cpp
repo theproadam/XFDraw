@@ -19,12 +19,19 @@ inline void fmemcpy(unsigned char* dest, unsigned char* src, int count)
 
 extern "C"
 {
-	DLL void ClearColor(long* TargetBuffer, long Size, long Color)
+	DLL void ClearColor(long* TargetBuffer, long Width, long Height, long Color)
 	{
-#pragma omp parallel for num_threads(8)
-		for (int i = 0; i < Size; i++)
+		int* ptr = (int*)TargetBuffer;
+		int col = Color;
+
+#pragma omp parallel for
+		for (int h = 0; h < Height; ++h)
 		{
-			TargetBuffer[i] = Color;
+			int* iptr = ptr + Width * h;
+			for (int w = 0; w < Width; ++w)
+			{
+				iptr[w] = col;
+			}
 		}
 	}
 

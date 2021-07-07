@@ -1,7 +1,7 @@
-﻿Build started 2021-07-05 10:42:32 PM.
+﻿Build started 2021-07-06 9:42:50 PM.
      1>Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /Qpar- /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Release\XFCore.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot XFDebug.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /Qpar- /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Release\XFCore.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot XF2D.cpp XFDebug.cpp
      1>cl : Command line warning D9025: overriding '/fp:precise' with '/fp:fast'
      1>cl : Command line warning D9025: overriding '/Os' with '/Ot'
      1>cl : Command line warning D9025: overriding '/Oy-' with '/Oy'
@@ -9,6 +9,11 @@
      1>cl : Command line warning D9002: ignoring unknown option '-ffast-math'
      1>cl : Command line warning D9002: ignoring unknown option '-Of'
      1>cl : Command line warning D9002: ignoring unknown option '-Oa'
+         XF2D.cpp
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(108): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(116): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(130): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(138): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
          XFDebug.cpp
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(108): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(116): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
@@ -27,6 +32,10 @@
      1>XFDebug.cpp(1707): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
      1>XFDebug.cpp(1708): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
      1>XFDebug.cpp(1710): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(2314): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(2316): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(2329): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(2331): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.dll" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.lib" /MACHINE:X86 /SAFESEH /DLL Release\stdafx.obj
          Release\XF2D.obj
@@ -42,4 +51,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:01.48
+Time Elapsed 00:00:01.93
