@@ -1,4 +1,4 @@
-﻿Build started 2021-07-06 10:08:54 PM.
+﻿Build started 2021-07-06 10:48:35 PM.
      1>Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Debug\XFCore.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt XFDebug.cpp
@@ -21,10 +21,14 @@
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1708): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1709): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1711): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2325): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2327): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2338): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2340): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2355): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2411): warning C4305: 'initializing' : truncation from 'double' to 'float'
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2417): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2424): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2429): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2430): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2431): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2433): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.dll" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.lib" /MACHINE:X86 /DLL Debug\stdafx.obj
          Debug\XF2D.obj
@@ -32,9 +36,10 @@
          Debug\XFCore.obj
          Debug\XFDebug.obj
          Debug\XFPerf.obj
+            Creating library C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.lib and object C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.exp
          XFCore.vcxproj -> C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.dll
      1>Done Building Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" (Build target(s)).
 
 Build succeeded.
 
-Time Elapsed 00:00:00.69
+Time Elapsed 00:00:00.78
