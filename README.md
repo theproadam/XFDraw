@@ -13,6 +13,11 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Normal Example. 926 Triangles ~0.4ms
 ![Depth Fill Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotNormals.png)
 
+#### Normal Example. 926 Triangles ~1.6ms (but it will become >20ms if the whole viewport is filled)
+![Phong Shader Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotPhong.png)
+
+
+
 #### Vignette Shader. ~0.6ms (in 1080p, not shown)
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
 
