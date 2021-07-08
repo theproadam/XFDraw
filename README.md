@@ -1,6 +1,9 @@
 # XFDraw
 XFDraw is a realtime, high performance, software renderer written in C++ controlled via a wrapper written in C#. XFDraw is still in development, however with its WIP "Simple" mode XFDraw can handle insane amounts of polygons. It is the last and fastest version of the "renderX" series.
 
+
+Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a Wiki available to help with a quick start.
+
 ### Currently XFDraw is still WIP. Expect semi-regular updates.
 
 ### Demo Screenshots
