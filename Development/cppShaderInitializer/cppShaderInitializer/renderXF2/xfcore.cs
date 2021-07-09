@@ -32,7 +32,7 @@ namespace xfcore
         static extern void RtlZeroMemory(IntPtr dst, int length);
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        static extern void ClearColor(int* iptr, int Size, int Color);
+        static extern void ClearColor(int* iptr, int Width, int Height, int Color);
         #endregion
 
         #region PInvokeXFCore
@@ -352,7 +352,7 @@ namespace xfcore
                 throw new Exception("This function only clears 32bpp buffers!");
 
             lock (TargetBuffer.ThreadLock)
-                ClearColor((int*)TargetBuffer.HEAP_ptr, TargetBuffer.Size, color);
+                ClearColor((int*)TargetBuffer.HEAP_ptr, TargetBuffer.Width, TargetBuffer.Height, color);
         }
 
         static void MultiLock(DataItem[] DItems, ShaderExecute pFunc, int index = 0)

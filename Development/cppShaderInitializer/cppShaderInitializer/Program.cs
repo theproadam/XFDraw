@@ -44,7 +44,9 @@ namespace cppShaderInitializer
         static bool invt = false;
         static int FramesRendered = 0, LastFPS = 0;
 
+        static GLBuffer drawObject;
         static GLBuffer cubeObject;
+        static GLTexture shadowMap;
 
         static bool CursorHook = false, mmbdown = false;
         static int MMBDeltaX, MMBDeltaY;
@@ -83,24 +85,31 @@ namespace cppShaderInitializer
             Console.Write("Initializing XFCore -> "); GL.Initialize(); Console.WriteLine("Success");
 
             cubeObject = GLPrimitives.Cube;
+            drawObject = GLPrimitives.Cube;
+
 
             myShader = Shader.Load(shaderModules[0], typeof(VS3D), typeof(FS3D));
             myShader.SetValue("rotCos", GLExtra.GetCos(cameraRotation));
             myShader.SetValue("rotSin", GLExtra.GetSin(cameraRotation));
             myShader.SetValue("camPos", cameraPosition);
             myShader.AssignBuffer("FragColor", frameBuffer);
-            myShader.AssignBuffer("coords_in", cubeObject);
-            myShader.AssignBuffer("uv_in", cubeObject, 3);
+            myShader.AssignBuffer("coords_in", drawObject);
+            myShader.AssignBuffer("uv_in", drawObject, 3);
 
             InitializeShaders(shaderModules);
 
-            STLImporter iImport = new STLImporter("Teapot.stl");
-            //cubeObject = ToGLBuffer.ToBuffer(iImport);
+            STLImporter iImport = new STLImporter("Shapes2.stl");
+            Console.WriteLine("Imported Triangles: " + iImport.AllTriangles.Length);
+            drawObject = ToGLBuffer.ToBuffer(iImport);
             
-            float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(iImport.AllTriangles, 45);
-            cubeObject = new GLBuffer(cNorm, 6);
+            float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(iImport.AllTriangles, 89);
+          //  float[] cNorm = STLImporter.FaceNormalsToVertexNormals(iImport.AllTriangles);
 
-           
+
+            drawObject = new GLBuffer(cNorm, 6);
+        //    cubeObject = GLPrimitives.Cube;
+
+            CreateShadowMap();
 
             InitializeFPSCounter();
 
@@ -113,6 +122,8 @@ namespace cppShaderInitializer
             RT.Stop();
         }
 
+
+
         static void RT_RenderFrame()
         {
             deltaTime.Stop();
@@ -122,34 +133,52 @@ namespace cppShaderInitializer
             deltaTime.Restart();
 
             ComputeColor();
-            GL.Clear(frameBuffer, cR, cG, cB);
-         //   GL.Clear(frameBuffer);
-           // GL.Clear(depthBuffer);
+           
+            GL.Clear(frameBuffer);
+            GL.Clear(depthBuffer);
 
-            
             sw.Start();
          //   GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, true);
          //   GLDebug.DrawWireframe(cubeObject, frameBuffer, cameraPosition, cameraRotation);
         //    GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, renderWireframe);
-
+           
             PhongConfig pc = new PhongConfig();
-            pc.lightColor = new Vector3(1, 1, 0);
-            pc.lightPosition = new Vector3(1500, 1500, 1500);
-            pc.lightRotation = Vector3.Normalize(new Vector3(-1,-1,-1));
-            pc.objectColor = new Vector3(10, 10, 10);
+            pc.lightColor = new Vector3(1f, 1f, 1f);
+            pc.lightPosition = new Vector3(-50, 50, -50);
+            pc.objectColor = new Vector3(0.5f, 0.5f, 0f);
+            pc.specularStrength = 0f;
+            pc.ambientStrength = 0.1f;
+            pc.specularPower = 16;
+            pc.shadowMapPresent = 1;
+            pc.lightPosReal = new Vector3(-50, 50, -50);
 
-            GLDebug.DrawPhong(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, pc);
+            pc.SetShadowMap(shadowMap);
+            pc.SetLightRotation(new Vector3(0, 25, 45));
+
+            pc.LightPosCameraSpace(cameraPosition, cameraRotation);
+
+         //   GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, false);
+
+          //  if (renderWireframe) 
+            GLDebug.DrawPhong(drawObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, pc);
+          //  else
+          //  GLDebug.DrawWireframe(drawObject, frameBuffer, cameraPosition, cameraRotation);
+
+            //GLDebug.FillDepth(drawObject, depthBuffer, cameraPosition, cameraRotation);
+
 
          //   GL.Draw(myShader, depthBuffer);//, 0, 12, GLMode.Triangle);
            
             //GLFast.VignetteMultiply(frameBuffer, vignetteBuffer); 
 
-            GL.Pass(runVignette);
-
+           // GL.Pass(runVignette);
+            
             sw.Stop();
 
-            Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms";
-            
+           // Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms";
+
+            //GLDebug.DepthToColor(frameBuffer, depthBuffer);
+
             sw.Reset();
 
             DrawText();
@@ -325,6 +354,36 @@ namespace cppShaderInitializer
                 }
                 else cR--;
             }
+        }
+
+        static void CreateShadowMap(int res = 512)
+        {
+            shadowMap = new GLTexture(res, res);
+            GLDebug.FillDepth(drawObject, shadowMap, new Vector3(-50, 50, -50), new Vector3(0, 25, 45));
+
+            GLTexture colorBuf = new GLTexture(res, res);
+            GLDebug.DepthToColor(colorBuf, shadowMap, 0.1f);
+
+            
+
+            Task.Run(delegate() {
+                Form displayBuf = new Form();
+                BlitData bData = new BlitData(displayBuf);
+                displayBuf.ClientSize = new Size(res, res);
+                displayBuf.Text = "XFDraw shadowmap debug";
+                displayBuf.FormBorderStyle = FormBorderStyle.FixedSingle;
+
+                Task.Run(delegate()
+                {
+                    System.Threading.Thread.Sleep(500);
+                    GL.Blit(colorBuf, bData);
+                });
+
+                displayBuf.ShowDialog();
+            });
+
+            
+
         }
 
         static void FormSetup(Form renderForm)

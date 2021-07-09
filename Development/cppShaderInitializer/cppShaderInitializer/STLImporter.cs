@@ -240,6 +240,39 @@ namespace cppShaderInitializer
 
             return Output;
         }
+
+        public static float[] FaceNormalsToVertexNormals(Triangle[] Input)
+        {
+            Vector3[] VERTEX_DATA = new Vector3[Input.Length * 3];
+            Vector3[] VERTEX_NORMALS = new Vector3[Input.Length];
+            int[] N_COUNT = new int[Input.Length * 3];
+
+            for (int i = 0; i < Input.Length; i++)
+            {
+                VERTEX_DATA[i * 3] = Input[i].vertex1;
+                VERTEX_DATA[i * 3 + 1] = Input[i].vertex2;
+                VERTEX_DATA[i * 3 + 2] = Input[i].vertex3;
+                VERTEX_NORMALS[i] = Input[i].normals;
+            }
+
+
+            float[] Output = new float[VERTEX_DATA.Length * 6];
+
+            for (int i = 0; i < VERTEX_DATA.Length; i++)
+            {
+                Output[i * 6 + 0] = VERTEX_DATA[i].x;
+                Output[i * 6 + 1] = VERTEX_DATA[i].y;
+                Output[i * 6 + 2] = VERTEX_DATA[i].z;
+                Output[i * 6 + 3] = VERTEX_NORMALS[i / 3].x;
+                Output[i * 6 + 4] = VERTEX_NORMALS[i / 3].y;
+                Output[i * 6 + 5] = VERTEX_NORMALS[i / 3].z;
+
+            }
+
+            return Output;
+        }
+
+
     }
 
     public class Triangle

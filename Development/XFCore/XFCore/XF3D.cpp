@@ -5,6 +5,7 @@
 #include "XFCore.h"
 #include <math.h>
 #define M_PI 3.14159265358979323846f
+#define RETURN_VALUE
 
 void FIP(float* TA, int INDEX, float* VD, int A, int B, float LinePos)
 {
@@ -637,3 +638,11 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		return true;
 	else return false;
 }
+
+inline void frtlzeromem(bool* dest, int count)
+{
+	for (int i = 0; i < count; ++i)
+		dest[i] = false;
+}
+
+

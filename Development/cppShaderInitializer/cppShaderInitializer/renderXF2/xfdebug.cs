@@ -24,6 +24,9 @@ namespace xfcore.Debug
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void PhongBase(int* iptr, float* dptr, float* p, int count, int stride, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, PhongConfig pc, int FC);
 
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void DepthFill(float* dptr, float* p, int count, int stride, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, int FC);
+
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void SetParallelizationMode(bool useOpenMP, int LongThreadCount);
@@ -42,7 +45,7 @@ namespace xfcore.Debug
             {
                 lock (Buffer.ThreadLock)
                 {
-                    int stride = 3;
+                    int stride = Buffer.stride;
                     int divV = (4 * 3 * Buffer.stride);
 
                     if (target.Stride != 4) throw new Exception("32bpp target required!");
@@ -76,7 +79,7 @@ namespace xfcore.Debug
             {
                 lock (Buffer.ThreadLock)
                 {
-                    int stride = 3;
+                    int stride = Buffer.stride;
                     int divV = (4 * 3 * Buffer.stride);
 
                     if (target.Stride != 4) throw new Exception("32bpp target required!");
@@ -123,8 +126,9 @@ namespace xfcore.Debug
             {
                 lock (depth.ThreadLock)
                 {
-                    int stride = 6;
-                    int divV = (4 * 3 * 6);
+                    int stride = Buffer.stride;
+                    if (stride != 6) throw new Exception("DrawPhong only support stride as 6");
+                    int divV = (4 * 3 * Buffer.stride);
 
                     if (target.Stride != 4) throw new Exception("32bpp target required!");
                     if (depth.Stride != 4) throw new Exception("32bpp target required!");
@@ -132,7 +136,7 @@ namespace xfcore.Debug
                     if (depth.Height != target.Height || depth.Width != target.Width)
                         throw new Exception("Target and Depth must be of the same dimensions!");
 
-                    int bFCull = 2;
+                    int bFCull = 1;
 
                     if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
 
@@ -145,9 +149,63 @@ namespace xfcore.Debug
 
                     //throw new Exception();
                     PhongBase((int*)target.HEAP_ptr, (float*)depth.HEAP_ptr, (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, pc, bFCull);
+                    //Console.WriteLine("waiting");
                 }
             }
         }
+
+
+        public static void FillDepth(GLBuffer Buffer, GLTexture depth, Vector3 camPos, Vector3 camRot)
+        {
+            lock (depth.ThreadLock)
+            {
+                int stride = Buffer.stride;
+
+                int divV = (4 * 3 * Buffer.stride);
+
+                if (depth.Stride != 4) throw new Exception("32bpp depth required!");
+                int bFCull = 1;
+
+                if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
+
+                RenderSettings RS = new RenderSettings();
+                RS.degFOV = 90f;
+                RS.farZ = 1000f;
+                RS.nearZ = 1f;
+                RS.renderWidth = depth.Width;
+                RS.renderHeight = depth.Height;
+
+                DepthFill((float*)depth.HEAP_ptr, (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, bFCull);
+            }
+        }
+
+
+
+        public static void DepthToColor(GLTexture colorBuffer, GLTexture depthBuffer, float VisualScale)
+        {
+            lock (colorBuffer.ThreadLock)
+            {
+                lock (depthBuffer.ThreadLock)
+                {
+                    if (colorBuffer.Stride != 4) throw new Exception("32bpp color required!");
+                    if (depthBuffer.Stride != 4) throw new Exception("32bpp depth required!");
+
+                    if (colorBuffer.Height != depthBuffer.Height || colorBuffer.Width != depthBuffer.Width)
+                        throw new Exception("Target and Depth must be of the same dimensions!");
+
+                    int* iptr = (int*)colorBuffer.HEAP_ptr;
+                    float* dptr = (float*)depthBuffer.HEAP_ptr;
+
+                    int wsd = depthBuffer.Width;
+                    for (int i = 0; i < depthBuffer.Height * depthBuffer.Width; i++)
+                    {
+                        iptr[i] = (byte)(dptr[i] * VisualScale) + 256 * (byte)(dptr[i] * VisualScale) + (byte)(dptr[i] * VisualScale) * 65536;
+                    }
+                }
+            }
+        }
+
+
 
 
         #region Debuggable
@@ -994,15 +1052,104 @@ namespace xfcore.Debug
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct PhongConfig
+    public unsafe struct PhongConfig
     {
         public Vector3 lightPosition;
-        public Vector3 lightRotation;
-
         public Vector3 lightColor;
         public Vector3 objectColor;
 
+        public float ambientStrength;
+        public float specularStrength;
+        public int specularPower;
 
+        public int shadowMapPresent; //0 No 1 Yes
+        public float* shadowMapAddress;
+        public int shadowMapWidth;
+        public int shadowMapHeight;
+
+        public float srw;
+        public float srh;
+
+        public float sfw;
+        public float sfh;
+
+        public Vector3 lightPosReal;
+        public Vector3 lightRotCos;
+        public Vector3 lightRotSin;
+
+        public void SetShadowMap(GLTexture shadowmap)
+        {
+            float M_PI = (float)Math.PI;
+            float radsFOV = 90f * (float)Math.PI / 180.0f;
+
+            float fovCoefficient = (float)Math.Tan((M_PI / 2.0f) - (radsFOV / 2.0f));
+            float hFovCoefficient = ((float)shadowmap.Width / (float)shadowmap.Height) * (float)Math.Tan((M_PI / 2.0f) - (radsFOV / 2.0f));
+
+            float tanVert = (float)Math.Tan(radsFOV / 2.0f) * (1.0f - 0.0f);
+            float tanHorz = (float)Math.Tan(radsFOV / 2.0f) * ((float)shadowmap.Height / (float)shadowmap.Width) * (1.0f - 0.0f);
+
+            float rw = (shadowmap.Width - 1.0f) / 2.0f, rh = (shadowmap.Height - 1.0f) / 2.0f;
+
+            float fw = rw * fovCoefficient;
+            float fh = rh * hFovCoefficient;
+
+            srw = rw;
+            srh = rh;
+
+            sfw = fw;
+            sfh = fh;
+
+            shadowMapWidth = shadowmap.Width;
+            shadowMapHeight = shadowmap.Height;
+            shadowMapPresent = 1;
+            shadowMapAddress = (float*)shadowmap.HEAP_ptr;
+        }
+
+        public void LightPosCameraSpace(Vector3 cameraPosition, Vector3 cameraRotation)
+        {
+            lightPosition = Rot(lightPosition, cameraPosition, GetCos(cameraRotation), GetSin(cameraRotation));
+        }
+
+        public void SetLightRotation(Vector3 Rotation)
+        {
+            lightRotCos = GetCos(Rotation);
+            lightRotSin = GetSin(Rotation);
+        }
+
+        Vector3 Rot(Vector3 I, Vector3 c, Vector3 co, Vector3 s)
+        {
+            float X = I.x - c.x;
+            float Y = I.y - c.y;
+            float Z = I.z - c.z;
+
+            float fiX = (X) * co.z - (Z) * s.z;
+            float fiZ = (Z) * co.z + (X) * s.z;
+            float ndY = (Y) * co.y + (fiZ) * s.y;
+
+            float Fx = (fiX) * co.x - (ndY) * s.x;
+            float Fy = (ndY) * co.x + (fiX) * s.x;
+            float Fz = (fiZ) * co.y - (Y) * s.y;
+
+            return new Vector3(Fx, Fy, Fz);
+        }
+
+        static Vector3 GetCos(Vector3 EulerAnglesDEG)
+        {
+            return new Vector3((float)Math.Cos(EulerAnglesDEG.x / 57.2958f), (float)Math.Cos(EulerAnglesDEG.y / 57.2958f), (float)Math.Cos(EulerAnglesDEG.z / 57.2958f));
+        }
+
+        static Vector3 GetSin(Vector3 EulerAnglesDEG)
+        {
+            return new Vector3((float)Math.Sin(EulerAnglesDEG.x / 57.2958f), (float)Math.Sin(EulerAnglesDEG.y / 57.2958f), (float)Math.Sin(EulerAnglesDEG.z / 57.2958f));
+        }
+
+    }
+
+    public enum Culling
+    { 
+        None = 0,
+        Backface = 1,
+        Frontface = 2
     }
 }
 

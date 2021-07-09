@@ -27,5 +27,8 @@ namespace xfcore.Performance
                     VignettePass((int*)Target.HEAP_ptr, (float*)Multiplier.HEAP_ptr, Target.Width, Target.Height);
                 }
         }
+
+        
+
     }
 }
