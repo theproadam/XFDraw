@@ -7,11 +7,18 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 ### Currently XFDraw is still WIP. Expect semi-regular updates.
 
 ### Demo Screenshots
-#### Depth Fill. 350k Triangles ~3.3ms
-![Depth Fill Demo](https://i.imgur.com/OlIJDbv.png)
+#### Phong Example. 926 Triangles ~1.2ms (but it will become >20ms if the whole viewport is filled)
+![Phong Shader Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotPhong.png)
 
 #### Normal Example. 926 Triangles ~0.4ms
 ![Depth Fill Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotNormals.png)
+
+#### Depth Fill. 350k Triangles ~3.3ms
+![Depth Fill Demo](https://i.imgur.com/OlIJDbv.png)
+
+
+
+
 
 #### Vignette Shader. ~0.6ms (in 1080p, not shown)
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
