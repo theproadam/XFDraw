@@ -16,6 +16,9 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Depth Fill. 350k Triangles ~3.3ms
 ![Depth Fill Demo](https://i.imgur.com/OlIJDbv.png)
 
+#### Shadow mapping support. (Not Optimized Yet)
+![Shadow Mapping](https://cdn.discordapp.com/attachments/545669301164703754/862901922033565696/unknown.png)
+
 
 
 
