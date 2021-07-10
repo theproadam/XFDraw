@@ -37,6 +37,9 @@ struct PhongConfig
 	vec3 lightPosReal;
 	vec3 lightRotCos;
 	vec3 lightRotSin;
+
+	float ShadowBias;
+	float ShadowNormalBias;
 };
 
 
@@ -1765,13 +1768,12 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 		*(VERTEX_DATA + b * stride + 2) = fiZ * co.y - Y * si.y;
 
 		for (int a = 3; a < stride; a++)
-			VERTEX_DATA[b * stride + a] = *(p + (index * s1) + b * stride + a);
+			VERTEX_DATA[b * stride + a] = *(p + (index * s1) + b * readStride + a);
 
 		//XYPosition->
 		if (shadowsEnabled)
 		{
 			ToCameraSpace(p + (index * s1 + b * readStride), VERTEX_DATA + b * stride + 6, pc.lightPosReal, pc.lightRotCos, pc.lightRotSin);
-
 		}
 
 	}
@@ -2364,7 +2366,7 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 	float* slopeAstack = az + (stride - 3) + 0;
 	float* bAstack = slopeAstack + (stride - 3);
 
-
+	float NormalBias = pc.ShadowNormalBias;
 	float ambientStrength = pc.ambientStrength;
 	float specularStrength = pc.specularStrength;
 
@@ -2447,6 +2449,7 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 			vec3 Normal;
 			vec3 FragPos;
 
+			
 
 			float yPosZ = (i - rh) * fhi;
 
@@ -2466,6 +2469,7 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 				FragPos = vec3((o - rw) * fwi * depth, yPosZ * depth, depth);
 
 				Normal = ToCameraSpace(vec3(az[0], az[1], az[2]), co, si);
+				vec3 shadowNormal = ToCameraSpace(vec3(az[0],az[1],az[2]), pc.lightRotCos, pc.lightRotSin);
 				//RGB_iptr[o] = FastInt(az[0] * 127.5f + 127.5f, az[1] * 127.5f + 127.5f, az[2] * 127.5f + 127.5f);
 
 				float ShadowMult = 1.0f;
@@ -2475,20 +2479,19 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 					float X;
 					float Y;
 
-					ToXY(vec3(az[3], az[4], az[5]), pc.srw, pc.srh, pc.sfw, pc.sfh, &X, &Y);
+					ToXY(vec3(az[3] + shadowNormal.x * NormalBias, az[4] + shadowNormal.y * NormalBias, az[5] + shadowNormal.z * NormalBias), pc.srw, pc.srh, pc.sfw, pc.sfh, &X, &Y);
 
 					az[5] = farZ - az[5];
 					
 					int iX = (int)X;
 					int iY = (int)Y;
-					//RGB_iptr[o] = FastInt(0.1f * az[5], 0.1f * az[5], 0.1f * az[5]);
 
 					
 					if (iX >= 0 && iY >= 0 && iX < pc.shadowMapWidth && iY < pc.shadowMapHeight)
 					{
 						float sampleDepth = pc.shadowMapAddress[iX + iY * pc.shadowMapWidth];
 
-						if (az[5] > (sampleDepth - 5.0f))
+						if (az[5] > (sampleDepth - pc.ShadowBias))
 						{
 							//RGB_iptr[o] = FastInt(100, 100, 100);
 							ShadowMult = 1.0f;
@@ -2496,18 +2499,20 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 						else
 						{
 							//RGB_iptr[o] = FastInt(11, 11, 11);
-							ShadowMult = 0.5f;
+							ShadowMult = 0.25f;
 						}
 					}
 					else
 					{
 						//RGB_iptr[o] = FastInt(11, 11, 11);
-						ShadowMult = 0.5f;
+						ShadowMult = 0.25f;
 					}
 					
 				}
 
-				RGB_iptr[o] = FastInt(az[0], az[1], az[2]);
+				RGB_iptr[o] = FastInt(ShadowMult * az[0] * 127.5f + 127.5f, ShadowMult * az[1] * 127.5f + 127.5f, ShadowMult * az[2] * 127.5f + 127.5f);
+
+			//	RGB_iptr[o] = FastInt(Normal.z * 127.5f + 127.5f, Normal.y * 127.5f + 127.5f, Normal.x * 127.5f + 127.5f);
 
 				//Normal = 
 				//New Scope->
@@ -3307,13 +3312,13 @@ extern "C"
 		int cnt = count;
 
 			
-		for (int i = 0; i < cnt; i++)
-			FillDepth(i, p, dptr, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
+	//	for (int i = 0; i < cnt; i++)
+	//		FillDepth(i, p, dptr, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
 
 
-	//	parallel_for(0, cnt, [&](int index){
-	//		FillDepth(index, p, dptr, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
-	//	});
+		parallel_for(0, cnt, [&](int index){
+			FillDepth(index, p, dptr, stride, rconfig.renderWidth, rconfig.renderHeight, ca, co, si, nearZ, farZ, tanVert, tanHorz, rw, rh, fw, fh, oh, ow, s1, FC);
+		});
 
 
 

@@ -149,11 +149,13 @@ namespace cppShaderInitializer
             pc.specularStrength = 0f;
             pc.ambientStrength = 0.1f;
             pc.specularPower = 16;
-            pc.shadowMapPresent = 1;
             pc.lightPosReal = new Vector3(-50, 50, -50);
 
             pc.SetShadowMap(shadowMap);
             pc.SetLightRotation(new Vector3(0, 25, 45));
+            pc.shadowMapPresent = 1;
+            pc.ShadowBias = 0.25f;
+            pc.ShadowNormalBias = 0.05f;
 
             pc.LightPosCameraSpace(cameraPosition, cameraRotation);
 
@@ -356,7 +358,7 @@ namespace cppShaderInitializer
             }
         }
 
-        static void CreateShadowMap(int res = 512)
+        static void CreateShadowMap(int res = 1024)
         {
             shadowMap = new GLTexture(res, res);
             GLDebug.FillDepth(drawObject, shadowMap, new Vector3(-50, 50, -50), new Vector3(0, 25, 45));
