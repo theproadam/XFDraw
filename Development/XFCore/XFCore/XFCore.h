@@ -5,6 +5,9 @@ extern bool CountTriangles;
 extern bool CountPixels;
 extern bool ForceUseOpenMP;
 
+
+
+
 struct vec3
 {
 	float x;
@@ -120,6 +123,8 @@ inline void ToXY(vec3 XYZ, float srw, float srh, float sfw, float sfh, float* X,
 	*X = srw + XYZ.x * Z * sfw;
 	*Y = srh + XYZ.y * Z * sfh;
 }
+
+
 
 
 struct RenderSettings

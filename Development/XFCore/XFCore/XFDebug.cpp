@@ -42,8 +42,87 @@ struct PhongConfig
 	float ShadowNormalBias;
 };
 
+struct int2
+{
+	int X;
+	int Y;
+
+	int2(int x, int y)
+	{
+		X = x;
+		Y = y;
+	}
+};
+
+inline float textureBLINEAR(PhongConfig inputTexture, vec3 coord)
+{
+	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
+	float x0 = 1.0f - x1;
+
+	float y1 = coord.y + 0.5f - (int)(coord.y + 0.5f);
+	float y0 = 1.0f - y1;
+
+	int2 X0Y0 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+	int2 X1Y0 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+
+	int2 X0Y1 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+	int2 X1Y1 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+
+	// -> if statement checking for bounds <-
+	if (true) //TEXTURE_WRAP_MODE == 0
+	{
+		if (X0Y0.X < 0) X0Y0.X = 0;
+		if (X0Y0.Y < 0) X0Y0.Y = 0;
+		if (X0Y0.X >= inputTexture.shadowMapWidth) X0Y0.X = inputTexture.shadowMapWidth - 1;
+		if (X0Y0.Y >= inputTexture.shadowMapHeight) X0Y0.Y = inputTexture.shadowMapHeight - 1;
+
+		if (X1Y0.X < 0) X1Y0.X = 0;
+		if (X1Y0.Y < 0) X1Y0.Y = 0;
+		if (X1Y0.X >= inputTexture.shadowMapWidth) X1Y0.X = inputTexture.shadowMapWidth - 1;
+		if (X1Y0.Y >= inputTexture.shadowMapHeight) X1Y0.Y = inputTexture.shadowMapHeight - 1;
+
+		if (X0Y1.X < 0) X0Y1.X = 0;
+		if (X0Y1.Y < 0) X0Y1.Y = 0;
+		if (X0Y1.X >= inputTexture.shadowMapWidth) X0Y1.X = inputTexture.shadowMapWidth - 1;
+		if (X0Y1.Y >= inputTexture.shadowMapHeight) X0Y1.Y = inputTexture.shadowMapHeight - 1;
+
+		if (X1Y1.X < 0) X1Y1.X = 0;
+		if (X1Y1.Y < 0) X1Y1.Y = 0;
+		if (X1Y1.X >= inputTexture.shadowMapWidth) X1Y1.X = inputTexture.shadowMapWidth - 1;
+		if (X1Y1.Y >= inputTexture.shadowMapHeight) X1Y1.Y = inputTexture.shadowMapHeight - 1;
+	}
 
 
+	float bptrL = *(inputTexture.shadowMapAddress + X0Y0.Y * inputTexture.shadowMapWidth + X0Y0.X);
+	float bptrLN = *(inputTexture.shadowMapAddress + X1Y0.Y * inputTexture.shadowMapWidth + X1Y0.X);
+
+	float bptrU = *(inputTexture.shadowMapAddress + X0Y1.Y * inputTexture.shadowMapWidth + X0Y1.X);
+	float bptrUN = *(inputTexture.shadowMapAddress + X1Y1.Y * inputTexture.shadowMapWidth + X1Y1.X);
+
+	return bptrL * (x0 * y0) + bptrLN * (x1 * y0) + bptrU * (x0 * y1) + bptrUN * (x1 * y1);
+}
+
+
+inline float SampleShadow(int iX, int iY, PhongConfig pc, float DEPTH)
+{
+	if (iX >= 0 && iY >= 0 && iX < pc.shadowMapWidth && iY < pc.shadowMapHeight)
+	{
+		float sampleDepth = pc.shadowMapAddress[iX + iY * pc.shadowMapWidth];
+
+		if (DEPTH > (sampleDepth - pc.ShadowBias))
+		{
+			return 1.0f;
+		}
+		else
+		{
+			return 0.05f;
+		}
+	}
+	else
+	{
+		return 0.05f;
+	}
+}
 
 inline void frtlzeromem(bool* dest, int count)
 {
@@ -2476,6 +2555,8 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 
 				if (shadowsEnabled)
 				{
+					ShadowMult = 0;
+
 					float X;
 					float Y;
 
@@ -2486,31 +2567,74 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 					int iX = (int)X;
 					int iY = (int)Y;
 
+					//Sample Smart ->
+
+					float xhgh = X - iX;
+					float xlwr = 1.0f - xhgh;
+
+					float yhgh = Y - iY;
+					float ylwr = 1.0f - yhgh;
 					
+
+					ShadowMult = (SampleShadow(iX, iY, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY, pc, az[5]) * xhgh) * ylwr +
+						(SampleShadow(iX, iY + 1, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY + 1, pc, az[5]) * xhgh) * yhgh;
+
+
+					if (false)
+					{
+						float sampleDepth;// = textureBLINEAR(pc, vec3(X - 0.5f, Y - 0.5f, 0));
+					//	sampleDepth += textureBLINEAR(pc, vec3(X - 0.5f, Y + 0.5f, 0));
+					//	sampleDepth += textureBLINEAR(pc, vec3(X + 0.5f, Y + 0.5f, 0));
+					//	sampleDepth += textureBLINEAR(pc, vec3(X + 0.5f, Y - 0.5f, 0));
+
+
+					//	sampleDepth += textureBLINEAR(pc, vec3(X + 0.5f, Y + 0.5f, 0));
+					//	sampleDepth += textureBLINEAR(pc, vec3(X, Y + 0.5f, 0));
+						sampleDepth = textureBLINEAR(pc, vec3(X, Y, 0));
+
+					//	sampleDepth *= 0.20f;
+
+						if (az[5] > (sampleDepth - pc.ShadowBias))
+						{
+							ShadowMult = 1.0f;
+						}
+						else
+						{
+							ShadowMult = 0.05f;
+						}
+					}
+
+					if (false)
+					{
+					
+						ShadowMult += SampleShadow(iX, iY, pc, az[5]);
+						ShadowMult += SampleShadow(iX + 1, iY, pc, az[5]);
+						ShadowMult += SampleShadow(iX + 1, iY + 1, pc, az[5]);
+						ShadowMult += SampleShadow(iX, iY + 1, pc, az[5]);
+
+						//ShadowMult += SampleShadow(iX, iY, pc, az[5]);
+						//	ShadowMult *= 0.111111111111f;
+						ShadowMult *= 0.25;
+					}
+					
+
+					/*
 					if (iX >= 0 && iY >= 0 && iX < pc.shadowMapWidth && iY < pc.shadowMapHeight)
 					{
 						float sampleDepth = pc.shadowMapAddress[iX + iY * pc.shadowMapWidth];
 
 						if (az[5] > (sampleDepth - pc.ShadowBias))
-						{
-							//RGB_iptr[o] = FastInt(100, 100, 100);
 							ShadowMult = 1.0f;
-						}
 						else
-						{
-							//RGB_iptr[o] = FastInt(11, 11, 11);
 							ShadowMult = 0.25f;
-						}
 					}
 					else
-					{
-						//RGB_iptr[o] = FastInt(11, 11, 11);
 						ShadowMult = 0.25f;
-					}
+					*/
 					
 				}
 
-				RGB_iptr[o] = FastInt(ShadowMult * az[0] * 127.5f + 127.5f, ShadowMult * az[1] * 127.5f + 127.5f, ShadowMult * az[2] * 127.5f + 127.5f);
+				RGB_iptr[o] = FastInt(ShadowMult * (az[0] * 127.5f + 127.5f), ShadowMult * (az[1] * 127.5f + 127.5f), ShadowMult * (az[2] * 127.5f + 127.5f));
 
 			//	RGB_iptr[o] = FastInt(Normal.z * 127.5f + 127.5f, Normal.y * 127.5f + 127.5f, Normal.x * 127.5f + 127.5f);
 
