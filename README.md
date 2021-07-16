@@ -19,6 +19,8 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Shadow mapping support. (Not Optimized Yet)
 ![Shadow Mapping](https://cdn.discordapp.com/attachments/545669301164703754/862901922033565696/unknown.png)
 
+#### Shadow mapping example. (Not Optimized Yet)
+![Shadow Mapping](https://cdn.discordapp.com/attachments/545669301164703754/863470567185055784/unknown.png)
 
 
 
