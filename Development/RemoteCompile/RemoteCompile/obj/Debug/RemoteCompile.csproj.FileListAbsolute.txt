@@ -1,0 +1,11 @@
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\RemoteCompile.exe.config
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\RemoteCompile.exe
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\RemoteCompile.pdb
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\obj\Debug\RemoteCompile.exe
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\obj\Debug\RemoteCompile.pdb
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\myCode.cpp
+c:\users\adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\obj\Debug\RemoteCompile.csprojResolveAssemblyReference.cache
+C:\Users\Adam\documents\visual studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\vignetteShader.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\basicFS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\basicVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\RemoteCompile\RemoteCompile\bin\Debug\vignetteShader - Copy.cpp
