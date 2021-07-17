@@ -13,12 +13,6 @@ void main()
 	X = 1.0f - 0.5f * X * X;
 	Y = X * (1.0f - 0.5f * Y * Y);
 
-	if (true)
-	{
-		float abc = 0;
-		float nbc = 0;
-	}
-
 
 	outMultiplier = Y;
 }

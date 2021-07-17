@@ -10,12 +10,13 @@ namespace RemoteCompile
     {
         static void Main(string[] args)
         {
-             CompileSS();
+            CompileSS();
+            Console.ReadLine();
             return;
 
             ShaderCompile sModule;
 
-            if (!ShaderParser.Compile("basicVS.cpp", "basicFS.cpp", out sModule)){
+            if (!ShaderParser.Parse("basicVS.cpp", "basicFS.cpp", out sModule)){
                 Console.WriteLine("Failed to compile Shader!");
                 Console.ReadLine();
                 return;
@@ -34,9 +35,19 @@ namespace RemoteCompile
         static void CompileSS()
         {
             ShaderCompile sModule;
-            Console.Write("Compiling Shaders -> ");
+            Console.Write("Parsing Shader -> ");
 
-            if (!ShaderParser.Compile("vignetteShader.cpp", out sModule, CompileOption.ForceRecompile))
+            if (!ShaderParser.Parse("vignetteShader.cpp", out sModule, CompileOption.ForceRecompile))
+            {
+                Console.WriteLine("Failed to parse Shader!");
+                return;
+            }
+
+            Console.WriteLine("Success!");
+
+            Console.Write("Compiling Shader -> ");
+            Shader vignettePass;
+            if (!sModule.Compile(out vignettePass))
             {
                 Console.WriteLine("Failed to compile Shader!");
                 return;
@@ -45,8 +56,7 @@ namespace RemoteCompile
             Console.WriteLine("Success!");
 
 
-
-            Console.WriteLine("Screen Shader:\n" + sModule.PrintScreenSpaceShader());
+            //Console.WriteLine("Screen Shader:\n" + sModule.PrintScreenSpaceShader());
             Console.ReadLine();
         }
         

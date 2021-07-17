@@ -25,7 +25,9 @@ namespace RemoteCompile
 
         bool requireSXY; bool requireFaceIndx;
 
-        internal ShaderCompile(ShaderParser VS, ShaderParser FS, bool isScreen)
+        string shaderName;
+
+        internal ShaderCompile(ShaderParser VS, ShaderParser FS, bool isScreen, string sName)
         {
             if (!isScreen) { 
                 sFieldsVS = VS.shaderFields;
@@ -38,6 +40,7 @@ namespace RemoteCompile
             sStructsFS = FS.shaderStructs;
 
             isScreenSpace = isScreen;
+            shaderName = sName;
         }
 
         public string PrintVertexShader()
@@ -142,21 +145,20 @@ namespace RemoteCompile
             return str;
         }
 
-
-        public void Do(string FileSource)
+        public bool Compile(out Shader compiledShader)
         {
-            if (!File.Exists(FileSource))
-                throw new FileNotFoundException("Cannot compile Shader!");
+            compiledShader = null;
+
+            string cppFileSource = shaderName + "_merged.cpp";
+            string headerFile = shaderName + "_header.h";
+
+            string folder = "_temp_" + shaderName;
+            
+            if (!File.Exists(folder + @"\" + cppFileSource) || !File.Exists(folder + @"\" + headerFile))
+                throw new FileNotFoundException("Missing File!");
 
             string path = System.AppDomain.CurrentDomain.BaseDirectory;
-            string cmd = @"/EHsc /Fo """ + path + "" + FileSource + "\"";
-
-            //throw new Exception();
-           // Console.WriteLine("-> " + (COMPILER_LOCATION + COMPILER_NAME) + " " + cmd);
-
-            string tempPath = path;
-            string tempName = FileSource;
-
+            string tempPath = path + folder + "\\";// +"_temp_" + cpp;
 
             Process compiler = new Process();
 
@@ -169,24 +171,24 @@ namespace RemoteCompile
             compiler.Start();
 
             compiler.StandardInput.WriteLine("\"" + @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\vcvars32.bat" + "\"");
-            compiler.StandardInput.WriteLine(@"cl.exe /EHsc /LD " + tempName);
+            compiler.StandardInput.WriteLine(@"cl.exe /EHsc /LD " + cppFileSource);
             compiler.StandardInput.WriteLine(@"exit");
 
 
-
-            string[] outputFile = FileSource.Split('.');
+            string[] outputFile = cppFileSource.Split('.');
 
             if (!File.Exists(path + outputFile[outputFile.Length - 2] + ".dll"))
             {
                 Console.WriteLine("Failed To Compile: ");
                 string output = compiler.StandardOutput.ReadToEnd();
                 Console.WriteLine(output);
+                return false;
             }
 
             compiler.WaitForExit();
             compiler.Close();
 
-
+            return true;
         }
     }
 
@@ -196,6 +198,111 @@ namespace RemoteCompile
         internal ShaderMethod[] shaderMethods;
         internal ShaderStruct[] shaderStructs;
 
+        public static string HeaderFile { get { return @"#include <cstdint>
+struct vec3
+{
+	float x;
+	float y;
+	float z;
+
+	vec3(float X, float Y, float Z)
+	{
+		x = X;
+		y = Y;
+		z = Z;
+	}
+};
+
+struct vec2
+{
+	float x;
+	float y;
+
+	vec2(float X, float Y)
+	{
+		x = X;
+		y = Y;
+	}
+
+	vec2()
+	{
+		x = 0;
+		y = 0;
+	}
+};
+
+struct vec4
+{
+	float x;
+	float y;
+	float z;
+	float w;
+
+	vec4(vec3 Vector3, float wValue)
+	{
+		x = Vector3.x;
+		y = Vector3.y;
+		z = Vector3.z;
+		w = wValue;
+	}
+};
+
+struct byte4
+{
+	unsigned char B;
+	unsigned char G;
+	unsigned char R;
+	unsigned char A;
+
+	byte4(unsigned char r, unsigned char g, unsigned char b)
+	{
+		A = 255;
+		R = r;
+		G = g;
+		B = b;
+	}
+
+	byte4(unsigned char a, unsigned char r, unsigned char g, unsigned char b)
+	{
+		A = a;
+		R = r;
+		G = g;
+		B = b;
+	}
+};
+
+struct int2
+{
+	int X;
+	int Y;
+
+	int2(int x, int y)
+	{
+		X = x;
+		Y = y;
+	}
+};
+
+struct sampler2D
+{
+	int width;
+	int height;
+	long* TEXTURE_ADDR;
+};
+
+void fcpy(char* dest, char* src, int count)
+{
+	for (int i = 0; i < count; ++i)
+		dest[i] = src[i];
+}
+
+extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
+{
+	return sizeof(void*);
+}
+
+"; } }
+
         ShaderParser(ShaderField[] f, ShaderMethod[] m, ShaderStruct[] s)
         {
             shaderFields = f;
@@ -203,8 +310,7 @@ namespace RemoteCompile
             shaderStructs = s;
         }
 
-        
-        public static bool Compile(string vertexShader, string fragmentShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
+        public static bool Parse(string vertexShader, string fragmentShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
         {
             if (!File.Exists(vertexShader) || !File.Exists(fragmentShader))
                 throw new FileNotFoundException();
@@ -217,21 +323,15 @@ namespace RemoteCompile
             string FSReady = PrepareInput(analyzeFS);
             ShaderParser fsModule = Parse(FSReady);
 
-            shaderModule = new ShaderCompile(vsModule, fsModule, false);
+            string namePath = "";
 
             WriteShaders(vertexShader, fragmentShader);
+            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath);
 
             return true;
         }
 
-        public static string PrepareInput(string[] str)
-        { 
-            str = RemoveComments(str);
-            string s = FlattenString(str);
-            return RemoveBlockComments(s);
-        }
-
-        public static bool Compile(string screenspaceShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
+        public static bool Parse(string screenspaceShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
         {
             if (!File.Exists(screenspaceShader))
                 throw new FileNotFoundException();
@@ -240,19 +340,28 @@ namespace RemoteCompile
             string SReady = PrepareInput(analyzeS);
             ShaderParser sModule = Parse(SReady);
 
-            shaderModule = new ShaderCompile(null, sModule, true);
+            string shaderName = "";
 
-
-            WriteShader(screenspaceShader, sModule, compileOptions);
+            WriteShader(screenspaceShader, sModule, compileOptions, out shaderName);
+            shaderModule = new ShaderCompile(null, sModule, true, shaderName);
 
             return true;
         }
+
+        public static string PrepareInput(string[] str)
+        {
+            str = RemoveComments(str);
+            string s = FlattenString(str);
+            return RemoveBlockComments(s);
+        }
+
 
         static void WriteShaders(string filePath1, string filePath2)
         {
             string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
 
             string foldername = "_temp_" + ext;
+            //realPath = foldername;
 
             if (!Directory.Exists(foldername))
                 Directory.CreateDirectory(foldername);
@@ -283,9 +392,11 @@ namespace RemoteCompile
 
         }
 
-        static void WriteShader(string filePath, ShaderParser data, CompileOption[] cOps)
+        static void WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
         {
             string foldername = "_temp_" + filePath.Split('.')[0];
+
+            writtenPath = filePath.Split('.')[0];
 
             if (!Directory.Exists(foldername))
                 Directory.CreateDirectory(foldername);
@@ -327,7 +438,7 @@ namespace RemoteCompile
                     if (data.shaderFields[i].dataType == DataType.vec2)
                     {
                         uFields += indt1 + "vec2 " + "uniform_" + i + ";\n";
-                        uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointers, 8);\n";
+                        uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer, 8);\n";
 
                         methdSignUnifm += "uniform_" + i + ", ";
                         execSignUni += "vec2 " + data.shaderFields[i].name + ", ";
@@ -345,7 +456,7 @@ namespace RemoteCompile
                 }
                 else if (data.shaderFields[i].dataType == DataType.fp32)
                 {
-                    ptrs.Add(indt + "float* " + "ptr_" + i + " = (float*)wPos;\n");
+                    ptrs.Add(indt + "float* " + "ptr_" + i + " = (float*)(ptrPtrs[" + i + "] + wPos * 4);\n");
                     ptrsIncr += ", ++ptr_" + i;
                     methdSign += "ptr_" + i + ", ";
                     execSignPtr += "float* " + data.shaderFields[i].name + ", ";
@@ -360,46 +471,108 @@ namespace RemoteCompile
             mainCode = Regex.Replace(mainCode, ";", ";\n\t");
             mainCode = Regex.Replace(mainCode, "{", "{\n\t");
             mainCode = "\t" + Regex.Replace(mainCode, "}", "}\n\t");
-            
 
+            for (int i = 0; i < data.shaderFields.Length; i++)
+            {
+                if (data.shaderFields[i].dataMode != DataMode.Uniform)
+                {
+                    mainCode = WrapVariablePointer(mainCode, data.shaderFields[i].name);
+                }    
+            }
 
-            execSignUni = execSignUni.Substring(0, execSignUni.Length - 2);
+            bool XYReq = ContainsName(mainCode, "gl_FragCoord");
+
+            string methodSignExec = execSignPtr + execSignUni;
+
+            if (XYReq)
+                methodSignExec += "vec3 gl_FragCoord, ";
+
+            if (methodSignExec.Length > 2)
+                methodSignExec = methodSignExec.Substring(0, methodSignExec.Length - 2);
 
             List<string> shaderOutput = new List<string>();
             shaderOutput.Add("//Autogenerated by XFDraw shader parser");
 
-            shaderOutput.Add("inline void shaderMethod(" + execSignPtr + execSignUni + "){");
+            shaderOutput.Add("#include \"" + filePath.Split('.')[0] + "_header.h" + "\"\n");
+
+            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){");
 
             shaderOutput.Add(mainCode + "\n}");
 
             //Add Base Part
             const string entry = "extern \"C\" __declspec(dllexport) void ";
-            shaderOutput.Add(entry + "ShaderCallFunction(long Width, long Height, void* UniformPointers, long UniformCount){");
+            shaderOutput.Add(entry + "ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){");
 
             shaderOutput.Add(uFields);
 
             shaderOutput.Add("#pragma omp parallel for");
             shaderOutput.Add("\tfor (int h = 0; h < Height; ++h){");
+            shaderOutput.Add("\t\tint wPos = Width * h;");
             shaderOutput.AddRange(ptrs);
 
+            string methodSignPre = methdSign + methdSignUnifm;
+
+            if (XYReq)
+            {
+                shaderOutput.Add("\t\tvec3 gl_FragCoord = vec3(0, h, 0);");
+                methodSignPre += "gl_FragCoord, ";
+                ptrsIncr += ", ++gl_FragCoord.x";
+            }
+
+            
+            if (methodSignPre.Length > 2)
+                methodSignPre = methodSignPre.Substring(0, methodSignPre.Length - 2);
+
+
+
+
             shaderOutput.Add("\t\tfor (int w = 0; w < Width; ++w" + ptrsIncr + "){");
-            shaderOutput.Add("\t\t\tshaderMethod(" + methdSign + methdSignUnifm.Substring(0, methdSignUnifm.Length - 2) + ");\n\t\t}\n\t}");
+            shaderOutput.Add("\t\t\tshaderMethod(" + methodSignPre + ");\n\t\t}\n\t}");
 
             shaderOutput.Add("}");
 
             File.WriteAllLines(foldername + @"\" + filePath.Split('.')[0] + "_merged.cpp", shaderOutput.ToArray());
+            File.WriteAllText(foldername + @"\" + filePath.Split('.')[0] + "_header.h", HeaderFile);
 
+           
         }
 
-        static void CheckForDependencies(string input)
+        static bool ContainsName(string input, string name)
         {
-            if (input.Contains("gl_FragCoord"))
-            { 
-                
-            }
+            int result = input.IndexOf(name);
+            if (result == -1) return false;
 
+            char first = result - 1 >= 0 ? input[result - 1] : (char)1;
+            char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
 
+            if (first == (char)1 && secnd == (char)1) return true;
+
+            if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd))
+                return false;
+
+            return true;
         }
+
+        static string WrapVariablePointer(string input, string name)
+        {
+            int result = input.IndexOf(name);
+            if (result == -1) return input;
+
+            char first = result - 1 >= 0 ? input[result - 1] : (char)1;
+            char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
+
+            if (first == (char)1 && secnd == (char)1) goto Pass;
+
+            if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd))
+                return input;
+
+        Pass:
+            input = input.Insert(result, "(*");
+            input = input.Insert(result + name.Length + 2, ")");
+            return input;
+        }
+
+
 
         static string RemoveBlockComments(string input)
         {
