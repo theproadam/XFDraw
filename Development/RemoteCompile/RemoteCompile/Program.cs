@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace RemoteCompile
 {
     class Program
@@ -36,27 +37,31 @@ namespace RemoteCompile
         {
             ShaderCompile sModule;
             Console.Write("Parsing Shader -> ");
-
-            if (!ShaderParser.Parse("vignetteShader.cpp", out sModule, CompileOption.ForceRecompile))
+            if (!ShaderParser.Parse("vignetteShader.cpp", out sModule))
             {
                 Console.WriteLine("Failed to parse Shader!");
                 return;
             }
-
             Console.WriteLine("Success!");
 
+
+            Shader vignetteShader;
             Console.Write("Compiling Shader -> ");
-            Shader vignettePass;
-            if (!sModule.Compile(out vignettePass))
+            if (!sModule.Compile(out vignetteShader))
             {
                 Console.WriteLine("Failed to compile Shader!");
                 return;
             }
-
             Console.WriteLine("Success!");
 
 
-            //Console.WriteLine("Screen Shader:\n" + sModule.PrintScreenSpaceShader());
+            GLTexture vignetteBuffer = new GLTexture(1024, 768, typeof(float));
+            vignetteShader.SetValue("viewportMod", new Vector2(10, 10));
+            vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
+
+            vignetteShader.Pass();
+
+
             Console.ReadLine();
         }
         

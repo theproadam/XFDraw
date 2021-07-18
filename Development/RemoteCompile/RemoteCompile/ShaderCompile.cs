@@ -21,13 +21,16 @@ namespace RemoteCompile
         ShaderField[] sFieldsFS;
         ShaderMethod[] sMethodsFS;
         ShaderStruct[] sStructsFS;
+
+        bool skipCompile = false;
+
         bool isScreenSpace = false;
 
         bool requireSXY; bool requireFaceIndx;
 
         string shaderName;
 
-        internal ShaderCompile(ShaderParser VS, ShaderParser FS, bool isScreen, string sName)
+        internal ShaderCompile(ShaderParser VS, ShaderParser FS, bool isScreen, string sName, bool skipcompile)
         {
             if (!isScreen) { 
                 sFieldsVS = VS.shaderFields;
@@ -41,6 +44,8 @@ namespace RemoteCompile
 
             isScreenSpace = isScreen;
             shaderName = sName;
+
+            skipCompile = skipcompile;
         }
 
         public string PrintVertexShader()
@@ -149,16 +154,28 @@ namespace RemoteCompile
         {
             compiledShader = null;
 
+            string folder = "_temp_" + shaderName;
+
+            if (skipCompile)
+            {
+                compiledShader = new Shader(folder + @"\" + shaderName + "_merged.dll", this);
+                return true;
+            }
+
             string cppFileSource = shaderName + "_merged.cpp";
             string headerFile = shaderName + "_header.h";
 
-            string folder = "_temp_" + shaderName;
+            
             
             if (!File.Exists(folder + @"\" + cppFileSource) || !File.Exists(folder + @"\" + headerFile))
                 throw new FileNotFoundException("Missing File!");
 
             string path = System.AppDomain.CurrentDomain.BaseDirectory;
             string tempPath = path + folder + "\\";// +"_temp_" + cpp;
+            string outdir = tempPath + "\\" + shaderName + "_merged.dll";
+
+            if (File.Exists(outdir))
+                File.Delete(outdir);
 
             Process compiler = new Process();
 
@@ -177,7 +194,10 @@ namespace RemoteCompile
 
             string[] outputFile = cppFileSource.Split('.');
 
-            if (!File.Exists(path + outputFile[outputFile.Length - 2] + ".dll"))
+            compiler.WaitForExit();
+            compiler.Close();
+
+            if (!File.Exists(outdir))
             {
                 Console.WriteLine("Failed To Compile: ");
                 string output = compiler.StandardOutput.ReadToEnd();
@@ -185,11 +205,63 @@ namespace RemoteCompile
                 return false;
             }
 
-            compiler.WaitForExit();
-            compiler.Close();
+          
+
+            compiledShader = new Shader(folder + @"\" + shaderName + "_merged.dll", this);
 
             return true;
         }
+
+        internal ShaderField[] PrepareUniformsFS(out int Size)
+        {
+            List<ShaderField> uniforms = new List<ShaderField>();
+
+            for (int i = 0; i < sFieldsFS.Length; i++)
+                if (sFieldsFS[i].dataMode == DataMode.Uniform)
+                    uniforms.Add(sFieldsFS[i]);
+
+            int offset = 0;
+            for (int i = 0; i < uniforms.Count; i++)
+            {
+                uniforms[i].layoutPosition = offset;
+                offset += uniforms[i].GetSize();
+            }
+
+            Size = offset;
+            return uniforms.ToArray();
+        }
+
+        internal ShaderField[] PrepareUniformsVS(out int Size)
+        {
+            List<ShaderField> uniforms = new List<ShaderField>();
+
+            for (int i = 0; i < sFieldsVS.Length; i++)
+                if (sFieldsVS[i].dataMode == DataMode.Uniform)
+                    uniforms.Add(sFieldsVS[i]);
+
+            int offset = 0;
+            for (int i = 0; i < uniforms.Count; i++)
+            {
+                uniforms[i].SetLayoutOffset(offset);
+                offset += uniforms[i].GetSize();
+            }
+
+            Size = offset;
+            return uniforms.ToArray();
+        }
+
+        internal ShaderField[] PrepareFieldFS()
+        {
+            List<ShaderField> fields = new List<ShaderField>();
+
+            for (int i = 0; i < sFieldsFS.Length; i++)
+                if (sFieldsFS[i].dataMode != DataMode.Uniform)
+                    fields.Add(sFieldsFS[i]);
+
+            return fields.ToArray();
+        }
+
+
     }
 
     public class ShaderParser
@@ -326,7 +398,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             string namePath = "";
 
             WriteShaders(vertexShader, fragmentShader);
-            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath);
+            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, false);
 
             return true;
         }
@@ -342,8 +414,8 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             string shaderName = "";
 
-            WriteShader(screenspaceShader, sModule, compileOptions, out shaderName);
-            shaderModule = new ShaderCompile(null, sModule, true, shaderName);
+            bool skipcompile = !WriteShader(screenspaceShader, sModule, compileOptions, out shaderName);
+            shaderModule = new ShaderCompile(null, sModule, true, shaderName, skipcompile);
 
             return true;
         }
@@ -392,7 +464,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
         }
 
-        static void WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
+        static bool WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
         {
             string foldername = "_temp_" + filePath.Split('.')[0];
 
@@ -404,7 +476,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             if (File.Exists(foldername + @"\" + filePath))
             {
                 if (File.ReadLines(filePath).SequenceEqual(File.ReadLines(foldername + @"\" + filePath)) && !cOps.Contains(CompileOption.ForceRecompile))
-                    return;
+                    return false;
 
                 File.Delete(foldername + @"\" + filePath);
             }
@@ -427,7 +499,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             string execSignUni = ""; //inline void shaderMethod(etc etc)
 
             if (!data.shaderMethods[data.shaderMethods.Length - 1].isEntryPoint)
-                throw new Exception("Expected entry point!");
+                throw new Exception("No void main() shader entry point detected!");
 
             string mainCode = data.shaderMethods[data.shaderMethods.Length - 1].contents;
             
@@ -534,7 +606,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             File.WriteAllLines(foldername + @"\" + filePath.Split('.')[0] + "_merged.cpp", shaderOutput.ToArray());
             File.WriteAllText(foldername + @"\" + filePath.Split('.')[0] + "_header.h", HeaderFile);
 
-           
+            return true;
         }
 
         static bool ContainsName(string input, string name)
@@ -770,8 +842,8 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
                     if (shaderFields[i].dataMode != DataMode.Uniform)
                         throw new Exception("Custom structs can only be uniform value!");
 
-                    if (!shaderStructs.Any(shaderStruct => shaderStruct.structName == shaderFields[i].otherName))
-                        throw new Exception("Could not find struct called \"" + shaderFields[i].otherName + "\" for \"" + shaderFields[i].name + "\"");
+                    if (!shaderStructs.Any(shaderStruct => shaderStruct.structName == shaderFields[i].typeName))
+                        throw new Exception("Could not find struct called \"" + shaderFields[i].typeName + "\" for \"" + shaderFields[i].name + "\"");
                 }
             }
 
@@ -803,15 +875,15 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
         }
     }
 
-    internal struct ShaderField
+    internal class ShaderField
     {
         internal string name;
         internal DataType dataType;
         internal DataMode dataMode;
 
-        internal string otherName;
+        internal string typeName;
 
-        internal int layoutValue;
+        internal int layoutPosition;
         internal int FieldSize;
 
         public ShaderField(string inputString)
@@ -823,9 +895,9 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             name = str[2];
             dataType = toDataType(str[1]);
             dataMode = toDataMode(str[0]);
-            layoutValue = -1;
-            FieldSize = dataType != DataType.Other ? (int)dataType : -1;
-            otherName = dataType == DataType.Other ? str[1] : "";
+            layoutPosition = -1;
+            FieldSize = dataType != DataType.Other ? -1 : -1;
+            typeName = dataType == DataType.Other ? str[1] : str[1];
         }
 
         internal static DataType toDataType(string input)
@@ -848,9 +920,24 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             else throw new Exception("Unknown data mode: " + input);
         }
 
+        internal int GetSize()
+        {
+            if (dataType == DataType.byte4) return 4;
+            else if (dataType == DataType.fp32) return 4;
+            else if (dataType == DataType.int2) return 8;
+            else if (dataType == DataType.int32) return 4;
+            else if (dataType == DataType.vec2) return 8;
+            else if (dataType == DataType.vec3) return 12;
+            else throw new Exception("not implemented yet!");
+        }
+
+        internal void SetLayoutOffset(int value)
+        {
+            layoutPosition = value;
+        }
     }
 
-    internal struct ShaderMethod
+    internal class ShaderMethod
     {
         internal string entryName;
         internal string contents;
@@ -864,7 +951,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
         }
     }
 
-    internal struct ShaderStruct
+    internal class ShaderStruct
     {
         internal string structName;
         internal StructField[] structFields;
@@ -890,7 +977,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
         
     }
 
-    internal struct StructField
+    internal class StructField
     {
         internal string name;
         internal DataType dataType;
