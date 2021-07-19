@@ -1,0 +1,5 @@
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\obj\Debug\XFDraw.csprojResolveAssemblyReference.cache
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\bin\Debug\XFDraw.dll
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\bin\Debug\XFDraw.pdb
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\obj\Debug\XFDraw.dll
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\obj\Debug\XFDraw.pdb

@@ -1,0 +1,5 @@
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Release\XFDemo.exe.config
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Release\XFDemo.exe
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Release\XFDemo.pdb
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Release\XFDemo.exe
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Release\XFDemo.pdb

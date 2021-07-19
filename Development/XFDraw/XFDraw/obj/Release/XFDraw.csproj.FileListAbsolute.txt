@@ -1,0 +1,5 @@
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\bin\Release\XFDraw.dll
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\bin\Release\XFDraw.pdb
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\obj\Release\XFDraw.dll
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\obj\Release\XFDraw.pdb
+c:\users\adam\documents\visual studio 2013\Projects\XFDraw\XFDraw\obj\Release\XFDraw.csprojResolveAssemblyReference.cache

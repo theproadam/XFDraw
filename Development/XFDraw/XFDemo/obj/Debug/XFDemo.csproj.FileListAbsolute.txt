@@ -1,0 +1,10 @@
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDemo.exe.config
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDemo.exe
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDemo.pdb
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Debug\XFDemo.csprojResolveAssemblyReference.cache
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Debug\XFDemo.exe
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Debug\XFDemo.pdb
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDraw.dll
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDraw.pdb
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\vignetteShader.cpp
+c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\simpleShader.cpp
