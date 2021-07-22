@@ -8,12 +8,13 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using xfcore.Shaders;
 
-namespace xfcore.Shaders.Parser
+namespace xfcore.Shaders.Builder
 {
     public class ShaderCompile
     {
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
+        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Zc:forScope /Oi /MD -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot ";
 
         ShaderField[] sFieldsVS;
         ShaderMethod[] sMethodsVS;
@@ -24,11 +25,7 @@ namespace xfcore.Shaders.Parser
         ShaderStruct[] sStructsFS;
 
         bool skipCompile = false;
-
         bool isScreenSpace = false;
-
-        bool requireSXY; bool requireFaceIndx;
-
         string shaderName;
 
         internal ShaderCompile(ShaderParser VS, ShaderParser FS, bool isScreen, string sName, bool skipcompile)
@@ -186,19 +183,18 @@ namespace xfcore.Shaders.Parser
             compiler.StartInfo.RedirectStandardInput = true;
             compiler.StartInfo.RedirectStandardOutput = true;
             compiler.StartInfo.UseShellExecute = false;
-
+            
             compiler.Start();
 
             compiler.StandardInput.WriteLine("\"" + @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\vcvars32.bat" + "\"");
-            compiler.StandardInput.WriteLine(@"cl.exe /EHsc /LD " + cppFileSource);
+            compiler.StandardInput.WriteLine(@"cl.exe /EHsc /LD " + cppFileSource + " " + COMMAND_LINE);
             compiler.StandardInput.WriteLine(@"exit");
 
 
             string[] outputFile = cppFileSource.Split('.');
 
             compiler.WaitForExit();
-            compiler.Close();
-
+           
             if (!File.Exists(outdir))
             {
                 Console.WriteLine("Failed To Compile: ");
@@ -207,6 +203,7 @@ namespace xfcore.Shaders.Parser
                 return false;
             }
 
+            compiler.Close();
 
 
             compiledShader = new Shader(folder + @"\" + shaderName + "_merged.dll", this);
@@ -484,7 +481,8 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             if (File.Exists(foldername + @"\" + filePath))
             {
                 if (File.ReadLines(filePath).SequenceEqual(File.ReadLines(foldername + @"\" + filePath)) && !cOps.Contains(CompileOption.ForceRecompile))
-                    return false;
+                    if (File.Exists(foldername + @"\" + writtenPath + "_merged.dll"))
+                        return false;        
 
                 File.Delete(foldername + @"\" + filePath);
             }
@@ -498,8 +496,7 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             string methdSignUnifm = ""; //Method signature for uniforms
 
-            string indt = "\t\t"; //indent level 1
-            string indt1 = "\t"; //indent level 2
+            string indt = "\t\t", indt1 = "\t"; //indent level 1 & 2
 
             string uFields = ""; //uniform field and data copying
 
@@ -511,50 +508,52 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             string mainCode = data.shaderMethods[data.shaderMethods.Length - 1].contents;
 
-            for (int i = 0; i < data.shaderFields.Length; i++)
+            
+            int maxsize = 0;
+            ShaderField[] uniforms, inoutFields;
+            PrepareFields(data.shaderFields, out inoutFields, out uniforms, out maxsize);
+
+            string methods = WriteMethods(data.shaderMethods, inoutFields, uniforms);
+
+
+            for (int i = 0; i < uniforms.Length; i++)
             {
-                if (data.shaderFields[i].dataMode == DataMode.Uniform)
+                if (uniforms[i].dataType == DataType.vec2)
                 {
-                    if (data.shaderFields[i].dataType == DataType.vec2)
-                    {
-                        uFields += indt1 + "vec2 " + "uniform_" + i + ";\n";
-                        uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer, 8);\n";
+                    uFields += indt1 + "vec2 " + "uniform_" + i + ";\n";
+                    uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", 8);\n";
 
-                        methdSignUnifm += "uniform_" + i + ", ";
-                        execSignUni += "vec2 " + data.shaderFields[i].name + ", ";
-                    }
-                    else if (data.shaderFields[i].dataType == DataType.int32)
-                    {
-                        uFields += indt1 + "int " + "uniform_" + i + ";\n";
-                        uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer, 4);\n";
-
-                        methdSignUnifm += "uniform_" + i + ", ";
-                        execSignUni += "int " + data.shaderFields[i].name + ", ";
-                    }
-
-
-                    else throw new NotImplementedException();
-                    continue;
+                    methdSignUnifm += "uniform_" + i + ", ";
+                    execSignUni += "vec2 " + uniforms[i].name + ", ";
                 }
+                else if (uniforms[i].dataType == DataType.int32)
+                {
+                    uFields += indt1 + "int " + "uniform_" + i + ";\n";
+                    uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", 4);\n";
 
-                if (data.shaderFields[i].dataType == DataType.byte4 || data.shaderFields[i].dataType == DataType.int32)
+                    methdSignUnifm += "uniform_" + i + ", ";
+                    execSignUni += "int " + uniforms[i].name + ", ";
+                }
+                else throw new NotImplementedException();
+            }
+
+            for (int i = 0; i < inoutFields.Length; i++)
+            {
+                if (inoutFields[i].dataType == DataType.byte4 || inoutFields[i].dataType == DataType.int32)
                 {
                     ptrs.Add(indt + "int* " + "ptr_" + i + " = (int*)(ptrPtrs[" + i + "] + wPos * 4);\n");
                     ptrsIncr += ", ++ptr_" + i;
                     methdSign += "ptr_" + i + ", ";
-                    execSignPtr += (data.shaderFields[i].dataType == DataType.byte4 ? "byte4* " : "int* ") + data.shaderFields[i].name + ", ";
+                    execSignPtr += (inoutFields[i].dataType == DataType.byte4 ? "byte4* " : "int* ") + inoutFields[i].name + ", ";
                 }
-                else if (data.shaderFields[i].dataType == DataType.fp32)
+                else if (inoutFields[i].dataType == DataType.fp32)
                 {
                     ptrs.Add(indt + "float* " + "ptr_" + i + " = (float*)(ptrPtrs[" + i + "] + wPos * 4);\n");
                     ptrsIncr += ", ++ptr_" + i;
                     methdSign += "ptr_" + i + ", ";
-                    execSignPtr += "float* " + data.shaderFields[i].name + ", ";
+                    execSignPtr += "float* " + inoutFields[i].name + ", ";
                 }
-                else
-                {
-                    throw new NotImplementedException("not yet!");
-                }
+                else throw new NotImplementedException("not yet!");
             }
 
 
@@ -562,13 +561,8 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             mainCode = Regex.Replace(mainCode, "{", "{\n\t");
             mainCode = "\t" + Regex.Replace(mainCode, "}", "}\n\t");
 
-            for (int i = 0; i < data.shaderFields.Length; i++)
-            {
-                if (data.shaderFields[i].dataMode != DataMode.Uniform)
-                {
-                    mainCode = WrapVariablePointer(mainCode, data.shaderFields[i].name);
-                }
-            }
+            for (int i = 0; i < inoutFields.Length; i++)
+                mainCode = WrapVariablePointer(mainCode, inoutFields[i].name);
 
             bool XYReq = ContainsName(mainCode, "gl_FragCoord");
 
@@ -585,8 +579,9 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             shaderOutput.Add("#include \"" + filePath.Split('.')[0] + "_header.h" + "\"\n");
 
-            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){");
+            shaderOutput.Add(methods);
 
+            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){");
             shaderOutput.Add(mainCode + "\n}");
 
             //Add Base Part
@@ -614,8 +609,6 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
                 methodSignPre = methodSignPre.Substring(0, methodSignPre.Length - 2);
 
 
-
-
             shaderOutput.Add("\t\tfor (int w = 0; w < Width; ++w" + ptrsIncr + "){");
             shaderOutput.Add("\t\t\tshaderMethod(" + methodSignPre + ");\n\t\t}\n\t}");
 
@@ -625,6 +618,44 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             File.WriteAllText(foldername + @"\" + filePath.Split('.')[0] + "_header.h", HeaderFile);
 
             return true;
+        }
+
+        static string WriteMethods(ShaderMethod[] methods, ShaderField[] inoutFields, ShaderField[] uniforms)
+        {
+            string signatures = "";
+            string output = "";
+
+            for (int i = 0; i < methods.Length; i++)
+            {
+                if (methods[i].isEntryPoint)
+                    continue;
+
+                for (int o = 0; o < uniforms.Length; o++)
+                {
+                    if (ContainsName(methods[i].contents, uniforms[o].name))
+                        throw new Exception("XFDraw Parser does not support having uniforms inside other methods. Please copy them manually!");
+                }
+
+                for (int o = 0; o < inoutFields.Length; o++)
+                {
+                    if (ContainsName(methods[i].contents, inoutFields[o].name))
+                        throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
+                }
+
+                if (ContainsName(methods[i].contents, "gl_FragCoord"))
+                    throw new Exception("XFDraw Parser does not support having gl_FragCoord inside other methods. Please copy them manually!");
+
+
+                string code = Regex.Replace(methods[i].contents, ";", ";\n\t");
+                code = Regex.Replace(code, "{", "{\n\t");
+                code = "\t" + Regex.Replace(code, "}", "}\n\t");
+
+                signatures += methods[i].entryName + ";\n";
+                output += methods[i].entryName + "{\n" + code + "\n}\n";
+            }
+
+
+            return signatures + "\n\n" + output;
         }
 
         static bool ContainsName(string input, string name)
@@ -645,24 +676,27 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
         static string WrapVariablePointer(string input, string name)
         {
-            int result = input.IndexOf(name);
-            if (result == -1) return input;
+            MatchCollection m = Regex.Matches(input, name);
 
-            char first = result - 1 >= 0 ? input[result - 1] : (char)1;
-            char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
+            int offset = 0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                int result = m[i].Index + offset;
+                if (result == -1) continue;
 
-            if (first == (char)1 && secnd == (char)1) goto Pass;
+                char first = result - 1 >= 0 ? input[result - 1] : (char)1;
+                char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
 
-            if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd))
-                return input;
+                if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd) || first == '*')
+                    continue;
 
-        Pass:
-            input = input.Insert(result, "(*");
-            input = input.Insert(result + name.Length + 2, ")");
+                input = input.Insert(result, "(*");
+                input = input.Insert(result + name.Length + 2, ")");
+                offset += 3;
+            }
+
             return input;
         }
-
-
 
         static string RemoveBlockComments(string input)
         {
@@ -720,68 +754,6 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
                 str += lines[i].Trim();
 
             return str;
-        }
-
-        static void ParseOLD(string str)
-        {
-            str = Regex.Replace(str, @"\s+", " ");
-
-            string mainMethod = "";
-
-            List<string> inititems = new List<string>();
-            List<string> structs = new List<string>();
-            List<string> methods = new List<string>();
-
-
-            string buildstr = "";
-            for (int i = 0; i < str.Length; i++)
-            {
-                if (str[i] == '{')
-                {
-                    if (buildstr.StartsWith("void main()"))
-                    {
-                        int frm = i + 1;
-                        ReadMethod(i + 1, str, out i);
-                        mainMethod = str.Substring(frm, i - frm - 1);
-                        buildstr = "";
-
-                        if (i >= str.Length) break;
-                    }
-                    else if (buildstr.StartsWith("struct "))
-                    {
-                        int frm = i + 1;
-                        ReadMethod(i + 1, str, out i);
-                        structs.Add(buildstr + str.Substring(frm, i - frm - 1));
-                        buildstr = "";
-
-                        i++; //remove trailing: ;
-                        if (i >= str.Length) break;
-                    }
-                    else if (buildstr.StartsWith("inline main()"))
-                    {
-                        throw new Exception("Please do not manually inline functions!");
-                    }
-                    else
-                    {
-                        int frm = i + 1;
-                        ReadMethod(i + 1, str, out i);
-                        methods.Add(buildstr + str.Substring(frm, i - frm - 1));
-                        buildstr = "";
-
-                        if (i >= str.Length) break;
-                    }
-                }
-
-                if (str[i] == ';')
-                {
-                    inititems.Add(buildstr);
-                    buildstr = "";
-                }
-                else buildstr += str[i];
-            }
-
-            throw new Exception();
-
         }
 
         static ShaderParser Parse(string str)
@@ -891,6 +863,33 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             throw new Exception("Shader method is invalid!");
         }
+
+        static void PrepareFields(ShaderField[] sFields, out ShaderField[] inout, out ShaderField[] uniform, out int Size)
+        {
+            List<ShaderField> uniforms = new List<ShaderField>();
+            List<ShaderField> inouts = new List<ShaderField>();
+
+            for (int i = 0; i < sFields.Length; i++)
+            {
+                if (sFields[i].dataMode == DataMode.Uniform)
+                    uniforms.Add(sFields[i]);
+                else inouts.Add(sFields[i]);
+            }
+
+            int offset = 0;
+            for (int i = 0; i < uniforms.Count; i++)
+            {
+                uniforms[i].layoutPosition = offset;
+                offset += uniforms[i].GetSize();
+            }
+
+            Size = offset;
+            uniform = uniforms.ToArray();
+            inout = inouts.ToArray();
+        }
+
+
+
     }
 
     internal class ShaderField

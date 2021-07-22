@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using System.IO;
 using xfcore.Buffers;
-using xfcore.Shaders.Parser;
+using xfcore.Shaders.Builder;
 using xfcore.Extras;
 
 namespace xfcore.Shaders
@@ -95,6 +95,9 @@ namespace xfcore.Shaders
         {
             int setCount = 0;
 
+            if (value.GetType() == typeof(Color4))
+                value = (int)value;
+
             if (value.GetType() == typeof(Vector2))
             {
                 for (int i = 0; i < uniformFS.Length; i++)
@@ -114,7 +117,7 @@ namespace xfcore.Shaders
                     }
                 }
             }
-            else if (value.GetType() == typeof(int) || value.GetType() == typeof(Color4))
+            else if (value.GetType() == typeof(int))
             {
                 for (int i = 0; i < uniformFS.Length; i++)
                 {

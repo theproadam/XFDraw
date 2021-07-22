@@ -13,12 +13,13 @@ using xfcore.Extras;
 using xfcore.Performance;
 using xfcore.Debug;
 using xfcore.Info;
-using xfcore.Shaders.Parser;
+using xfcore.Shaders.Builder;
 
 namespace XFDemo
 {
     class Program
     {
+        #region Variables
         static GLTexture colorBuffer;
         static GLTexture depthBuffer;
 
@@ -43,6 +44,8 @@ namespace XFDemo
         static GLTexture vignetteBuffer;
 
         static Shader colorShift;
+        static Bitmap frameData = new Bitmap(400, 300);
+        #endregion
 
         static void Main(string[] args)
         {
@@ -75,16 +78,17 @@ namespace XFDemo
             vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
             vignetteShader.Pass();
 
-            int col = new Color4(255, 255, 255);
+            int col = new Color4(255, 255, 0);
 
             colorShift.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
             colorShift.AssignBuffer("color", colorBuffer);
+            colorShift.SetValue("someValue", col);
             colorShift.Pass();
+           
 
             RT.Start();
             Application.Run(renderForm);
             RT.Stop();
-           // Console.ReadLine();
         }
 
         static void RT_RenderFrame()
@@ -99,18 +103,20 @@ namespace XFDemo
 
             ComputeColor();
 
-           GL.Clear(colorBuffer, clearColor);
+            GL.Clear(colorBuffer, clearColor);
             GL.Clear(depthBuffer);
 
 
             sw.Start();
-         //   colorShift.Pass();
+            vignetteShader.Pass();
             GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
 
             sw.Stop();
 
-            Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms";
+            Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
             sw.Reset();
+
+            DrawText();
 
             GL.Blit(colorBuffer, formData);
 
@@ -133,6 +139,7 @@ namespace XFDemo
             if (!ShaderParser.Parse(shaderName, out sModule, CompileOption.ForceRecompile))
             {
                 Console.WriteLine("Failed to parse Shader!");
+                Console.ReadLine();
                 return null;
             }
             Console.WriteLine("Success!");
@@ -143,6 +150,7 @@ namespace XFDemo
             if (!sModule.Compile(out outputShader))
             {
                 Console.WriteLine("Failed to compile Shader!");
+                Console.ReadLine();
                 return null;
             }
             Console.WriteLine("Success!");
@@ -190,6 +198,19 @@ namespace XFDemo
             }
 
             clearColor = new Color4(cR, cG, cB);
+        }
+
+        static void DrawText()
+        {
+            GLExtra.BlitIntoBitmap(colorBuffer, frameData, new Point(0, 0), new Rectangle(0, colorBuffer.Height - 100, 400, 100));
+
+            using (Graphics g = Graphics.FromImage(frameData))
+            {
+                g.DrawString("XFDraw v0.4.3", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 0, 200, 200));
+                g.DrawString("XF2  : " + LastFPS + " FPS", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 20, 200, 200));
+            }
+
+            GLExtra.BlitFromBitmap(frameData, colorBuffer, new Point(0, colorBuffer.Height - 100), new Rectangle(0, 0, 400, 100));  
         }
 
     }

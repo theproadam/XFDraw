@@ -1,6 +1,7 @@
 ﻿//vignette shader v1.0
 out int color;
 uniform vec2 viewportMod;
+uniform int someValue;
 
 void main()
 {
@@ -16,6 +17,6 @@ void main()
 	unsigned char G = 255 * Y;
 	unsigned char B = 0;
 
-	color = (((((255 << 8) | R) << 8) | G) << 8) | B;
-
+	//color = (((((255 << 8) | R) << 8) | G) << 8) | B;
+	color = someValue;
 }
