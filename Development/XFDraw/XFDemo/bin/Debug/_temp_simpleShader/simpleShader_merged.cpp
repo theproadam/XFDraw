@@ -4,7 +4,7 @@
 
 
 
-inline void shaderMethod(int* color, vec2 viewportMod, int someValue, vec3 gl_FragCoord){
+inline void shaderMethod(byte4* color, vec2 viewportMod, vec3 gl_FragCoord){
 	float X = (gl_FragCoord.x * viewportMod.x) - 1.0f;
 	float Y = (gl_FragCoord.y * viewportMod.y) - 1.0f;
 	X = 1.0f - 0.5f * X * X;
@@ -12,23 +12,21 @@ inline void shaderMethod(int* color, vec2 viewportMod, int someValue, vec3 gl_Fr
 	unsigned char R = 255 * Y;
 	unsigned char G = 255 * Y;
 	unsigned char B = 0;
-	(*color) = someValue;
+	(*color) = byte4(R, G, B);
 	
 }
 extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){
 	vec2 uniform_0;
 	fcpy((char*)(&uniform_0), (char*)UniformPointer + 0, 8);
-	int uniform_1;
-	fcpy((char*)(&uniform_1), (char*)UniformPointer + 8, 4);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
 		int wPos = Width * h;
-		int* ptr_0 = (int*)(ptrPtrs[0] + wPos * 4);
+		byte4* ptr_0 = (byte4*)(ptrPtrs[0] + wPos * 4);
 
 		vec3 gl_FragCoord = vec3(0, h, 0);
 		for (int w = 0; w < Width; ++w, ++ptr_0, ++gl_FragCoord.x){
-			shaderMethod(ptr_0, uniform_0, uniform_1, gl_FragCoord);
+			shaderMethod(ptr_0, uniform_0, gl_FragCoord);
 		}
 	}
 }

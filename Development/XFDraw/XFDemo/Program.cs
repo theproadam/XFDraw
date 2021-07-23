@@ -27,7 +27,7 @@ namespace XFDemo
         static BlitData formData;
 
         static RenderThread RT;
-        static InputManager IM;
+        static InputManager inputManager;
 
         static Stopwatch sw = new Stopwatch();
         static Stopwatch deltaTime = new Stopwatch();
@@ -45,6 +45,9 @@ namespace XFDemo
 
         static Shader colorShift;
         static Bitmap frameData = new Bitmap(400, 300);
+
+        static GLBuffer cubeBuffer;
+
         #endregion
 
         static void Main(string[] args)
@@ -61,10 +64,12 @@ namespace XFDemo
             colorBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
             depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
+            cubeBuffer = GLPrimitives.Cube;
+
             RT = new RenderThread(144);
             RT.RenderFrame += RT_RenderFrame;
 
-            IM = new InputManager(renderForm);
+            inputManager = new InputManager(renderForm);
 
             ReadyShaders();
 
@@ -72,19 +77,17 @@ namespace XFDemo
 
             //Prep the vignette buffer->
             vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
-            GL.Clear(vignetteBuffer);
+            vignetteBuffer.Clear();
 
             vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
             vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
             vignetteShader.Pass();
 
-            int col = new Color4(255, 255, 0);
-
             colorShift.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
             colorShift.AssignBuffer("color", colorBuffer);
-            colorShift.SetValue("someValue", col);
             colorShift.Pass();
-           
+
+
 
             RT.Start();
             Application.Run(renderForm);
@@ -96,20 +99,24 @@ namespace XFDemo
             float deltaT = 0f;
 
             deltaTime.Stop();
-            IM.CalculateMouseInput();
-            IM.CalcualteKeyboardInput((float)deltaTime.Elapsed.TotalMilliseconds * 0.144f * 0.2f);
+            inputManager.CalculateMouseInput();
+            inputManager.CalcualteKeyboardInput((float)deltaTime.Elapsed.TotalMilliseconds * 0.144f * 0.2f);
             deltaT = (float)deltaTime.Elapsed.TotalMilliseconds;
             deltaTime.Restart();
 
             ComputeColor();
 
             GL.Clear(colorBuffer, clearColor);
-            GL.Clear(depthBuffer);
+       //     GL.Clear(depthBuffer);
 
 
             sw.Start();
-            vignetteShader.Pass();
+         //   vignetteShader.Pass();
             GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
+
+            GLDebug.DrawWireframe(cubeBuffer, colorBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
+
+            
 
             sw.Stop();
 
@@ -135,7 +142,7 @@ namespace XFDemo
         static Shader CompileShader(string shaderName)
         {
             ShaderCompile sModule;
-            Console.Write("Parsing Shader -> ");
+            Console.Write("Parsing Shader: " + shaderName + " -> ");
             if (!ShaderParser.Parse(shaderName, out sModule, CompileOption.ForceRecompile))
             {
                 Console.WriteLine("Failed to parse Shader!");
@@ -146,7 +153,7 @@ namespace XFDemo
 
             Shader outputShader;
 
-            Console.Write("Compiling Shader -> ");
+            Console.Write("Compiling Shader: " + shaderName + " -> ");
             if (!sModule.Compile(out outputShader))
             {
                 Console.WriteLine("Failed to compile Shader!");
@@ -226,14 +233,28 @@ namespace XFDemo
 
         public Vector3 cameraPosition = new Vector3(0, 0, 0);
         public Vector3 cameraRotation = new Vector3(0, 0, 0);
+        Form targetForm;
 
         public InputManager(Form targetForm)
         {
             sourceForm = targetForm;
 
+            this.targetForm = targetForm;
+
             targetForm.KeyDown += targetForm_KeyDown;
             targetForm.KeyUp += targetForm_KeyUp;
+            targetForm.MouseClick += targetForm_MouseClick;
+            
+        }
 
+        void targetForm_MouseClick(object sender, MouseEventArgs e)
+        {
+            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+            {
+                Cursor.Position = new Point(targetForm.PointToScreen(Point.Empty).X + targetForm.ClientSize.Width / 2, targetForm.PointToScreen(Point.Empty).Y + targetForm.ClientSize.Height / 2);
+                Cursor.Hide();
+                CursorHook = true;
+            }
         }
 
         void targetForm_KeyPress(object sender, KeyPressEventArgs e)

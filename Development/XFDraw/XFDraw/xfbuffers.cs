@@ -8,130 +8,6 @@ using System.Runtime.InteropServices;
 
 namespace xfcore.Buffers
 {
-    public class GLTexture1
-    {
-        internal IntPtr HEAP_ptr;
-        internal int Width;
-        internal int Height;
-        internal int Size;
-        internal int Stride;
-
-        bool disposed = false;
-
-        static int Texture_RAM_Usage = 0;
-
-        public static int TotalRAMUsage
-        {
-            get { return Interlocked.CompareExchange(ref Texture_RAM_Usage, 0, 0); }
-        }
-
-        public static float TotalRAMUsageMB
-        {
-            get { return Interlocked.CompareExchange(ref Texture_RAM_Usage, 0, 0) / 1024f / 1024f; }
-        }
-
-        internal object ThreadLock = new object();
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        ~GLTexture1()
-        {
-            Dispose(false);
-        }
-
-        public unsafe int GetPixel(int x, int y)
-        {
-            if (Stride != 4)
-                throw new Exception("Feature only supported when stride = 4");
-
-            if (x >= 0 || x < Width)
-            {
-                if (y >= 0 || y < Height)
-                {
-                    return *((int*)HEAP_ptr + y * Width + x);
-                }
-                else throw new ArgumentOutOfRangeException("Invalid y position!");
-            }
-            else throw new ArgumentOutOfRangeException("Invalid x position!");
-        }
-
-        public unsafe void SetPixel(int x, int y, int Color)
-        {
-            if (Stride != 4)
-                throw new Exception("Feature only supported when stride = 4");
-
-            if (x >= 0 || x < Width)
-            {
-                if (y >= 0 || y < Height)
-                {
-                    ((int*)HEAP_ptr + y * Width + x)[0] = Color;
-                }
-                else throw new ArgumentOutOfRangeException("Invalid y position!");
-            }
-            else throw new ArgumentOutOfRangeException("Invalid x position!");
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            lock (ThreadLock)
-                if (!disposed)
-                {
-                    Marshal.FreeHGlobal(HEAP_ptr);
-                    disposed = true;
-                }
-        }
-
-        public GLTexture1(int width, int height, int ByteStride = 4)
-        {
-            if (width <= 2 || height <= 2)
-                throw new Exception("GLTexture must be bigger than 2x2!");
-
-            if (ByteStride <= 0) throw new Exception("Invalid ByteSize!");
-
-            Width = width;
-            Height = height;
-            Size = width * height;
-            Stride = ByteStride;
-            Interlocked.Add(ref Texture_RAM_Usage, Size * Stride);
-            HEAP_ptr = Marshal.AllocHGlobal(Width * Height * ByteStride);
-        }
-
-        public GLTexture1(int width, int height, Type ObjectStride)
-        {
-            if (width <= 2 || height <= 2)
-                throw new Exception("GLTexture must be bigger than 2x2!");
-
-            Width = width;
-            Height = height;
-            Size = width * height;
-            Stride = Marshal.SizeOf(ObjectStride);
-            Interlocked.Add(ref Texture_RAM_Usage, Size * Stride);
-            HEAP_ptr = Marshal.AllocHGlobal(Width * Height * Stride);
-        }
-
-        public void Resize(int newWidth, int newHeight)
-        {
-            if (newWidth <= 2 || newHeight <= 2)
-                throw new Exception("GLTexture must be bigger than 2x2!");
-
-            lock (ThreadLock)
-            {
-                Interlocked.Add(ref Texture_RAM_Usage, -Size * Stride);
-                Width = newWidth;
-                Height = newHeight;
-                Size = newWidth * newHeight;
-
-                HEAP_ptr = Marshal.ReAllocHGlobal(HEAP_ptr, (IntPtr)(newWidth * newHeight * Stride));
-                Interlocked.Add(ref Texture_RAM_Usage, Size * Stride);
-            }
-        }
-
-    }
-
     public class GLTexture : IDisposable
     {
         private int _width;
@@ -192,6 +68,10 @@ namespace xfcore.Buffers
         {
             get { return Interlocked.CompareExchange(ref Texture_RAM_Usage, 0, 0) / 1024f / 1024f; }
         }
+
+        public delegate void ReadPixelDelegate4(GLBytes4 output);
+        public delegate void ReadPixelDelegate12(GLBytes12 output);
+
 
         public void RequestLock()
         {
@@ -266,15 +146,144 @@ namespace xfcore.Buffers
             return HEAP_ptr;
         }
 
+        public unsafe void LockPixels(ReadPixelDelegate4 del)
+        {
+            if (_stride != 4) throw new Exception("Stride is not 4!");
+
+
+            RequestLock();
+
+            GLBytes4 bytes = new GLBytes4(_width, _height, (int*)HEAP_ptr);
+            del(bytes);
+            bytes.Dispose();
+
+            ReleaseLock();
+        }
+
+        public unsafe void LockPixels(ReadPixelDelegate12 del)
+        {
+            if (_stride != 12) throw new Exception("Stride is not 12!");
+
+            RequestLock();
+
+            GLBytes12 bytes = new GLBytes12(_width, _height, (xfcore.Extras.Vector3*)HEAP_ptr);
+            del(bytes);
+            bytes.Dispose();
+
+            ReleaseLock();
+        }
+
+
         public int this[int x, int y]
         {
             get { return 0; }
+        }
+
+        public void Clear()
+        {
+            GL.Clear(this);
+        }
+    }
+
+    public unsafe class GLBytes4
+    {
+        bool disposed = false;
+        int* ptr;
+        int _width;
+        int _height;
+
+        public GLBytes4(int width, int height, int* ptr)
+        {
+            this.ptr = ptr;
+            _width = width;
+            _height = height;
+        }
+
+        public int GetPixel(int x, int y)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            return ptr[x + y * _width];
+        }
+
+        public void SetPixel(int x, int y, int Color)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            ptr[x + y * _width] = Color;
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
+        }
+    }
+
+    public unsafe class GLBytes12
+    {
+        bool disposed = false;
+        xfcore.Extras.Vector3* ptr;
+        int _width;
+        int _height;
+
+        public GLBytes12(int width, int height, xfcore.Extras.Vector3* ptr)
+        {
+            this.ptr = ptr;
+            _width = width;
+            _height = height;
+        }
+
+        public xfcore.Extras.Vector3 GetPixel(int x, int y)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            return ptr[x + y * _width];
+        }
+
+        public void SetPixel(int x, int y, xfcore.Extras.Vector3 Value)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            ptr[x + y * _width] = Value;
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
         }
     }
 
 
 
-    public unsafe class GLBuffer
+    public unsafe class GLBuffer : IDisposable
     {
         internal IntPtr HEAP_ptr;
         internal int Size;

@@ -80,6 +80,8 @@ namespace xfcore.Shaders
             ShaderCallScreen = (ShdrScrnCallDel)Marshal.GetDelegateForFunctionPointer(ShaderCallTrigger, typeof(ShdrScrnCallDel));
             shaderData = sModule;
 
+
+
             int sizeValue;
             uniformFS = shaderData.PrepareUniformsFS(out sizeValue);
             uniformBytesFS = new byte[sizeValue];
@@ -87,7 +89,7 @@ namespace xfcore.Shaders
           //  uniformVS = shaderData.PrepareUniformsVS(out sizeValue);
           //  uniformBytesVS = new byte[sizeValue];
 
-            fieldFS = shaderData.PrepareFieldFS();
+            fieldFS = shaderData.GetFieldFS();
             textureSlots = new GLTexture[fieldFS.Length];
 	    }
 
@@ -96,7 +98,8 @@ namespace xfcore.Shaders
             int setCount = 0;
 
             if (value.GetType() == typeof(Color4))
-                value = (int)value;
+                value = (int)((Color4)value);
+
 
             if (value.GetType() == typeof(Vector2))
             {

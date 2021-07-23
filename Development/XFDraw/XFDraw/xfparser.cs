@@ -14,13 +14,15 @@ namespace xfcore.Shaders.Builder
     {
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
-        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Zc:forScope /Oi /MD -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot ";
+        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Zc:forScope /Oi /MD -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot";
 
         ShaderField[] sFieldsVS;
+        ShaderField[] sUniformsVS;
         ShaderMethod[] sMethodsVS;
         ShaderStruct[] sStructsVS;
 
         ShaderField[] sFieldsFS;
+        ShaderField[] sUniformsFS;
         ShaderMethod[] sMethodsFS;
         ShaderStruct[] sStructsFS;
 
@@ -33,13 +35,16 @@ namespace xfcore.Shaders.Builder
             if (!isScreen)
             {
                 sFieldsVS = VS.shaderFields;
+                sUniformsVS = VS.shaderUniforms;
                 sMethodsVS = VS.shaderMethods;
                 sStructsVS = VS.shaderStructs;
             }
 
             sFieldsFS = FS.shaderFields;
+            sUniformsFS = FS.shaderUniforms;
             sMethodsFS = FS.shaderMethods;
             sStructsFS = FS.shaderStructs;
+
 
             isScreenSpace = isScreen;
             shaderName = sName;
@@ -215,9 +220,9 @@ namespace xfcore.Shaders.Builder
         {
             List<ShaderField> uniforms = new List<ShaderField>();
 
-            for (int i = 0; i < sFieldsFS.Length; i++)
-                if (sFieldsFS[i].dataMode == DataMode.Uniform)
-                    uniforms.Add(sFieldsFS[i]);
+            for (int i = 0; i < sUniformsFS.Length; i++)
+                if (sUniformsFS[i].dataMode == DataMode.Uniform)
+                    uniforms.Add(sUniformsFS[i]);
 
             int offset = 0;
             for (int i = 0; i < uniforms.Count; i++)
@@ -234,9 +239,9 @@ namespace xfcore.Shaders.Builder
         {
             List<ShaderField> uniforms = new List<ShaderField>();
 
-            for (int i = 0; i < sFieldsVS.Length; i++)
-                if (sFieldsVS[i].dataMode == DataMode.Uniform)
-                    uniforms.Add(sFieldsVS[i]);
+            for (int i = 0; i < sUniformsVS.Length; i++)
+                if (sUniformsVS[i].dataMode == DataMode.Uniform)
+                    uniforms.Add(sUniformsVS[i]);
 
             int offset = 0;
             for (int i = 0; i < uniforms.Count; i++)
@@ -249,15 +254,9 @@ namespace xfcore.Shaders.Builder
             return uniforms.ToArray();
         }
 
-        internal ShaderField[] PrepareFieldFS()
+        internal ShaderField[] GetFieldFS()
         {
-            List<ShaderField> fields = new List<ShaderField>();
-
-            for (int i = 0; i < sFieldsFS.Length; i++)
-                if (sFieldsFS[i].dataMode != DataMode.Uniform)
-                    fields.Add(sFieldsFS[i]);
-
-            return fields.ToArray();
+            return sFieldsFS;
         }
 
 
@@ -266,6 +265,7 @@ namespace xfcore.Shaders.Builder
     public class ShaderParser
     {
         internal ShaderField[] shaderFields;
+        internal ShaderField[] shaderUniforms;
         internal ShaderMethod[] shaderMethods;
         internal ShaderStruct[] shaderStructs;
 
@@ -380,9 +380,10 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             }
         }
 
-        ShaderParser(ShaderField[] f, ShaderMethod[] m, ShaderStruct[] s)
+        ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
         {
             shaderFields = f;
+            shaderUniforms = u;
             shaderMethods = m;
             shaderStructs = s;
         }
@@ -500,8 +501,8 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             string uFields = ""; //uniform field and data copying
 
-            string execSignPtr = ""; //inline void shaderMethod(etc etc)
-            string execSignUni = ""; //inline void shaderMethod(etc etc)
+            string execSignPtr = ""; //inline void shaderMethod(float* INOUT)
+            string execSignUni = ""; //inline void shaderMethod(vec3 UNIFORM)
 
             if (!data.shaderMethods[data.shaderMethods.Length - 1].isEntryPoint)
                 throw new Exception("No void main() shader entry point detected!");
@@ -510,52 +511,34 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             
             int maxsize = 0;
-            ShaderField[] uniforms, inoutFields;
-            PrepareFields(data.shaderFields, out inoutFields, out uniforms, out maxsize);
+            ShaderField[] uniforms = data.shaderUniforms;
+            ShaderField[] inoutFields = data.shaderFields;
+           // PrepareFields(data.shaderFields, out inoutFields, out uniforms, out maxsize);
 
             string methods = WriteMethods(data.shaderMethods, inoutFields, uniforms);
 
-
             for (int i = 0; i < uniforms.Length; i++)
             {
-                if (uniforms[i].dataType == DataType.vec2)
-                {
-                    uFields += indt1 + "vec2 " + "uniform_" + i + ";\n";
-                    uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", 8);\n";
+                if (uniforms[i].dataType == DataType.Other) throw new NotImplementedException();
 
-                    methdSignUnifm += "uniform_" + i + ", ";
-                    execSignUni += "vec2 " + uniforms[i].name + ", ";
-                }
-                else if (uniforms[i].dataType == DataType.int32)
-                {
-                    uFields += indt1 + "int " + "uniform_" + i + ";\n";
-                    uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", 4);\n";
+                uFields += indt1 + TypeToString(uniforms[i].dataType) + " uniform_" + i + ";\n";
+                uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", " + TypeToSize(uniforms[i].dataType) + ");\n";
 
-                    methdSignUnifm += "uniform_" + i + ", ";
-                    execSignUni += "int " + uniforms[i].name + ", ";
-                }
-                else throw new NotImplementedException();
+                methdSignUnifm += "uniform_" + i + ", ";
+                execSignUni += TypeToString(uniforms[i].dataType) + " " + uniforms[i].name + ", ";
             }
 
             for (int i = 0; i < inoutFields.Length; i++)
             {
-                if (inoutFields[i].dataType == DataType.byte4 || inoutFields[i].dataType == DataType.int32)
-                {
-                    ptrs.Add(indt + "int* " + "ptr_" + i + " = (int*)(ptrPtrs[" + i + "] + wPos * 4);\n");
-                    ptrsIncr += ", ++ptr_" + i;
-                    methdSign += "ptr_" + i + ", ";
-                    execSignPtr += (inoutFields[i].dataType == DataType.byte4 ? "byte4* " : "int* ") + inoutFields[i].name + ", ";
-                }
-                else if (inoutFields[i].dataType == DataType.fp32)
-                {
-                    ptrs.Add(indt + "float* " + "ptr_" + i + " = (float*)(ptrPtrs[" + i + "] + wPos * 4);\n");
-                    ptrsIncr += ", ++ptr_" + i;
-                    methdSign += "ptr_" + i + ", ";
-                    execSignPtr += "float* " + inoutFields[i].name + ", ";
-                }
-                else throw new NotImplementedException("not yet!");
-            }
+                if (inoutFields[i].dataType == DataType.Other) throw new NotImplementedException();
 
+                string type = TypeToString(inoutFields[i].dataType);
+
+                ptrs.Add(indt + type + "* " + "ptr_" + i + " = (" + type + "*)(ptrPtrs[" + i + "] + wPos * " + TypeToSize(inoutFields[i].dataType) + ");\n");
+                ptrsIncr += ", ++ptr_" + i;
+                methdSign += "ptr_" + i + ", ";
+                execSignPtr += type + "* " + inoutFields[i].name + ", ";
+            }
 
             mainCode = Regex.Replace(mainCode, ";", ";\n\t");
             mainCode = Regex.Replace(mainCode, "{", "{\n\t");
@@ -577,12 +560,10 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             List<string> shaderOutput = new List<string>();
             shaderOutput.Add("//Autogenerated by XFDraw shader parser");
 
-            shaderOutput.Add("#include \"" + filePath.Split('.')[0] + "_header.h" + "\"\n");
-
+            shaderOutput.Add("#include \"" + writtenPath + "_header.h" + "\"\n");
             shaderOutput.Add(methods);
 
-            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){");
-            shaderOutput.Add(mainCode + "\n}");
+            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){\n" + mainCode + "\n}");
 
             //Add Base Part
             const string entry = "extern \"C\" __declspec(dllexport) void ";
@@ -837,7 +818,12 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
                 }
             }
 
-            return new ShaderParser(shaderFields.ToArray(), shaderMethods.ToArray(), shaderStructs.ToArray());
+            ShaderField[] sf = shaderFields.ToArray();
+            ShaderField[] uni, field;
+            int size = 0;
+            PrepareFields(sf, out field, out uni, out size);
+
+            return new ShaderParser(field, uni, shaderMethods.ToArray(), shaderStructs.ToArray());
 
         }
 
@@ -888,7 +874,27 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             inout = inouts.ToArray();
         }
 
+        static int TypeToSize(DataType dataType)
+        {
+            if (dataType == DataType.byte4) return 4;
+            else if (dataType == DataType.fp32) return 4;
+            else if (dataType == DataType.int2) return 8;
+            else if (dataType == DataType.int32) return 4;
+            else if (dataType == DataType.vec2) return 8;
+            else if (dataType == DataType.vec3) return 12;
+            else throw new Exception("not implemented yet!");
+        }
 
+        static string TypeToString(DataType dataType)
+        {
+            if (dataType == DataType.byte4) return "byte4";
+            else if (dataType == DataType.fp32) return "float";
+            else if (dataType == DataType.int2) return "int2";
+            else if (dataType == DataType.int32) return "int";
+            else if (dataType == DataType.vec2) return "vec2";
+            else if (dataType == DataType.vec3) return "vec3";
+            else throw new Exception("not implemented yet!");
+        }
 
     }
 

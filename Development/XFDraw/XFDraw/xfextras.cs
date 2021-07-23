@@ -370,10 +370,382 @@ namespace xfcore.Extras
             B = b;
         }
 
-        public static implicit operator int(Color4 color)
+        public static explicit operator int(Color4 color)
         {
             return ((((((byte)color.A << 8) | (byte)color.R) << 8) | (byte)color.G) << 8) | (byte)color.B;
+        }
 
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Matrix4x4
+    {
+        public float X0Y0;
+        public float X1Y0;
+        public float X2Y0;
+        public float X3Y0;
+
+        public float X0Y1;
+        public float X1Y1;
+        public float X2Y1;
+        public float X3Y1;
+
+        public float X0Y2;
+        public float X1Y2;
+        public float X2Y2;
+        public float X3Y2;
+
+        public float X0Y3;
+        public float X1Y3;
+        public float X2Y3;
+        public float X3Y3;
+
+        public void SetZeroMatrix()
+        {
+            fixed (Matrix4x4* mat4 = &this)
+            {
+                float* ptr = (float*)mat4;
+
+                for (int i = 0; i < 16; i++)
+                    ptr[i] = 0;
+            }
+        }
+
+        public void SetIdentityMatrix()
+        {
+            fixed (Matrix4x4* mat4 = &this)
+            {
+                float* ptr = (float*)mat4;
+
+                ptr[0] = 1;
+                ptr[1] = 0;
+                ptr[2] = 0;
+                ptr[3] = 0;
+
+                ptr[4] = 0;
+                ptr[5] = 1;
+                ptr[6] = 0;
+                ptr[7] = 0;
+
+                ptr[8] = 0;
+                ptr[9] = 0;
+                ptr[10] = 1;
+                ptr[11] = 0;
+
+                ptr[12] = 0;
+                ptr[13] = 0;
+                ptr[14] = 0;
+                ptr[15] = 1;
+
+            }
+        }
+
+        /// <summary>
+        /// Create Camera Rotation where EulerAngles are yaw (x) * pitch (y) * roll (z)
+        /// </summary>
+        /// <param name="EulerAngles"></param>
+        /// <returns></returns>
+        public static Matrix4x4 CameraTransform(Vector3 Position, Vector3 EulerAngles)
+        {
+            Matrix4x4 result = new Matrix4x4();
+
+            float cosa = (float)Math.Cos(EulerAngles.x);
+            float cosb = (float)Math.Cos(EulerAngles.y);
+            float cosy = (float)Math.Cos(EulerAngles.z);
+
+            float sina = (float)Math.Sin(EulerAngles.x);
+            float sinb = (float)Math.Sin(EulerAngles.y);
+            float siny = (float)Math.Sin(EulerAngles.z);
+
+            result.X0Y0 = cosa * cosb;
+            result.X1Y0 = cosa * sinb * siny - sina * cosy;
+            result.X2Y0 = cosa * sinb * cosy + sina * siny;
+            result.X3Y0 = Position.x;
+
+            result.X0Y1 = sina * cosb;
+            result.X1Y1 = sina * sinb * siny + cosa * cosy;
+            result.X2Y1 = sina * sinb * cosy - cosa * siny;
+            result.X3Y1 = Position.y;
+
+            result.X0Y2 = -sinb;
+            result.X1Y2 = cosb * siny;
+            result.X2Y2 = cosb * cosy;
+            result.X3Y2 = Position.z;
+
+            result.X0Y3 = 0;
+            result.X1Y3 = 0;
+            result.X2Y3 = 0;
+            result.X3Y3 = 0;
+
+            return result;
+        }
+
+        public static Matrix4x4 operator +(Matrix4x4 A, Matrix4x4 B)
+        {
+            Matrix4x4 reslt = new Matrix4x4();
+
+            float* ptr = (float*)&reslt;
+            float* ptra = (float*)&A;
+            float* ptrb = (float*)&B;
+
+            for (int i = 0; i < 16; i++)
+                ptr[i] = ptra[i] + ptrb[i];
+
+            return reslt;
+        }
+
+        public static Matrix4x4 operator -(Matrix4x4 A, Matrix4x4 B)
+        {
+            Matrix4x4 reslt = new Matrix4x4();
+
+            float* ptr = (float*)&reslt;
+            float* ptra = (float*)&A;
+            float* ptrb = (float*)&B;
+
+            for (int i = 0; i < 16; i++)
+                ptr[i] = ptra[i] - ptrb[i];
+
+            return reslt;
+        }
+
+        public static Matrix4x4 operator *(float A, Matrix4x4 B)
+        {
+            float* ptr = (float*)&B;
+
+            for (int i = 0; i < 16; i++)
+                ptr[i] *= A;
+
+            return B;
+        }
+
+        public static Matrix4x4 operator *(Matrix4x4 B, float A)
+        {
+            float* ptr = (float*)&B;
+
+            for (int i = 0; i < 16; i++)
+                ptr[i] *= A;
+
+            return B;
+        }
+
+        public static Matrix4x4 operator *(Matrix4x4 A, Matrix4x4 B)
+        {
+            Matrix4x4 result = new Matrix4x4();
+
+            result.X0Y0 = A.X0Y0 * B.X0Y0 + A.X1Y0 * B.X0Y1 + A.X2Y0 * B.X0Y2 + A.X3Y0 * B.X0Y3;
+            result.X1Y0 = A.X0Y0 * B.X1Y0 + A.X1Y0 * B.X1Y1 + A.X2Y0 * B.X1Y2 + A.X3Y0 * B.X1Y3;
+            result.X2Y0 = A.X0Y0 * B.X2Y0 + A.X1Y0 * B.X2Y1 + A.X2Y0 * B.X2Y2 + A.X3Y0 * B.X2Y3;
+            result.X3Y0 = A.X0Y0 * B.X3Y0 + A.X1Y0 * B.X3Y1 + A.X2Y0 * B.X3Y2 + A.X3Y0 * B.X3Y3;
+
+            result.X0Y1 = A.X0Y1 * B.X0Y0 + A.X1Y1 * B.X0Y1 + A.X2Y1 * B.X0Y2 + A.X3Y1 * B.X0Y3;
+            result.X1Y1 = A.X0Y1 * B.X1Y0 + A.X1Y1 * B.X1Y1 + A.X2Y1 * B.X1Y2 + A.X3Y1 * B.X1Y3;
+            result.X2Y1 = A.X0Y1 * B.X2Y0 + A.X1Y1 * B.X2Y1 + A.X2Y1 * B.X2Y2 + A.X3Y1 * B.X2Y3;
+            result.X3Y1 = A.X0Y1 * B.X3Y0 + A.X1Y1 * B.X3Y1 + A.X2Y1 * B.X3Y2 + A.X3Y1 * B.X3Y3;
+
+            result.X0Y2 = A.X0Y2 * B.X0Y0 + A.X1Y2 * B.X0Y1 + A.X2Y2 * B.X0Y2 + A.X3Y2 * B.X0Y3;
+            result.X1Y2 = A.X0Y2 * B.X1Y0 + A.X1Y2 * B.X1Y1 + A.X2Y2 * B.X1Y2 + A.X3Y2 * B.X1Y3;
+            result.X2Y2 = A.X0Y2 * B.X2Y0 + A.X1Y2 * B.X2Y1 + A.X2Y2 * B.X2Y2 + A.X3Y2 * B.X2Y3;
+            result.X3Y2 = A.X0Y2 * B.X2Y0 + A.X1Y2 * B.X2Y1 + A.X2Y2 * B.X2Y2 + A.X3Y2 * B.X3Y3;
+
+            result.X0Y3 = A.X0Y3 * B.X0Y0 + A.X1Y3 * B.X0Y1 + A.X2Y3 * B.X0Y2 + A.X3Y3 * B.X0Y3;
+            result.X1Y3 = A.X0Y3 * B.X1Y0 + A.X1Y3 * B.X1Y1 + A.X2Y3 * B.X1Y2 + A.X3Y3 * B.X1Y3;
+            result.X2Y3 = A.X0Y3 * B.X2Y0 + A.X1Y3 * B.X2Y1 + A.X2Y3 * B.X2Y2 + A.X3Y3 * B.X2Y3;
+            result.X3Y3 = A.X0Y3 * B.X2Y0 + A.X1Y3 * B.X2Y1 + A.X2Y3 * B.X2Y2 + A.X3Y3 * B.X3Y3;
+
+            return result;
+        }
+
+        public static Vector4 operator *(Matrix4x4 A, Vector4 B)
+        {
+            Vector4 result = new Vector4();
+            result.x = A.X0Y0 * B.x + A.X1Y0 * B.y + A.X2Y0 * B.z + A.X3Y0 * B.w;
+            result.y = A.X0Y1 * B.x + A.X1Y1 * B.y + A.X2Y1 * B.z + A.X3Y1 * B.w;
+            result.z = A.X0Y2 * B.x + A.X1Y2 * B.y + A.X2Y2 * B.z + A.X3Y2 * B.w;
+            result.w = A.X0Y3 * B.x + A.X1Y3 * B.y + A.X2Y3 * B.z + A.X3Y3 * B.w;
+
+            return result;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct Matrix3x3
+    {
+        public float X0Y0;
+        public float X1Y0;
+        public float X2Y0;
+
+        public float X0Y1;
+        public float X1Y1;
+        public float X2Y1;
+
+        public float X0Y2;
+        public float X1Y2;
+        public float X2Y2;
+
+        public void SetZeroMatrix()
+        {
+            fixed (Matrix3x3* mat3 = &this)
+            {
+                float* ptr = (float*)mat3;
+
+                for (int i = 0; i < 9; i++)
+                    ptr[i] = 0;
+            }
+        }
+
+        public void SetIdentityMatrix()
+        {
+            fixed (Matrix3x3* mat3 = &this)
+            {
+                float* ptr = (float*)mat3;
+
+                ptr[0] = 1;
+                ptr[1] = 0;
+                ptr[2] = 0;
+                ptr[3] = 0;
+                ptr[4] = 1;
+                ptr[5] = 0;
+                ptr[6] = 0;
+                ptr[7] = 0;
+                ptr[8] = 1;
+
+            }
+        }
+
+        /// <summary>
+        /// Create Camera Rotation where EulerAngles are yaw (x) * pitch (y) * roll (z)
+        /// </summary>
+        /// <param name="EulerAngles"></param>
+        /// <returns></returns>
+        public static Matrix3x3 CameraRotation(Vector3 EulerAngles)
+        {
+            Matrix3x3 result = new Matrix3x3();
+
+            float cosa = (float)Math.Cos(EulerAngles.x);
+            float cosb = (float)Math.Cos(EulerAngles.y);
+            float cosy = (float)Math.Cos(EulerAngles.z);
+
+            float sina = (float)Math.Sin(EulerAngles.x);
+            float sinb = (float)Math.Sin(EulerAngles.y);
+            float siny = (float)Math.Sin(EulerAngles.z);
+
+            result.X0Y0 = cosa * cosb;
+            result.X1Y0 = cosa * sinb * siny - sina * cosy;
+            result.X2Y0 = cosa * sinb * cosy + sina * siny;
+
+            result.X0Y1 = sina * cosb;
+            result.X1Y1 = sina * sinb * siny + cosa * cosy;
+            result.X2Y1 = sina * sinb * cosy - cosa * siny;
+
+            result.X0Y2 = -sinb;
+            result.X1Y2 = cosb * siny;
+            result.X2Y2 = cosb * cosy;
+
+            return result;
+        }
+
+        public static Matrix3x3 operator +(Matrix3x3 A, Matrix3x3 B)
+        {
+            Matrix3x3 reslt = new Matrix3x3();
+
+            reslt.X0Y0 = A.X0Y0 + B.X0Y0;
+            reslt.X1Y0 = A.X1Y0 + B.X1Y0;
+            reslt.X2Y0 = A.X2Y0 + B.X2Y0;
+            reslt.X0Y1 = A.X0Y1 + B.X0Y1;
+            reslt.X1Y1 = A.X1Y1 + B.X1Y1;
+            reslt.X2Y1 = A.X2Y1 + B.X2Y1;
+            reslt.X0Y2 = A.X0Y2 + B.X0Y2;
+            reslt.X1Y2 = A.X1Y2 + B.X1Y2;
+            reslt.X2Y2 = A.X2Y2 + B.X2Y2;
+
+            return reslt;
+        }
+
+        public static Matrix3x3 operator -(Matrix3x3 A, Matrix3x3 B)
+        {
+            Matrix3x3 reslt = new Matrix3x3();
+
+            reslt.X0Y0 = A.X0Y0 - B.X0Y0;
+            reslt.X1Y0 = A.X1Y0 - B.X1Y0;
+            reslt.X2Y0 = A.X2Y0 - B.X2Y0;
+            reslt.X0Y1 = A.X0Y1 - B.X0Y1;
+            reslt.X1Y1 = A.X1Y1 - B.X1Y1;
+            reslt.X2Y1 = A.X2Y1 - B.X2Y1;
+            reslt.X0Y2 = A.X0Y2 - B.X0Y2;
+            reslt.X1Y2 = A.X1Y2 - B.X1Y2;
+            reslt.X2Y2 = A.X2Y2 - B.X2Y2;
+
+            return reslt;
+        }
+
+        public static Matrix3x3 operator *(float A, Matrix3x3 B)
+        {
+            float* ptr = (float*)&B;
+
+            for (int i = 0; i < 9; i++)
+                ptr[i] *= A;
+
+            return B;
+        }
+
+        public static Matrix3x3 operator *(Matrix3x3 B, float A)
+        {
+            float* ptr = (float*)&B;
+
+            for (int i = 0; i < 9; i++)
+                ptr[i] *= A;
+
+            return B;
+        }
+
+        public static Matrix3x3 operator *(Matrix3x3 A, Matrix3x3 B)
+        {
+            Matrix3x3 result = new Matrix3x3();
+
+            result.X0Y0 = A.X0Y0 * B.X0Y0 + A.X1Y0 * B.X0Y1 + A.X2Y0 * B.X0Y2;
+            result.X1Y0 = A.X0Y0 * B.X1Y0 + A.X1Y0 * B.X1Y1 + A.X2Y0 * B.X1Y2;
+            result.X2Y0 = A.X0Y0 * B.X2Y0 + A.X1Y0 * B.X2Y1 + A.X2Y0 * B.X2Y2;
+
+            result.X0Y1 = A.X0Y1 * B.X0Y0 + A.X1Y1 * B.X0Y1 + A.X2Y1 * B.X0Y2;
+            result.X1Y1 = A.X0Y1 * B.X1Y0 + A.X1Y1 * B.X1Y1 + A.X2Y1 * B.X1Y2;
+            result.X2Y1 = A.X0Y1 * B.X2Y0 + A.X1Y1 * B.X2Y1 + A.X2Y1 * B.X2Y2;
+
+            result.X0Y2 = A.X0Y2 * B.X0Y0 + A.X1Y2 * B.X0Y1 + A.X2Y2 * B.X0Y2;
+            result.X1Y2 = A.X0Y2 * B.X1Y0 + A.X1Y2 * B.X1Y1 + A.X2Y2 * B.X1Y2;
+            result.X2Y2 = A.X0Y2 * B.X2Y0 + A.X1Y2 * B.X2Y1 + A.X2Y2 * B.X2Y2;
+
+            return result;
+        }
+
+        public static Vector3 operator *(Matrix3x3 A, Vector3 B)
+        {
+            Vector3 result = new Vector3();
+            result.x = A.X0Y0 * B.x + A.X1Y0 * B.y + A.X2Y0 * B.z;
+            result.y = A.X0Y1 * B.x + A.X1Y1 * B.y + A.X2Y1 * B.z;
+            result.z = A.X0Y2 * B.x + A.X1Y2 * B.y + A.X2Y2 * B.z;
+            return result;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Vector4
+    {
+        public float x, y, z, w;
+
+        public Vector4(float X, float Y, float Z, float W)
+        {
+            x = X;
+            y = Y;
+            z = Z;
+            w = W;
+        }
+
+        public Vector4(Vector3 vec3, float W)
+        {
+            x = vec3.x;
+            y = vec3.y;
+            z = vec3.z;
+            w = W;
         }
     }
 
