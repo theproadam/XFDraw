@@ -28,36 +28,34 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Vignette Shader. ~0.6ms (in 1080p, not shown)
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
 
-### Example Shader Code (Used for vignette buffer building)
-C++ Side:
+### Example Screen Space Shader Code (Used for vignette buffer building)
+C++ side `myVignetteShader.cpp`:
 ```c++
-struct CreateVingetteBuffer
-{
-	out float* outMultiplier;
-	variable int2 XY_Coords;
-	uniform vec2 viewportMod;
+//Vignette Shader Buffer Builder v1.0
+out float outMultiplier;
+uniform vec2 viewportMod;
 
-	void main()
-	{
-		float X = (XY_Coords.X * viewportMod.x) - 1.0f;
-		float Y = (XY_Coords.Y * viewportMod.y) - 1.0f;
-
-		X = 1.0f - 0.5f * X * X;
-		Y = X * (1.0f - 0.5f * Y * Y);
-
-		*outMultiplier = Y;
-	}
-};
-DeclareShader(BuildVignette, CreateVingetteBuffer, main)
+void main(){
+	float X = (gl_FragCoord.x * viewportMod.x) - 1.0f;
+	float Y = (gl_FragCoord.y * viewportMod.y) - 1.0f;
+	X = 1.0f - 0.5f * X * X;
+	Y = X * (1.0f - 0.5f * Y * Y);
+	outMultiplier = Y;
+}
 ```
 C# Side:
 ```c#
-Shader buildVignette = Shader.Load(shaderModules[2], typeof(CreateVingetteBuffer));
-buildVignette.AssignVariable("XY_Coords", VariableType.XYScreenCoordinates);
-buildVignette.AssignBuffer("outMultiplier", vignetteBuffer);
-buildVignette.SetValue("viewportMod", new Vector2(2f / ViewportWidth, 2f / ViewportHeight));
+//Parse and compile the shader ->
+ShaderCompile sModule;
+ShaderParser.Parse("myVignetteShader.cpp", out sModule);
+Shader vignetteShader;
+sModule.Compile(out vignetteShader)
+
+//Assign uniforms and link buffers ->
+vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
+vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
 
 //When done, perform the pass:
-GL.Pass(buildVignette);
+vignetteShader.Pass();
 ```
 
