@@ -29,8 +29,9 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
 
 ### Example Screen Space Shader Code (Used for vignette buffer building)
-C++ Side:
+C++ side `myVignetteShader.cpp`:
 ```c++
+//Vignette Shader Buffer Builder v1.0
 out float outMultiplier;
 uniform vec2 viewportMod;
 
