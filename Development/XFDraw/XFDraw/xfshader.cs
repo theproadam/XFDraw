@@ -96,53 +96,43 @@ namespace xfcore.Shaders
         public void SetValue(string uniformName, object value)
         {
             int setCount = 0;
+            bool isStruct = false;
+            string structFind = "";
 
-            if (value.GetType() == typeof(Color4))
-                value = (int)((Color4)value);
+            if (!value.GetType().IsValueType || value.GetType().IsEnum)
+                throw new Exception("Value must be a struct!");
 
-
-            if (value.GetType() == typeof(Vector2))
-            {
-                for (int i = 0; i < uniformFS.Length; i++)
-                {
-                    if (uniformFS[i].name == uniformName)
-                    {
-                        if (uniformFS[i].dataType != DataType.vec2)
-                            throw new Exception("Uniform \"" + uniformName + "\" is not a Vector2!");
-
-                        Vector2 vec2 = (Vector2)value;
-                        byte* ptr = (byte*)&vec2;
-
-                        for (int n = 0; n < 8; n++)
-                            uniformBytesFS[uniformFS[i].layoutPosition + n] = ptr[n];
-
-                        setCount++;
-                    }
-                }
-            }
-            else if (value.GetType() == typeof(int))
-            {
-                for (int i = 0; i < uniformFS.Length; i++)
-                {
-                    if (uniformFS[i].name == uniformName)
-                    {
-                        if (uniformFS[i].dataType != DataType.int32)
-                            throw new Exception("Uniform \"" + uniformName + "\" is not a int!");
-
-                        int rawValue = (int)value;
-                        byte* ptr = (byte*)&rawValue;
-
-                        for (int n = 0; n < 4; n++)
-                            uniformBytesFS[uniformFS[i].layoutPosition + n] = ptr[n];
-
-                        setCount++;
-                    }
-                }
+            if (uniformName.Contains('.')){
+                structFind = uniformName.Split('.')[1];
+                uniformName = uniformName.Split('.')[0];
+                isStruct = true;
+                
             }
 
-            else throw new Exception();
+            for (int i = 0; i < uniformFS.Length; i++)
+            {
+                if (uniformFS[i].name == uniformName)
+                {
+                    if (uniformFS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
 
+                    if (isStruct) uniformFS[i].typeAlt.SetValue(structFind, uniformFS[i].layoutPosition, uniformBytesFS, value);
+                    else
+                    {
+                        int mSize = Marshal.SizeOf(value);
+                        if (uniformFS[i].GetSize() != mSize)
+                            throw new Exception("\"" + uniformName + "\" is not the same size as the value!");
 
+                        GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
+                        byte* ptr = (byte*)handle.AddrOfPinnedObject();
+
+                        for (int n = 0; n < mSize; n++)
+                            uniformBytesFS[uniformFS[i].layoutPosition + n] = ptr[n];
+
+                        handle.Free();
+                    }
+                    setCount++;
+                }
+            }
 
 
             if (setCount == 0)
@@ -177,6 +167,10 @@ namespace xfcore.Shaders
             //Prevent a user from triggering the shader in a multithread environment
             lock (ThreadLock)
             {
+                for (int i = 0; i < textureSlots.Length; i++)
+                    if (textureSlots[i] == null)
+                        throw new Exception("One of the assigned textures is null!");
+
                 if (textureSlots.Length == 0)
                     throw new Exception("Atleast one Buffer must be assigned!");
 
@@ -211,6 +205,10 @@ namespace xfcore.Shaders
             }
         }
 
+        public void Throw()
+        {
+            throw new Exception();
+        }
 
         public Shader DuplicateShader()
         {

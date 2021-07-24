@@ -54,7 +54,7 @@ struct int2
 	}
 };
 
-inline float textureBLINEAR(PhongConfig inputTexture, vec3 coord)
+inline float textureBILINEAR(PhongConfig inputTexture, vec3 coord)
 {
 	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
 	float x0 = 1.0f - x1;
@@ -121,6 +121,20 @@ inline float SampleShadow(int iX, int iY, PhongConfig pc, float DEPTH)
 	else
 	{
 		return 0.05f;
+	}
+}
+
+inline float SampleShadowDelta(int iX, int iY, PhongConfig pc, float DEPTH)
+{
+	if (iX >= 0 && iY >= 0 && iX < pc.shadowMapWidth && iY < pc.shadowMapHeight)
+	{
+		float sampleDepth = pc.shadowMapAddress[iX + iY * pc.shadowMapWidth];
+
+		return DEPTH - (sampleDepth - pc.ShadowBias);
+	}
+	else
+	{
+		return 0.5f;
 	}
 }
 
@@ -2499,7 +2513,7 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.00001f;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.005f;
 
 			if (usingZ)
 				for (int b = 0; b < stride - 3; b++)
@@ -2557,13 +2571,32 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 				{
 					ShadowMult = 0;
 
+					float nBias = NormalBias;
+
 					float X;
 					float Y;
 
-					ToXY(vec3(az[3] + shadowNormal.x * NormalBias, az[4] + shadowNormal.y * NormalBias, az[5] + shadowNormal.z * NormalBias), pc.srw, pc.srh, pc.sfw, pc.sfh, &X, &Y);
+					float XTrue;
+					float YTrue;
 
+					vec3 zero = vec3(0, 0, 1);
+					float dotp = dot(shadowNormal, zero);
+
+					if (dotp > 1.0f) dotp = 1.0f;
+					else if (dotp < -1.0f) dotp = -1.0f;
+
+					nBias *= (-fabsf(dotp) + 1.0f);
+
+					vec3 resl = vec3(az[3] + shadowNormal.x * nBias, az[4] + shadowNormal.y * nBias, az[5] - shadowNormal.z * nBias);
+			
+
+					ToXY(resl, pc.srw, pc.srh, pc.sfw, pc.sfh, &X, &Y);
+
+					ToXY(vec3(az[3], az[4], az[5]), pc.srw, pc.srh, pc.sfw, pc.sfh, &XTrue, &YTrue);
+
+					//az[5] = farZ - (az[5] + shadowNormal.z * nBias);
 					az[5] = farZ - az[5];
-					
+
 					int iX = (int)X;
 					int iY = (int)Y;
 
@@ -2576,25 +2609,24 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 					float ylwr = 1.0f - yhgh;
 					
 
-					ShadowMult = (SampleShadow(iX, iY, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY, pc, az[5]) * xhgh) * ylwr +
-						(SampleShadow(iX, iY + 1, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY + 1, pc, az[5]) * xhgh) * yhgh;
+				//	ShadowMult = (SampleShadow(iX, iY, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY, pc, az[5]) * xhgh) * ylwr +
+				//		(SampleShadow(iX, iY + 1, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY + 1, pc, az[5]) * xhgh) * yhgh;
 
 
-					if (false)
+					if (true)
 					{
-						float sampleDepth;// = textureBLINEAR(pc, vec3(X - 0.5f, Y - 0.5f, 0));
-					//	sampleDepth += textureBLINEAR(pc, vec3(X - 0.5f, Y + 0.5f, 0));
-					//	sampleDepth += textureBLINEAR(pc, vec3(X + 0.5f, Y + 0.5f, 0));
-					//	sampleDepth += textureBLINEAR(pc, vec3(X + 0.5f, Y - 0.5f, 0));
+						float sampleDepth;
+					//	sampleDepth = textureBILINEAR(pc, vec3(X - 0.5f, Y - 0.5f, 0));
+					//	sampleDepth += textureBILINEAR(pc, vec3(X - 0.5f, Y + 0.5f, 0));
+					//	sampleDepth += textureBILINEAR(pc, vec3(X + 0.5f, Y + 0.5f, 0));
+					//	sampleDepth += textureBILINEAR(pc, vec3(X + 0.5f, Y - 0.5f, 0));
+						sampleDepth = textureBILINEAR(pc, vec3(X, Y, 0));
 
+						//sampleDepth *= 0.20f;
 
-					//	sampleDepth += textureBLINEAR(pc, vec3(X + 0.5f, Y + 0.5f, 0));
-					//	sampleDepth += textureBLINEAR(pc, vec3(X, Y + 0.5f, 0));
-						sampleDepth = textureBLINEAR(pc, vec3(X, Y, 0));
+						float deltaV = az[5] - (sampleDepth - pc.ShadowBias);
 
-					//	sampleDepth *= 0.20f;
-
-						if (az[5] > (sampleDepth - pc.ShadowBias))
+						if (deltaV > 0)
 						{
 							ShadowMult = 1.0f;
 						}
@@ -2602,6 +2634,22 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 						{
 							ShadowMult = 0.05f;
 						}
+
+					//	float v = SampleShadowDelta(XTrue, YTrue, pc, az[5]);
+
+						float ab = -deltaV;
+
+						//ShadowMult = ab < 0 ? 0.3f : 1.0f;
+
+						//if (false)
+						if (ab <= 5.0f && ab >= 0.0f)
+						{
+							//ShadowMult *= ab;// *0.2f;
+							ShadowMult = (5.0f - ab) * 0.2f;
+						}
+
+						//ShadowMult *= (1.0f - nBias);
+
 					}
 
 					if (false)
@@ -2612,8 +2660,6 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 						ShadowMult += SampleShadow(iX + 1, iY + 1, pc, az[5]);
 						ShadowMult += SampleShadow(iX, iY + 1, pc, az[5]);
 
-						//ShadowMult += SampleShadow(iX, iY, pc, az[5]);
-						//	ShadowMult *= 0.111111111111f;
 						ShadowMult *= 0.25;
 					}
 					
@@ -3226,6 +3272,8 @@ void FillDepth(int index, float* p, float* dptr, int stride, int RW, int RH, vec
 		}
 	}
 }
+
+
 
 
 

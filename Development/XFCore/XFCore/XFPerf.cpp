@@ -4,6 +4,12 @@
 #include <ppl.h>
 using namespace Concurrency;
 
+extern "C" __declspec(dllexport) void Test()
+{
+	
+}
+
+
 extern "C"
 {
 	__declspec(dllexport) void VignettePass(long* TargetBuffer, float* SourceBuffer, long Width, long Height)

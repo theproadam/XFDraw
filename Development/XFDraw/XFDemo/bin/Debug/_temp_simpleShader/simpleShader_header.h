@@ -11,6 +11,13 @@ struct vec3
 		y = Y;
 		z = Z;
 	}
+
+	vec3()
+	{
+		x = 0;
+		y = 0;
+		z = 0;
+	}
 };
 
 struct vec2
@@ -69,6 +76,14 @@ struct byte4
 		G = g;
 		B = b;
 	}
+
+	byte4()
+	{
+		B = 0;
+		G = 0;
+		R = 0;
+		A = 0;
+	}
 };
 
 struct int2
@@ -88,6 +103,23 @@ struct sampler2D
 	int width;
 	int height;
 	long* TEXTURE_ADDR;
+};
+
+struct mat3
+{
+	float X0Y0;
+	float X1Y0;
+	float X2Y0;
+
+	float X0Y1;
+	float X1Y1;
+	float X2Y1;
+
+	float X0Y2;
+	float X1Y2;
+	float X2Y2;
+
+
 };
 
 void fcpy(char* dest, char* src, int count)

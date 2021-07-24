@@ -439,6 +439,42 @@ namespace xfcore
             LinkedHandle = OutputHandle;
             TargetDC = GetDC(OutputHandle);
         }
+
+        public BlitData(Control TargetControl)
+        {
+            BINFO = new BITMAPINFO();
+            BINFO.bmiHeader.biBitCount = 32; //BITS PER PIXEL
+            BINFO.bmiHeader.biWidth = 1024; //filler width and height
+            BINFO.bmiHeader.biHeight = 768;
+            BINFO.bmiHeader.biPlanes = 1;
+            unsafe
+            {
+                BINFO.bmiHeader.biSize = (uint)sizeof(BITMAPINFOHEADER);
+            }
+
+            IntPtr OutputHandle = TargetControl.Handle;
+
+            LinkedHandle = OutputHandle;
+            TargetDC = GetDC(OutputHandle);
+        }
+
+        public BlitData(IntPtr TargetHandle)
+        {
+            BINFO = new BITMAPINFO();
+            BINFO.bmiHeader.biBitCount = 32; //BITS PER PIXEL
+            BINFO.bmiHeader.biWidth = 1024; //filler width and height
+            BINFO.bmiHeader.biHeight = 768;
+            BINFO.bmiHeader.biPlanes = 1;
+            unsafe
+            {
+                BINFO.bmiHeader.biSize = (uint)sizeof(BITMAPINFOHEADER);
+            }
+
+            IntPtr OutputHandle = TargetHandle;
+
+            LinkedHandle = OutputHandle;
+            TargetDC = GetDC(OutputHandle);
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

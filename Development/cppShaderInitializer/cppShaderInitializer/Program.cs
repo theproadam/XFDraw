@@ -18,7 +18,7 @@ namespace cppShaderInitializer
 {
     class Program
     {
-        static GLTexture frameBuffer;
+        static GLTexture colorBuffer;
         static GLTexture depthBuffer;
 
         static Shader colorShift;
@@ -45,6 +45,8 @@ namespace cppShaderInitializer
         static int FramesRendered = 0, LastFPS = 0;
 
         static GLBuffer drawObject;
+        static GLBuffer planeObject;
+
         static GLBuffer cubeObject;
         static GLTexture shadowMap;
 
@@ -61,18 +63,24 @@ namespace cppShaderInitializer
         static double tTime = 0;
         static int itrCountt = 0;
 
+        static float nearBias = 0.5f, normalBias = 0.55f;
+        static Vector3 lightPos = new Vector3(-30, 30, -30);
+
         [STAThread]
         static void Main(string[] args)
         {
             ShaderModule[] shaderModules;
 
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+
             renderForm = new Form();
             FormSetup(renderForm);
 
             formData = new BlitData(renderForm);
-            frameBuffer = new GLTexture(ViewportWidth, ViewportHeight);
+            colorBuffer = new GLTexture(ViewportWidth, ViewportHeight);
             depthBuffer = new GLTexture(ViewportWidth, ViewportHeight);
-
+            
             RT = new RenderThread(144);
             RT.RenderFrame += RT_RenderFrame;
             
@@ -87,12 +95,15 @@ namespace cppShaderInitializer
             cubeObject = GLPrimitives.Cube;
             drawObject = GLPrimitives.Cube;
 
+         //   runVignette.SetValue
+
+               // Vector3
 
             myShader = Shader.Load(shaderModules[0], typeof(VS3D), typeof(FS3D));
             myShader.SetValue("rotCos", GLExtra.GetCos(cameraRotation));
             myShader.SetValue("rotSin", GLExtra.GetSin(cameraRotation));
             myShader.SetValue("camPos", cameraPosition);
-            myShader.AssignBuffer("FragColor", frameBuffer);
+            myShader.AssignBuffer("FragColor", colorBuffer);
             myShader.AssignBuffer("coords_in", drawObject);
             myShader.AssignBuffer("uv_in", drawObject, 3);
 
@@ -103,8 +114,11 @@ namespace cppShaderInitializer
             drawObject = ToGLBuffer.ToBuffer(iImport);
             
             float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(iImport.AllTriangles, 89);
-          //  float[] cNorm = STLImporter.FaceNormalsToVertexNormals(iImport.AllTriangles);
 
+            STLImporter iImport2 = new STLImporter("plane.stl");
+
+          //  float[] cNorm = STLImporter.FaceNormalsToVertexNormals(iImport.AllTriangles);
+            planeObject = new GLBuffer(STLImporter.FaceNormalsToVertexNormals(iImport2.AllTriangles), 6);
 
             drawObject = new GLBuffer(cNorm, 6);
         //    cubeObject = GLPrimitives.Cube;
@@ -134,35 +148,42 @@ namespace cppShaderInitializer
 
             ComputeColor();
            
-            GL.Clear(frameBuffer);
+        //    GL.Clear(frameBuffer);
+            GL.Clear(colorBuffer, cR, cG, cB);
             GL.Clear(depthBuffer);
+
+            
 
             sw.Start();
          //   GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, true);
          //   GLDebug.DrawWireframe(cubeObject, frameBuffer, cameraPosition, cameraRotation);
         //    GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, renderWireframe);
            
+            
             PhongConfig pc = new PhongConfig();
             pc.lightColor = new Vector3(1f, 1f, 1f);
-            pc.lightPosition = new Vector3(-50, 50, -50);
+            pc.lightPosition = lightPos;
             pc.objectColor = new Vector3(0.5f, 0.5f, 0f);
             pc.specularStrength = 0f;
             pc.ambientStrength = 0.1f;
             pc.specularPower = 16;
-            pc.lightPosReal = new Vector3(-50, 50, -50);
+            pc.lightPosReal = lightPos;
 
             pc.SetShadowMap(shadowMap);
             pc.SetLightRotation(new Vector3(0, 25, 45));
             pc.shadowMapPresent = 1;
-            pc.ShadowBias = 0.25f;
-            pc.ShadowNormalBias = 0.05f;
+            pc.ShadowBias = nearBias;
+            pc.ShadowNormalBias = normalBias;
 
             pc.LightPosCameraSpace(cameraPosition, cameraRotation);
-
+            
          //   GLDebug.DrawFlatFill(cubeObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, false);
 
           //  if (renderWireframe) 
-            GLDebug.DrawPhong(drawObject, frameBuffer, depthBuffer, cameraPosition, cameraRotation, pc);
+            GLDebug.DrawPhong(drawObject, colorBuffer, depthBuffer, cameraPosition, cameraRotation, pc);
+          //  GLDebug.DrawPhong(planeObject, colorBuffer, depthBuffer, cameraPosition, cameraRotation, pc);
+
+
           //  else
           //  GLDebug.DrawWireframe(drawObject, frameBuffer, cameraPosition, cameraRotation);
 
@@ -171,13 +192,14 @@ namespace cppShaderInitializer
 
          //   GL.Draw(myShader, depthBuffer);//, 0, 12, GLMode.Triangle);
            
-            //GLFast.VignetteMultiply(frameBuffer, vignetteBuffer); 
+            GLFast.VignetteMultiply(colorBuffer, vignetteBuffer); 
 
            // GL.Pass(runVignette);
             
             sw.Stop();
 
-           // Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms";
+
+            Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms";
 
             //GLDebug.DepthToColor(frameBuffer, depthBuffer);
 
@@ -185,7 +207,7 @@ namespace cppShaderInitializer
 
             DrawText();
 
-            GL.Blit(frameBuffer, formData);
+            GL.Blit(colorBuffer, formData);
 
             FramesRendered++;            
         }
@@ -290,7 +312,7 @@ namespace cppShaderInitializer
                 colorShift.SetValue("viewportMod", new Vector2(255f / ViewportWidth, 255f / ViewportHeight));
                 buildVignette.SetValue("viewportMod", new Vector2(2f / ViewportWidth, 2f / ViewportHeight));
 
-                frameBuffer.Resize(ViewportWidth, ViewportHeight);
+                colorBuffer.Resize(ViewportWidth, ViewportHeight);
                 depthBuffer.Resize(ViewportWidth, ViewportHeight);
 
 
@@ -302,24 +324,29 @@ namespace cppShaderInitializer
 
         static void DrawText()
         {
-            GLExtra.BlitIntoBitmap(frameBuffer, frameData, new Point(0, 0), new Rectangle(0, frameBuffer.Height - 100, 400, 100));
+            GLExtra.BlitIntoBitmap(colorBuffer, frameData, new Point(0, 0), new Rectangle(0, colorBuffer.Height - 200, 400, 200));
             
             using (Graphics g = Graphics.FromImage(frameData))
             {
                 g.DrawString("XFDraw v0.4.3", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 0, 200, 200));
                 g.DrawString("XF2  : " + LastFPS + " FPS", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 20, 200, 200));
                 g.DrawString("VRAM : " + GLInfo.RAMUsageMB.ToString("0.#") + "MB", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 40, 200, 200));
-                g.DrawString("Pixl : " + (GLInfo.PixelCount / 1024f).ToString("0.#") + "K", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
+             //   g.DrawString("Pixl : " + (GLInfo.PixelCount / 1024f).ToString("0.#") + "K", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
+
                 //g.DrawString("Pixl : " + px.ToString("0.#") + "G/s", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
 
 
-                g.DrawString("tris : " + GLInfo.TriangleCount.ToString() + "", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
-              //  g.DrawString("mode : " + renderWireframe.ToString(), new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+              //  g.DrawString("tris : " + GLInfo.TriangleCount.ToString() + "", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+                g.DrawString("Bias: " + nearBias, new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
+                g.DrawString("Normal: " + normalBias, new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
 
+
+              //  g.DrawString("mode : " + renderWireframe.ToString(), new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+              //  g.Clear(Color.Black);
             }
 
             GLInfo.ResetCount();
-            GLExtra.BlitFromBitmap(frameData, frameBuffer, new Point(0, frameBuffer.Height - 100), new Rectangle(0, 0, 400, 100));  
+            GLExtra.BlitFromBitmap(frameData, colorBuffer, new Point(0, colorBuffer.Height - 100), new Rectangle(0, 0, 400, 100));  
         }
 
         static void ComputeColor()
@@ -358,33 +385,38 @@ namespace cppShaderInitializer
             }
         }
 
-        static void CreateShadowMap(int res = 1024)
+        static void CreateShadowMap(int res = 2048)
         {
             shadowMap = new GLTexture(res, res);
-            GLDebug.FillDepth(drawObject, shadowMap, new Vector3(-50, 50, -50), new Vector3(0, 25, 45));
+            GL.Clear(shadowMap);
+
+
+            GLDebug.FillDepth(drawObject, shadowMap, lightPos, new Vector3(0, 25, 45));
 
             GLTexture colorBuf = new GLTexture(res, res);
-            GLDebug.DepthToColor(colorBuf, shadowMap, 0.1f);
+            GLDebug.DepthToColor(colorBuf, shadowMap, 1f);
 
-            
+            float[] values = new float[2];
 
             Task.Run(delegate() {
+               // ShadowConfigurator displayBuf = new ShadowConfigurator();
                 Form displayBuf = new Form();
                 BlitData bData = new BlitData(displayBuf);
-                displayBuf.ClientSize = new Size(res, res);
+              //  BlitData bData = new BlitData(displayBuf.GetPanel1());
+                
                 displayBuf.Text = "XFDraw shadowmap debug";
-                displayBuf.FormBorderStyle = FormBorderStyle.FixedSingle;
+                displayBuf.ClientSize = new Size(512, 512);
 
-                Task.Run(delegate()
-                {
-                    System.Threading.Thread.Sleep(500);
-                    GL.Blit(colorBuf, bData);
-                });
+                Bitmap displymp = new Bitmap(res, res);
+                GLExtra.BlitIntoBitmap(colorBuf, displymp, new Point(0, 0), new Rectangle(0, 0, res, res));
+
+                displayBuf.BackgroundImageLayout = ImageLayout.Zoom;
+                displayBuf.BackgroundImage = displymp;
 
                 displayBuf.ShowDialog();
             });
 
-            
+         
 
         }
 
@@ -408,6 +440,7 @@ namespace cppShaderInitializer
         {
             if (e.KeyChar == ' ')
                 renderWireframe = !renderWireframe;
+
 
             GLDebug.SetParallelizationTechnique(renderWireframe);
         }
@@ -462,6 +495,26 @@ namespace cppShaderInitializer
                 Cursor.Show();
                 CursorHook = false;
             }
+
+            if (e.KeyCode == Keys.Up)
+            {
+                nearBias += 0.05f;
+            }
+            else if (e.KeyCode == Keys.Down)
+            {
+                nearBias -= 0.05f;
+            }
+
+
+            if (e.KeyCode == Keys.Left)
+            {
+                normalBias += 0.05f;
+            }
+            else if (e.KeyCode == Keys.Right)
+            {
+                normalBias -= 0.05f;
+            }
+
         }
 
         static void renderForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -497,7 +550,7 @@ namespace cppShaderInitializer
         {
             colorShift = Shader.Load(shaderModules[1], typeof(CShift));
             colorShift.SetValue("viewportMod", new Vector2(255f / ViewportWidth, 255f / ViewportHeight));
-            colorShift.AssignBuffer("outColor", frameBuffer);
+            colorShift.AssignBuffer("outColor", colorBuffer);
             colorShift.AssignVariable("XY_Coords", VariableType.XYScreenCoordinates);
 
             vignetteBuffer = new GLTexture(ViewportWidth, ViewportHeight, typeof(float));
@@ -508,17 +561,17 @@ namespace cppShaderInitializer
             buildVignette.SetValue("viewportMod", new Vector2(2f / ViewportWidth, 2f / ViewportHeight));
 
             runVignette = Shader.Load(shaderModules[3], typeof(MultiplyBy));
-            runVignette.AssignBuffer("outColor", frameBuffer);
+            runVignette.AssignBuffer("outColor", colorBuffer);
             runVignette.AssignBuffer("inMultiplier", vignetteBuffer);
 
             colorShifter = Shader.Load(shaderModules[4], typeof(ColorShift));
-            colorShifter.AssignBuffer("outColor", frameBuffer);
+            colorShifter.AssignBuffer("outColor", colorBuffer);
             colorShifter.SetValue("tcolor", new Color4(255, 255, 0, 255));
 
             //   bricks = GLExtra.FromBitmap(new Bitmap("128p.png"), true);
 
             brickShader = Shader.Load(shaderModules[5], typeof(DisplayTexture));
-            brickShader.AssignBuffer("outColor", frameBuffer);
+            brickShader.AssignBuffer("outColor", colorBuffer);
             //  brickShader.SetValue("sourceTexture", bricks);
             brickShader.AssignVariable("XY_Coords", VariableType.XYScreenCoordinates);
             brickShader.SetValue("viewportMod", new Vector2(1f / ViewportWidth, 1f / ViewportHeight));

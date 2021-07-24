@@ -47,8 +47,12 @@ namespace XFDemo
         static Bitmap frameData = new Bitmap(400, 300);
 
         static GLBuffer cubeBuffer;
+        static Matrix4x4 transformMatrix;
+        static Shader basicShader;
 
         #endregion
+
+
 
         static void Main(string[] args)
         {
@@ -83,6 +87,7 @@ namespace XFDemo
             vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
             vignetteShader.Pass();
 
+
             colorShift.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
             colorShift.AssignBuffer("color", colorBuffer);
             colorShift.Pass();
@@ -104,18 +109,20 @@ namespace XFDemo
             deltaT = (float)deltaTime.Elapsed.TotalMilliseconds;
             deltaTime.Restart();
 
+            transformMatrix = inputManager.CreateCameraMatrix();
+
             ComputeColor();
 
-            GL.Clear(colorBuffer, clearColor);
+       //     GL.Clear(colorBuffer, clearColor);
        //     GL.Clear(depthBuffer);
 
 
             sw.Start();
          //   vignetteShader.Pass();
-            GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
+          //  GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
 
-            GLDebug.DrawWireframe(cubeBuffer, colorBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
-
+         //   GLDebug.DrawWireframe(cubeBuffer, colorBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
+//
             
 
             sw.Stop();
@@ -132,9 +139,9 @@ namespace XFDemo
 
         static void ReadyShaders()
         {
-            vignetteShader = CompileShader("vignetteShader.cpp");
-            colorShift = CompileShader("simpleShader.cpp");
-
+          //  vignetteShader = CompileShader("vignetteShader.cpp");
+         //   colorShift = CompileShader("simpleShader.cpp");
+            basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp");
             
 
         }
@@ -143,7 +150,7 @@ namespace XFDemo
         {
             ShaderCompile sModule;
             Console.Write("Parsing Shader: " + shaderName + " -> ");
-            if (!ShaderParser.Parse(shaderName, out sModule, CompileOption.ForceRecompile))
+            if (!ShaderParser.Parse(shaderName, out sModule))
             {
                 Console.WriteLine("Failed to parse Shader!");
                 Console.ReadLine();
@@ -154,6 +161,34 @@ namespace XFDemo
             Shader outputShader;
 
             Console.Write("Compiling Shader: " + shaderName + " -> ");
+            if (!sModule.Compile(out outputShader))
+            {
+                Console.WriteLine("Failed to compile Shader!");
+                Console.ReadLine();
+                return null;
+            }
+            Console.WriteLine("Success!");
+
+            return outputShader;
+        }
+
+        static Shader CompileShader(string vsShaderName, string fsShaderName)
+        {
+            ShaderCompile sModule;
+            Console.Write("Parsing Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
+            if (!ShaderParser.Parse(vsShaderName, fsShaderName, out sModule, CompileOption.ForceRecompile))
+            {
+                Console.WriteLine("Failed to parse Shader!");
+                Console.ReadLine();
+                return null;
+            }
+            Console.WriteLine("Success!");
+
+            throw new Exception("check parse level!");
+
+            Shader outputShader;
+
+            Console.Write("Compiling Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
             if (!sModule.Compile(out outputShader))
             {
                 Console.WriteLine("Failed to compile Shader!");
@@ -220,6 +255,17 @@ namespace XFDemo
             GLExtra.BlitFromBitmap(frameData, colorBuffer, new Point(0, colorBuffer.Height - 100), new Rectangle(0, 0, 400, 100));  
         }
 
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    public struct Material
+    {
+        public Vector3 ambient;
+        public Vector3 diffuse;
+        public Vector3 specular;
+        public Color4 resultColor;
+
+        
     }
 
     public class InputManager
@@ -403,6 +449,11 @@ namespace XFDemo
 
                 cameraPosition = GLExtra.Pan3D(cameraPosition, cameraRotation, MouseX / 8f, MouseY / 8f);
             }
+        }
+
+        public Matrix4x4 CreateCameraMatrix()
+        {
+            return Matrix4x4.TranslationMatrix(cameraPosition) * Matrix4x4.RotationMatrix(cameraRotation);
         }
     }
 }

@@ -445,7 +445,7 @@ namespace xfcore.Extras
         /// </summary>
         /// <param name="EulerAngles"></param>
         /// <returns></returns>
-        public static Matrix4x4 CameraTransform(Vector3 Position, Vector3 EulerAngles)
+        public static Matrix4x4 RotationMatrix(Vector3 EulerAngles)
         {
             Matrix4x4 result = new Matrix4x4();
 
@@ -460,22 +460,33 @@ namespace xfcore.Extras
             result.X0Y0 = cosa * cosb;
             result.X1Y0 = cosa * sinb * siny - sina * cosy;
             result.X2Y0 = cosa * sinb * cosy + sina * siny;
-            result.X3Y0 = Position.x;
+            result.X3Y0 = 0;
 
             result.X0Y1 = sina * cosb;
             result.X1Y1 = sina * sinb * siny + cosa * cosy;
             result.X2Y1 = sina * sinb * cosy - cosa * siny;
-            result.X3Y1 = Position.y;
+            result.X3Y1 = 0;
 
             result.X0Y2 = -sinb;
             result.X1Y2 = cosb * siny;
             result.X2Y2 = cosb * cosy;
-            result.X3Y2 = Position.z;
+            result.X3Y2 = 0;
 
             result.X0Y3 = 0;
             result.X1Y3 = 0;
             result.X2Y3 = 0;
             result.X3Y3 = 0;
+
+            return result;
+        }
+
+        public static Matrix4x4 TranslationMatrix(Vector3 Position)
+        {
+            Matrix4x4 result = new Matrix4x4();
+            result.SetIdentityMatrix();
+            result.X3Y0 = Position.x;
+            result.X3Y1 = Position.y;
+            result.X3Y2 = Position.z;
 
             return result;
         }

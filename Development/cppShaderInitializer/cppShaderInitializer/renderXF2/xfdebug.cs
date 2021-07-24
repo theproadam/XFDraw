@@ -199,7 +199,9 @@ namespace xfcore.Debug
                     int wsd = depthBuffer.Width;
                     for (int i = 0; i < depthBuffer.Height * depthBuffer.Width; i++)
                     {
-                        iptr[i] = (byte)(dptr[i] * VisualScale) + 256 * (byte)(dptr[i] * VisualScale) + (byte)(dptr[i] * VisualScale) * 65536;
+                      //  iptr[i] = (byte)(dptr[i] * VisualScale) + 256 * (byte)(dptr[i] * VisualScale) + (byte)(dptr[i] * VisualScale) * 65536;
+
+                        iptr[i] = (((((255 << 8) | (byte)(dptr[i] * VisualScale)) << 8) | (byte)(dptr[i] * VisualScale)) << 8) | (byte)(dptr[i] * VisualScale);
                     }
                 }
             }
@@ -1077,6 +1079,9 @@ namespace xfcore.Debug
         public Vector3 lightRotCos;
         public Vector3 lightRotSin;
 
+        public float ShadowBias;
+        public float ShadowNormalBias;
+
         public void SetShadowMap(GLTexture shadowmap)
         {
             float M_PI = (float)Math.PI;
@@ -1103,6 +1108,9 @@ namespace xfcore.Debug
             shadowMapHeight = shadowmap.Height;
             shadowMapPresent = 1;
             shadowMapAddress = (float*)shadowmap.HEAP_ptr;
+
+            ShadowBias = 5;
+            ShadowNormalBias = 5;
         }
 
         public void LightPosCameraSpace(Vector3 cameraPosition, Vector3 cameraRotation)

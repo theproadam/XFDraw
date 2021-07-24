@@ -4,6 +4,7 @@
 
 
 
+
 inline void shaderMethod(float* outMultiplier, vec2 viewportMod, vec3 gl_FragCoord){
 	float X = (gl_FragCoord.x * viewportMod.x) - 1.0f;
 	float Y = (gl_FragCoord.y * viewportMod.y) - 1.0f;

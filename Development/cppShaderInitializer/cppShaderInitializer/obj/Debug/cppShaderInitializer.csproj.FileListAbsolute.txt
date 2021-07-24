@@ -4,3 +4,5 @@ c:\users\adam\documents\visual studio 2013\Projects\cppShaderInitializer\cppShad
 C:\Users\Adam\documents\visual studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\bin\Debug\cppShaderInitializer.exe.config
 C:\Users\Adam\documents\visual studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\bin\Debug\cppShaderInitializer.exe
 C:\Users\Adam\documents\visual studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\obj\Debug\cppShaderInitializer.exe
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\obj\Debug\cppShaderInitializer.ShadowConfigurator.resources
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\cppShaderInitializer\cppShaderInitializer\obj\Debug\cppShaderInitializer.csproj.GenerateResource.Cache

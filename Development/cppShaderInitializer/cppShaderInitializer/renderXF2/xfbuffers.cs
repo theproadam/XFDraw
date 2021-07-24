@@ -43,6 +43,38 @@ namespace xfcore.Buffers
             Dispose(false);
         }
 
+        public unsafe int GetPixel(int x, int y)
+        { 
+            if (Stride != 4)
+                    throw new Exception("Feature only supported when stride = 4");
+
+            if (x >= 0 || x < Width)
+            {
+                if (y >= 0 || y < Height)
+                {
+                    return *((int*)HEAP_ptr + y * Width + x);
+                }
+                else throw new ArgumentOutOfRangeException("Invalid y position!");
+            }
+            else throw new ArgumentOutOfRangeException("Invalid x position!");
+        }
+
+        public unsafe void SetPixel(int x, int y, int Color)
+        {
+            if (Stride != 4)
+                throw new Exception("Feature only supported when stride = 4");
+
+            if (x >= 0 || x < Width)
+            {
+                if (y >= 0 || y < Height)
+                {
+                    ((int*)HEAP_ptr + y * Width + x)[0] = Color;
+                }
+                else throw new ArgumentOutOfRangeException("Invalid y position!");
+            }
+            else throw new ArgumentOutOfRangeException("Invalid x position!");
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             lock (ThreadLock)
@@ -57,6 +89,8 @@ namespace xfcore.Buffers
         {
             if (width <= 2 || height <= 2)
                 throw new Exception("GLTexture must be bigger than 2x2!");
+
+            if (ByteStride <= 0) throw new Exception("Invalid ByteSize!");
 
             Width = width;
             Height = height;
@@ -156,6 +190,8 @@ namespace xfcore.Buffers
                 else throw new IndexOutOfRangeException();
             }
         }
+
+       
 
         public GLBuffer(int size, int Stride = 3)
         {
