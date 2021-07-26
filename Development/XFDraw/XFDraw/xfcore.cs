@@ -121,6 +121,10 @@ namespace xfcore
             TargetBuffer.ReleaseLock();
         }
 
+        public static void Draw(GLBuffer buffer, Shader shader, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
+        { 
+            
+        }
 
     }
 
@@ -218,6 +222,11 @@ namespace xfcore
             LinkedHandle = OutputHandle;
             TargetDC = GetDC(OutputHandle);
         }
+    }
+
+    public struct GLMatrix
+    { 
+        
     }
 
     [StructLayout(LayoutKind.Sequential)]

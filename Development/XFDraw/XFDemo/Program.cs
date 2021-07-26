@@ -49,6 +49,7 @@ namespace XFDemo
         static GLBuffer cubeBuffer;
         static Matrix4x4 transformMatrix;
         static Shader basicShader;
+        static GLMatrix projectionMatrix;
 
         #endregion
 
@@ -123,7 +124,9 @@ namespace XFDemo
 
          //   GLDebug.DrawWireframe(cubeBuffer, colorBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
 //
-            
+            //GL.Draw()
+
+            GL.Draw(cubeBuffer, basicShader, projectionMatrix, GLMode.Triangle);
 
             sw.Stop();
 
@@ -187,7 +190,7 @@ namespace XFDemo
             throw new Exception("check parse level!");
 
             Shader outputShader;
-
+            
             Console.Write("Compiling Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
             if (!sModule.Compile(out outputShader))
             {

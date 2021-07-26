@@ -413,6 +413,534 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             }
         }
 
+        public static string ClippingCode
+        {
+            get { return @"#pragma region NearPlaneCFG
+
+	int v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] < projData.nearZ)
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region NearPlane
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca((BUFFER_SIZE * stride + stride) * 4);
+
+		int API = 0;
+
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.nearZ, stride);
+					API += stride;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, projData.nearZ, stride);
+					API += stride;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.nearZ, stride);
+
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, projData.nearZ, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+			}
+		}
+
+		BUFFER_SIZE = API / stride;
+		VERTEX_DATA = strFLT;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+
+#pragma endregion
+
+#pragma region FarPlaneCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] > projData.farZ)
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region FarPlane
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca((BUFFER_SIZE * stride + stride) * 4);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.farZ, stride);
+					API += stride;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, projData.farZ, stride);
+					API += stride;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.farZ, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					FIPA(strFLT, API, VERTEX_DATA, i - 1, i, projData.farZ, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / stride;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region RightFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * projData.tanVert + projData.ow < VERTEX_DATA[i * stride])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+#pragma endregion
+
+#pragma region RightFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca((BUFFER_SIZE * stride + stride) * 4);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.tanVert, projData.ow, stride);
+					API += stride;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, projData.tanVert, projData.ow, stride);
+					API += stride;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.tanVert, projData.ow, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, projData.tanVert, projData.ow, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / stride;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region LeftFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * -projData.tanVert - projData.ow > VERTEX_DATA[i * stride])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+#pragma endregion
+
+#pragma region LeftFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca((BUFFER_SIZE * stride + stride) * 4);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -projData.tanVert, -projData.ow, stride);
+					API += stride;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, -projData.tanVert, -projData.ow, stride);
+					API += stride;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -projData.tanVert, -projData.ow, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPA(strFLT, API, VERTEX_DATA, i - 1, i, -projData.tanVert, -projData.ow, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / stride;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region TopFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * projData.tanHorz + projData.oh < VERTEX_DATA[i * stride + 1])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region TopFOV
+
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca((BUFFER_SIZE * stride + stride) * 4);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.tanHorz, projData.oh, stride);
+					API += stride;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, projData.tanHorz, projData.oh, stride);
+					API += stride;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, projData.tanHorz, projData.oh, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, projData.tanHorz, projData.oh, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / stride;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+
+
+	}
+
+#pragma endregion
+
+#pragma region BottomFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * stride + 2] * -projData.tanHorz - projData.oh > VERTEX_DATA[i * stride + 1])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region BottomFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca((BUFFER_SIZE * stride + stride) * 4);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -projData.tanHorz, -projData.oh, stride);
+					API += stride;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, -projData.tanHorz, -projData.oh, stride);
+					API += stride;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -projData.tanHorz, -projData.oh, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+
+					API += stride;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPHA(strFLT, API, VERTEX_DATA, i - 1, i, -projData.tanHorz, -projData.oh, stride);
+					API += stride;
+
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+
+					API += stride;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * stride];
+					strFLT[API + 1] = VERTEX_DATA[i * stride + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * stride + 2];
+
+					for (int a = 3; a < stride; a++)
+						strFLT[API + a] = VERTEX_DATA[i * stride + a];
+
+					API += stride;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / stride;
+	}
+#pragma endregion"; }
+        }
+
         ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
         {
             shaderFields = f;
@@ -434,9 +962,14 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             string FSReady = PrepareInput(analyzeFS);
             ShaderParser fsModule = Parse(FSReady);
 
+            CheckForNonFloats(vsModule); //Check is done automatically during linkage checking
+            CheckVSFSLinkage(vsModule, fsModule);
+            
             string namePath = "";
 
-            WriteShaders(vertexShader, fragmentShader);
+            int readStride, iStride;
+
+            WriteShaders(vertexShader, fragmentShader, vsModule, fsModule, compileOptions, out namePath, out readStride, out iStride);
             shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, false);
 
             return true;
@@ -466,13 +999,61 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             return RemoveBlockComments(s);
         }
 
+        static void CheckVSFSLinkage(ShaderParser vs, ShaderParser fs)
+        {
+            int vFieldC = 0;
+            int fFieldC = 0;
 
-        static void WriteShaders(string filePath1, string filePath2)
+            for (int i = 0; i < vs.shaderFields.Length; i++)
+            {
+                if (vs.shaderFields[i].dataMode == DataMode.In) continue;
+                int count = 0;
+                fFieldC = 0;
+
+                for (int j = 0; j < fs.shaderFields.Length; j++)
+                {
+                    if (fs.shaderFields[j].dataMode == DataMode.Out) continue;
+                    fFieldC++;
+                    if (vs.shaderFields[i].name == fs.shaderFields[j].name){
+                        count++;
+                        if (vs.shaderFields[i].GetSize() != fs.shaderFields[j].GetSize())
+                            throw new Exception("The vs OUT \"" + vs.shaderFields[i].name + "\" is not the same size as the FS out");
+                    }
+                }
+
+                vFieldC++;
+                if (count == 0) throw new Exception("The vs OUT \"" + vs.shaderFields[i].name + "\" does not exist in the fs!");
+                if (count > 1) throw new Exception("The vs OUT \"" + vs.shaderFields[i].name + "\" exists multiple times in the fs!");
+            }
+
+            if (vFieldC != fFieldC) throw new Exception("There seems to me a mismatch in the attribute count between the vs and fs!");
+        }
+
+        static void CheckForNonFloats(ShaderParser vs)
+        {
+            for (int i = 0; i < vs.shaderFields.Length; i++)
+            {
+                DataType d = vs.shaderFields[i].dataType;
+
+                if (!(d == DataType.vec2 || d == DataType.vec3))
+                    throw new Exception("The vertex shader can only work with floating point types!");
+            }
+        }
+
+        static void WriteShaders(string filePath1, string filePath2, ShaderParser vs, ShaderParser fs, CompileOption[] cOps, out string wPath, out int readS, out int intS)
         {
             string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
+            wPath = ext;
+
+            ShaderField[] vsIn, vsOut;
+            PrepVSData(vs, out vsIn, out vsOut, out readS, out intS);
+
+            bool forceC = cOps.Contains(CompileOption.ForceRecompile);
 
             string foldername = "_temp_" + ext;
             //realPath = foldername;
+
+            #region Foldering
 
             if (!Directory.Exists(foldername))
                 Directory.CreateDirectory(foldername);
@@ -481,11 +1062,13 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             if (File.Exists(foldername + @"\" + filePath1))
             {
-                if (File.ReadLines(filePath1).SequenceEqual(File.ReadLines(foldername + @"\" + filePath1)))
+                if (File.ReadLines(filePath1).SequenceEqual(File.ReadLines(foldername + @"\" + filePath1)) && !forceC)
                     prevFile = true;
                 else
                     File.Delete(foldername + @"\" + filePath1);
             }
+
+            if (forceC) prevFile = false;
 
             if (File.Exists(foldername + @"\" + filePath2))
             {
@@ -495,12 +1078,117 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
                 File.Delete(foldername + @"\" + filePath2);
             }
 
-
             File.Copy(filePath1, foldername + @"\" + filePath1);
             File.Copy(filePath2, foldername + @"\" + filePath2);
 
+            #endregion
+
+            if (!ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_Position"))
+                throw new Exception("The vertex shader needs the gl_Position vector3 set!");
+
+            string sign, exec;
+            WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
+
+            string shaderCode = "";
+            shaderCode += "const int stride = " + intS + ";\n";
+            shaderCode += "const int readStride = " + readS + ";\n";
+            shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
+
+            shaderCode += "float* VERTEX_DATA = (float*)alloca(stride * 3 * 4);\n";
+            shaderCode += "int BUFFER_SIZE = 3;\n";
+
+            shaderCode += "for (int b = 0; b < 3; ++b){\n\t";
+            shaderCode += "float* input = p + (index * faceStride + b * readStride);\n\t";
+            shaderCode += "float* output = VERTEX_DATA + b * stride;\n\t" + exec + "\n}\n\n";
+
+            shaderCode += "bool* AP = (bool*)alloca(BUFFER_SIZE + 12);\n";
+            shaderCode += "frtlzeromem(AP, BUFFER_SIZE);\n\n";
 
 
+
+            Console.WriteLine("");
+        }
+
+        static void PrepVSData(ShaderParser data, out ShaderField[] vsIn, out ShaderField[] vsOut, out int readS, out int iS)
+        {
+            int count = 0;
+
+            List<ShaderField> vsI = new List<ShaderField>();
+            List<ShaderField> vsO = new List<ShaderField>();
+
+            for (int i = 0; i < data.shaderFields.Length; i++){
+                if (data.shaderFields[i].dataMode == DataMode.In) vsI.Add(data.shaderFields[i]);
+                else if (data.shaderFields[i].dataMode == DataMode.Out) vsO.Add(data.shaderFields[i]);
+                else throw new Exception("An error occured (9582)");
+            }
+
+            for (int i = 0; i < vsI.Count; i++)
+                count += vsI[i].layoutValueGL != -1 ? 1 : 0;
+
+            if (!(count == 0 || count == vsI.Count))
+                throw new Exception("VS layout not set correctly!");
+
+            if (count != 0){
+                vsI.Sort(delegate(ShaderField x, ShaderField y) {
+                    return x.layoutValueGL.CompareTo(y.layoutValueGL);
+                });
+            }
+
+            int offset = 0;
+            for (int i = 0; i < vsI.Count; i++)
+            {
+                vsI[i].layoutPosition = offset;
+                offset += vsI[i].GetSize();
+            }
+
+            readS = offset;
+
+            int offset1 = 0;
+            for (int i = 0; i < vsO.Count; i++)
+            {
+                vsO[i].layoutPosition = offset1;
+                offset1 += vsO[i].GetSize();
+            }
+
+            iS = offset1;
+
+            vsIn = vsI.ToArray();
+            vsOut = vsO.ToArray();
+        }
+
+        static void WriteVSSign(ShaderParser data, ShaderField[] vsIn, ShaderField[] vsOut, out string sign, out string exec)
+        {
+            string methodSign = "inline void VSExec(";
+            string methodExec = "VSExec(";
+
+            for (int i = 0; i < vsIn.Length; i++)
+            {
+                string type = TypeToString(vsIn[i].dataType);
+                methodExec += "(" + type + "*)(input + " + (vsIn[i].layoutPosition / 4) + "), ";
+                methodSign += type + "* " + vsIn[i].name + ", ";
+            }
+
+            methodExec += "(vec3*)(output + 0), ";
+            methodSign += "vec3* gl_Position, ";
+
+            for (int i = 0; i < vsOut.Length; i++)
+            {
+                string type = TypeToString(vsOut[i].dataType);
+                methodExec += "(" + type + "*)(output + " + ((vsOut[i].layoutPosition / 4) + 3) + "), ";
+                methodSign += type + "* " + vsOut[i].name + ", ";
+            }
+
+            for (int i = 0; i < data.shaderUniforms.Length; i++)
+            {
+                string type = data.shaderUniforms[i].dataType != DataType.Other ? TypeToString(data.shaderUniforms[i].dataType) : data.shaderUniforms[i].typeName;
+
+                methodExec += "*(" + type + "*)(uniformData + " + data.shaderUniforms[i].layoutPosition + "), ";
+                methodSign += type + " " + data.shaderUniforms[i].name + ", ";
+            }
+
+
+            exec = methodExec.Substring(0, methodExec.Length - 2) + ");";
+            sign = methodSign.Substring(0, methodSign.Length - 2) + ")";          
         }
 
         static bool WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
@@ -543,7 +1231,6 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             string mainCode = data.shaderMethods[data.shaderMethods.Length - 1].contents;
             string structDeclrs = "";
 
-            int maxsize = 0;
             ShaderField[] uniforms = data.shaderUniforms;
             ShaderField[] inoutFields = data.shaderFields;
             string methods = WriteMethods(data.shaderMethods, inoutFields, uniforms);
@@ -954,6 +1641,8 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             else if (dataType == DataType.int32) return "int";
             else if (dataType == DataType.vec2) return "vec2";
             else if (dataType == DataType.vec3) return "vec3";
+            else if (dataType == DataType.mat4) return "mat4";
+            else if (dataType == DataType.mat4) return "mat3";
             else throw new Exception("not implemented yet!");
         }
 
@@ -971,8 +1660,21 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
         internal int layoutPosition;
         internal int FieldSize;
 
+        internal int layoutValueGL = -1;
+
         public ShaderField(string inputString)
         {
+            if (inputString.StartsWith("layout"))
+            {
+                int pos = inputString.IndexOf(")");
+                if (pos == 0) throw new Exception("An error occured (28105)");
+                if (!int.TryParse(inputString[pos - 1].ToString(), out layoutValueGL))
+                    throw new Exception("Failed to read layout value!");
+
+                inputString = inputString.Substring(pos + 1, inputString.Length - pos - 1).Trim();
+
+            }
+
             string[] str = inputString.Trim().Split(' ');
 
             if (str.Length != 3) throw new Exception("Unknown Data!");
@@ -1179,6 +1881,9 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
         AddInlineAll,
         ManualInlineEntry,
         ForceRecompile,
-        EnableSIMD
+        EnableSIMD,
+        UseOMP,
+        UsePPL,
+        UseFor
     }
 }
