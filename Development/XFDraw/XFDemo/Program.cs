@@ -49,7 +49,7 @@ namespace XFDemo
         static GLBuffer cubeBuffer;
         static Matrix4x4 transformMatrix;
         static Shader basicShader;
-        static GLMatrix projectionMatrix;
+        static GLMatrix projMatrix;
 
         #endregion
 
@@ -93,7 +93,7 @@ namespace XFDemo
             colorShift.AssignBuffer("color", colorBuffer);
             colorShift.Pass();
 
-
+            projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
             RT.Start();
             Application.Run(renderForm);
@@ -126,7 +126,7 @@ namespace XFDemo
 //
             //GL.Draw()
 
-            GL.Draw(cubeBuffer, basicShader, projectionMatrix, GLMode.Triangle);
+            GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             sw.Stop();
 
@@ -179,7 +179,7 @@ namespace XFDemo
         {
             ShaderCompile sModule;
             Console.Write("Parsing Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
-            if (!ShaderParser.Parse(vsShaderName, fsShaderName, out sModule, CompileOption.ForceRecompile))
+            if (!ShaderParser.Parse(vsShaderName, fsShaderName, out sModule))
             {
                 Console.WriteLine("Failed to parse Shader!");
                 Console.ReadLine();
@@ -187,10 +187,12 @@ namespace XFDemo
             }
             Console.WriteLine("Success!");
 
-            throw new Exception("check parse level!");
+            //throw new Exception("check parse level!");
+
+            ShaderCompile.COMMAND_LINE = "";
 
             Shader outputShader;
-            
+          
             Console.Write("Compiling Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
             if (!sModule.Compile(out outputShader))
             {

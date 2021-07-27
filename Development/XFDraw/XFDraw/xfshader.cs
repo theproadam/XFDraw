@@ -45,7 +45,7 @@ namespace xfcore.Shaders
 
         GLTexture[] textureSlots;
 
-        object ThreadLock = new object();
+        internal object ThreadLock = new object();
 
         static void fRtlZeroMem(byte* ptr, int size)
         {

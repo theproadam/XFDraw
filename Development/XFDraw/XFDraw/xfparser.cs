@@ -270,16 +270,23 @@ namespace xfcore.Shaders.Builder
         internal ShaderMethod[] shaderMethods;
         internal ShaderStruct[] shaderStructs;
 
-        public static string HeaderFile
+        static string HeaderFile
         {
-            get
-            {
-                return @"#include <cstdint>
+            get { return @"#include <cstdint>
+#include <math.h>
+
 struct vec3
 {
 	float x;
 	float y;
 	float z;
+
+	vec3()
+	{
+		x = 0;
+		y = 0;
+		z = 0;
+	}
 
 	vec3(float X, float Y, float Z)
 	{
@@ -288,11 +295,49 @@ struct vec3
 		z = Z;
 	}
 
-	vec3()
+	vec3& operator =(const vec3& a)
 	{
-		x = 0;
-		y = 0;
-		z = 0;
+		x = a.x;
+		y = a.y;
+		z = a.z;
+		return *this;
+	}
+
+	vec3 operator+(const vec3& a) const
+	{
+		return vec3(a.x + x, a.y + y, a.z + z);
+	}
+
+	vec3 operator-(const vec3& a) const
+	{
+		return vec3(a.x - x, a.y - y, a.z - z);
+	}
+
+	vec3 operator*(const float& a) const
+	{
+		return vec3(a * x, a * y, a * z);
+	}
+
+	vec3 operator-() const
+	{
+		return vec3(-x, -y, -z);
+	}
+
+	vec3 operator*(const vec3& a) const
+	{
+		return vec3(a.x * x, a.y * y, a.z * z);
+	}
+
+	void Clamp01()
+	{
+		if (x < 0) x = 0;
+		else if (x > 1) x = 1;
+
+		if (y < 0) y = 0;
+		else if (y > 1) y = 1;
+
+		if (z < 0) z = 0;
+		else if (z > 1) z = 1;
 	}
 };
 
@@ -321,12 +366,25 @@ struct vec4
 	float z;
 	float w;
 
+	vec4()
+	{
+		x = 0;
+		y = 0;
+		z = 0;
+		w = 0;
+	}
+
 	vec4(vec3 Vector3, float wValue)
 	{
 		x = Vector3.x;
 		y = Vector3.y;
 		z = Vector3.z;
 		w = wValue;
+	}
+
+	vec3 tovec3()
+	{
+		return vec3(x, y, z);
 	}
 };
 
@@ -398,6 +456,69 @@ struct mat3
 
 };
 
+struct mat4
+{
+	float X0Y0;
+	float X1Y0;
+	float X2Y0;
+	float X3Y0;
+
+	float X0Y1;
+	float X1Y1;
+	float X2Y1;
+	float X3Y1;
+
+	float X0Y2;
+	float X1Y2;
+	float X2Y2;
+	float X3Y2;
+
+	float X0Y3;
+	float X1Y3;
+	float X2Y3;
+	float X3Y3;
+
+	vec4 operator*(const vec4& B) const
+	{
+		vec4 result;
+		result.x = X0Y0 * B.x + X1Y0 * B.y + X2Y0 * B.z + X3Y0 * B.w;
+		result.y = X0Y1 * B.x + X1Y1 * B.y + X2Y1 * B.z + X3Y1 * B.w;
+		result.z = X0Y2 * B.x + X1Y2 * B.y + X2Y2 * B.z + X3Y2 * B.w;
+		result.w = X0Y3 * B.x + X1Y3 * B.y + X2Y3 * B.z + X3Y3 * B.w;
+
+		return result;
+	}
+
+	mat4 operator*(const mat4& B) const
+	{
+		mat4 result = mat4();
+
+		result.X0Y0 = X0Y0 * B.X0Y0 + X1Y0 * B.X0Y1 + X2Y0 * B.X0Y2 + X3Y0 * B.X0Y3;
+		result.X1Y0 = X0Y0 * B.X1Y0 + X1Y0 * B.X1Y1 + X2Y0 * B.X1Y2 + X3Y0 * B.X1Y3;
+		result.X2Y0 = X0Y0 * B.X2Y0 + X1Y0 * B.X2Y1 + X2Y0 * B.X2Y2 + X3Y0 * B.X2Y3;
+		result.X3Y0 = X0Y0 * B.X3Y0 + X1Y0 * B.X3Y1 + X2Y0 * B.X3Y2 + X3Y0 * B.X3Y3;
+
+		result.X0Y1 = X0Y1 * B.X0Y0 + X1Y1 * B.X0Y1 + X2Y1 * B.X0Y2 + X3Y1 * B.X0Y3;
+		result.X1Y1 = X0Y1 * B.X1Y0 + X1Y1 * B.X1Y1 + X2Y1 * B.X1Y2 + X3Y1 * B.X1Y3;
+		result.X2Y1 = X0Y1 * B.X2Y0 + X1Y1 * B.X2Y1 + X2Y1 * B.X2Y2 + X3Y1 * B.X2Y3;
+		result.X3Y1 = X0Y1 * B.X3Y0 + X1Y1 * B.X3Y1 + X2Y1 * B.X3Y2 + X3Y1 * B.X3Y3;
+
+		result.X0Y2 = X0Y2 * B.X0Y0 + X1Y2 * B.X0Y1 + X2Y2 * B.X0Y2 + X3Y2 * B.X0Y3;
+		result.X1Y2 = X0Y2 * B.X1Y0 + X1Y2 * B.X1Y1 + X2Y2 * B.X1Y2 + X3Y2 * B.X1Y3;
+		result.X2Y2 = X0Y2 * B.X2Y0 + X1Y2 * B.X2Y1 + X2Y2 * B.X2Y2 + X3Y2 * B.X2Y3;
+		result.X3Y2 = X0Y2 * B.X2Y0 + X1Y2 * B.X2Y1 + X2Y2 * B.X2Y2 + X3Y2 * B.X3Y3;
+
+		result.X0Y3 = X0Y3 * B.X0Y0 + X1Y3 * B.X0Y1 + X2Y3 * B.X0Y2 + X3Y3 * B.X0Y3;
+		result.X1Y3 = X0Y3 * B.X1Y0 + X1Y3 * B.X1Y1 + X2Y3 * B.X1Y2 + X3Y3 * B.X1Y3;
+		result.X2Y3 = X0Y3 * B.X2Y0 + X1Y3 * B.X2Y1 + X2Y3 * B.X2Y2 + X3Y3 * B.X2Y3;
+		result.X3Y3 = X0Y3 * B.X2Y0 + X1Y3 * B.X2Y1 + X2Y3 * B.X2Y2 + X3Y3 * B.X3Y3;
+
+		return result;
+	}
+
+};
+
+
 void fcpy(char* dest, char* src, int count)
 {
 	for (int i = 0; i < count; ++i)
@@ -409,11 +530,35 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 	return sizeof(void*);
 }
 
-";
-            }
+inline vec3 normalize(vec3 value)
+{
+	float num = 1.0f / sqrtf(value.x * value.x + value.y * value.y + value.z * value.z);
+
+	if (num > 1E-05f)
+	{
+		return value * num;
+	}
+	else return vec3(0, 0, 0);
+}
+
+inline float dot(vec3 lhs, vec3 rhs)
+{
+	return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
+inline vec3 reflect(vec3 inDirection, vec3 inNormal)
+{
+	return inNormal * -2.0f * dot(inNormal, inDirection) + inDirection;
+}
+"; }
         }
 
-        public static string ClippingCode
+        static string IncludeFileVSFS
+        {
+            get { return @""; }
+        }
+
+        static string ClippingCode
         {
             get { return @"#pragma region NearPlaneCFG
 
@@ -941,6 +1086,553 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 #pragma endregion"; }
         }
 
+        static string Transforms
+        {
+            get
+            {
+                return @"int renderWidth = projData.renderWidth, renderHeight = projData.renderHeight;
+
+	float yMaxValue = 0;
+	float yMinValue = renderHeight - 1;
+
+	//temp variables ->
+	float fwi = 1.0f / projData.fw;
+	float fhi = 1.0f / projData.fh;
+	float ox = projData.ox, oy = projData.oy;
+	
+	//XYZ-> XY Transforms
+	
+    float mMinOne = (1.0f - projData.matrixlerpv);
+
+	if (projData.matrixlerpv == 0)
+		for (int im = 0; im < BUFFER_SIZE; im++)
+		{
+			VERTEX_DATA[im * stride + 0] = roundf(projData.rw + (VERTEX_DATA[im * stride + 0] / VERTEX_DATA[im * stride + 2]) * projData.fw);
+			VERTEX_DATA[im * stride + 1] = roundf(projData.rh + (VERTEX_DATA[im * stride + 1] / VERTEX_DATA[im * stride + 2]) * projData.fh);
+			VERTEX_DATA[im * stride + 2] = 1.0f / (VERTEX_DATA[im * stride + 2]);
+
+			if (VERTEX_DATA[im * stride + 1] > yMaxValue) yMaxValue = VERTEX_DATA[im * stride + 1];
+			if (VERTEX_DATA[im * stride + 1] < yMinValue) yMinValue = VERTEX_DATA[im * stride + 1];
+		}
+	else if (projData.matrixlerpv == 1)
+		for (int im = 0; im < BUFFER_SIZE; im++)
+		{
+			VERTEX_DATA[im * stride + 0] = roundf(projData.rw + VERTEX_DATA[im * stride + 0] * projData.iox);
+			VERTEX_DATA[im * stride + 1] = roundf(projData.rh + VERTEX_DATA[im * stride + 1] * projData.ioy);
+
+			if (VERTEX_DATA[im * stride + 1] > yMaxValue) yMaxValue = VERTEX_DATA[im * stride + 1];
+			if (VERTEX_DATA[im * stride + 1] < yMinValue) yMinValue = VERTEX_DATA[im * stride + 1];
+		}
+	else
+		for (int im = 0; im < BUFFER_SIZE; im++)
+		{
+			VERTEX_DATA[im * stride + 0] = roundf(projData.rw + VERTEX_DATA[im * stride + 0] / ((VERTEX_DATA[im * stride + 2] * fwi - ox) * mMinOne + ox));
+			VERTEX_DATA[im * stride + 1] = roundf(projData.rh + VERTEX_DATA[im * stride + 1] / ((VERTEX_DATA[im * stride + 2] * fhi - oy) * mMinOne + oy));
+			VERTEX_DATA[im * stride + 2] = 1.0f / (VERTEX_DATA[im * stride + 2] + projData.oValue);
+
+
+			if (VERTEX_DATA[im * stride + 1] > yMaxValue) yMaxValue = VERTEX_DATA[im * stride + 1];
+			if (VERTEX_DATA[im * stride + 1] < yMinValue) yMinValue = VERTEX_DATA[im * stride + 1];
+		}
+";
+            }
+        }
+
+        static string FaceCulling
+        {
+            get
+            {
+                return @"if (FACE_CULL == 1 || FACE_CULL == 2)
+	{
+		float A = BACKFACECULLS(VERTEX_DATA, stride);
+		if (FACE_CULL == 2 && A > 0) return RETURN_VALUE;
+		else if (FACE_CULL == 1 && A < 0) return RETURN_VALUE;
+	}
+
+	if (isWireFrame)
+	{
+		//DrawWireFrame(&data);
+		return RETURN_VALUE;
+	}
+
+	int yMin = (int)yMinValue, yMax = (int)yMaxValue;";
+            }
+        }
+
+        static string ScanLineStart
+        {
+            get
+            {
+                return @"float slopeZ, bZ, s;
+	float sA, sB;
+
+	float* Intersects = (float*)alloca((4 + (stride - 3) * 5) * 4);
+	float* attribs = Intersects + 4 + (stride - 3) * 2;
+	float* y_Mxb = attribs + (stride - 3);
+	float* y_mxB = y_Mxb + (stride - 3);
+
+	float* FROM;
+	float* TO;
+
+	int FromX, ToX;
+
+	int* RGB_iptr;
+	float* Z_fptr;
+
+	float zBegin;
+
+	for (int i = yMin; i <= yMax; ++i)
+	{
+		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride))
+		{
+			if (Intersects[0] > Intersects[stride - 1])
+			{
+				TO = Intersects;
+				FROM = Intersects + (stride - 1);
+			}
+			else
+			{
+				FROM = Intersects;
+				TO = Intersects + (stride - 1);
+			}
+
+			FROM[0] = roundf(FROM[0]);
+			TO[0] = roundf(TO[0]);
+
+			//Prevent touching faces from fighting over a scanline pixel
+			FromX = (int)FROM[0] == 0 ? 0 : (int)FROM[0] + 1;
+			ToX = (int)TO[0];
+
+			//integer truncating doesnt matter here as the float values are already rounded
+
+			slopeZ = (FROM[1] - TO[1]) / (FROM[0] - TO[0]);
+			bZ = -slopeZ * FROM[0] + FROM[1];
+
+			//we ignore the TO and FROM here so we have proper interpolation within the range
+			if (ToX >= renderWidth) ToX = renderWidth - 1;
+			if (FromX < 0) FromX = 0;
+
+			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
+			bool usingZ = ZDIFF != 0;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.01f;
+
+			if (usingZ)
+			for (int b = 0; b < stride - 3; b++)
+			{
+				sA = (FROM[2 + b] - TO[2 + b]) / ZDIFF;
+				sB = -sA / FROM[1] + FROM[2 + b];
+
+				y_Mxb[b] = sA;
+				y_mxB[b] = sB;
+			}
+			else
+			for (int b = 0; b < stride - 3; b++)
+			{
+				sA = (FROM[2 + b] - TO[2 + b]) / (FROM[0] - TO[0]);
+				sB = -sA * FROM[0] + FROM[2 + b];
+
+				y_Mxb[b] = sA;
+				y_mxB[b] = sB;
+			}";
+            }
+        }
+
+        static string ParallelCode
+        {
+            get { return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uData, unsigned char** ptrPtrs, GLData pData, int FACE, long mode)
+{
+	parallel_for(start, stop, [&](int index){
+		MethodExec(index,tris, dptr, uData, ptrPtrs, pData, FACE, mode);
+	});
+}"; }
+        }
+
+        static string ClipCodeHeader
+        {
+            get
+            {
+                return @"void FIPA(float* TA, int INDEX, float* VD, int A, int B, float LinePos, int Stride)
+{
+	float X;
+	float Y;
+	int s = 3;
+
+	A *= Stride;
+	B *= Stride;
+
+	if (VD[A + 2] - VD[B + 2] != 0)
+	{
+		float slopeY = (VD[A + 1] - VD[B + 1]) / (VD[A + 2] - VD[B + 2]);
+		float bY = -slopeY * VD[A + 2] + VD[A + 1];
+		Y = slopeY * LinePos + bY;
+
+		float slopeX = (VD[A + 0] - VD[B + 0]) / (VD[A + 2] - VD[B + 2]);
+		float bX = -slopeX * VD[A + 2] + VD[A + 0];
+		X = slopeX * LinePos + bX;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 2] - VD[B + 2]);
+			float bA = -slopeA * VD[A + 2] + VD[A + i];
+			TA[INDEX + i] = slopeA * LinePos + bA;
+		}
+
+	}
+
+
+	TA[INDEX] = X;
+	TA[INDEX + 1] = Y;
+	TA[INDEX + 2] = LinePos;
+}
+
+void SIPA(float* TA, int INDEX, float* VD, int A, int B, float TanSlope, float oW, int Stride)
+{
+	float X;
+	float Y;
+	float Z;
+
+	int s = 3;
+
+	A *= Stride;
+	B *= Stride;
+
+	float s1 = VD[A + 2] - VD[B + 2];
+	float s2 = (VD[A] - VD[B]);
+	s1 *= s1;
+	s2 *= s2;
+
+	if (s1 > s2)
+	{
+		float slope = (VD[A] - VD[B]) / (VD[A + 2] - VD[B + 2]);
+		float b = -slope * VD[A + 2] + VD[A];
+
+		Z = (b - oW) / (TanSlope - slope);
+		X = Z * slope + b;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 2] - VD[B + 2]);
+			float bA = -slopeA * VD[A + 2] + VD[A + i];
+			TA[INDEX + i] = slopeA * Z + bA;
+		}
+		s = Stride;
+	}
+	else
+	{
+		float slope = (VD[A + 2] - VD[B + 2]) / (VD[A] - VD[B]);
+		float b = -slope * VD[A] + VD[A + 2];
+
+		Z = (slope * oW + b) / (1.0f - slope * TanSlope);
+		X = TanSlope * Z + oW;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A] - VD[B]);
+			float bA = -slopeA * VD[A] + VD[A + i];
+			TA[INDEX + i] = slopeA * X + bA;
+		}
+		s = Stride;
+	}
+
+	//Floating point error solution:
+	if (s1 > s2)
+	{
+		float slope = (VD[A + 1] - VD[B + 1]) / (VD[A + 2] - VD[B + 2]);
+		float b = -slope * VD[A + 2] + VD[A + 1];
+
+		Y = slope * Z + b;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 2] - VD[B + 2]);
+			float bA = -slopeA * VD[A + 2] + VD[A + i];
+			TA[INDEX + i] = slopeA * Z + bA;
+		}
+		s = Stride;
+	}
+	else
+	{
+		float slope = (VD[A + 1] - VD[B + 1]) / (VD[A] - VD[B]);
+		float b = -slope * VD[A] + VD[A + 1];
+
+		Y = slope * X + b;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A] - VD[B]);
+			float bA = -slopeA * VD[A] + VD[A + i];
+			TA[INDEX + i] = slopeA * X + bA;
+		}
+		s = Stride;
+	}
+
+	TA[INDEX] = X;
+	TA[INDEX + 1] = Y;
+	TA[INDEX + 2] = Z;
+}
+
+void SIPHA(float* TA, int INDEX, float* VD, int A, int B, float TanSlope, float oH, int Stride)
+{
+	float X;
+	float Y;
+	float Z;
+
+	int s = 3;
+
+	A *= Stride;
+	B *= Stride;
+
+	//compared to non stride siph, the s1 s2 are flipped; not sure why
+
+	float s1 = VD[A + 2] - VD[B + 2];
+	float s2 = VD[A + 1] - VD[B + 1];
+	s1 *= s1;
+	s2 *= s2;
+
+	if (s2 > s1)
+	{
+		float slope = (VD[A + 2] - VD[B + 2]) / (VD[A + 1] - VD[B + 1]);
+		float b = -slope * VD[A + 1] + VD[A + 2];
+
+		Z = (slope * oH + b) / (1.0f - slope * TanSlope);
+		Y = TanSlope * Z + oH;
+
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 1] - VD[B + 1]);
+			float bA = -slopeA * VD[A + 1] + VD[A + i];
+			TA[INDEX + i] = slopeA * Y + bA;
+		}
+		s = Stride;
+	}
+	else
+	{
+		float slope = (VD[A + 1] - VD[B + 1]) / (VD[A + 2] - VD[B + 2]);
+		float b = -slope * VD[A + 2] + VD[A + 1];
+
+		float V = (b - oH) / (TanSlope - slope);
+
+		Y = V * slope + b;
+		Z = V;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 2] - VD[B + 2]);
+			float bA = -slopeA * VD[A + 2] + VD[A + i];
+			TA[INDEX + i] = slopeA * Z + bA;
+		}
+		s = Stride;
+	}
+
+	if (s1 > s2)
+	{
+		float slope = (VD[A] - VD[B]) / (VD[A + 2] - VD[B + 2]);
+		float b = -slope * VD[A + 2] + VD[A];
+
+		X = slope * Z + b;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 2] - VD[B + 2]);
+			float bA = -slopeA * VD[A + 2] + VD[A + i];
+			TA[INDEX + i] = slopeA * Z + bA;
+		}
+		s = Stride;
+	}
+	else
+	{
+		float slope = (VD[A] - VD[B]) / (VD[A + 1] - VD[B + 1]);
+		float b = -slope * VD[A + 1] + VD[A];
+
+		X = slope * Y + b;
+
+		for (int i = s; i < Stride; i++)
+		{
+			float slopeA = (VD[A + i] - VD[B + i]) / (VD[A + 1] - VD[B + 1]);
+			float bA = -slopeA * VD[A + 1] + VD[A + i];
+			TA[INDEX + i] = slopeA * Y + bA;
+		}
+		s = Stride;
+	}
+
+	TA[INDEX] = X;
+	TA[INDEX + 1] = Y;
+	TA[INDEX + 2] = Z;
+}
+
+void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride)
+{
+	float X;
+	float Z;
+
+	A *= Stride;
+	B *= Stride;
+
+	if (V_DATA[A + 1] == LinePos)
+	{
+		XR[I * (Stride - 1)] = V_DATA[A];
+		XR[I * (Stride - 1) + 1] = V_DATA[A + 2];
+
+		for (int a = 3; a < Stride; a++)
+		{
+			XR[I * (Stride - 1) + (a - 1)] = V_DATA[A + a];
+		}
+		return;
+	}
+
+	if (V_DATA[B + 1] == LinePos)
+	{
+		XR[I * (Stride - 1)] = V_DATA[B];
+		XR[I * (Stride - 1) + 1] = V_DATA[B + 2];
+
+		for (int a = 3; a < Stride; a++)
+		{
+			XR[I * (Stride - 1) + (a - 1)] = V_DATA[B + a];
+		}
+		return;
+	}
+
+	if (V_DATA[A + 1] - V_DATA[B + 1] != 0)
+	{
+		float slope = (V_DATA[A] - V_DATA[B]) / (V_DATA[A + 1] - V_DATA[B + 1]);
+		float b = -slope * V_DATA[A + 1] + V_DATA[A];
+		X = slope * LinePos + b;
+
+		float slopeZ = (V_DATA[A + 2] - V_DATA[B + 2]) / (V_DATA[A + 1] - V_DATA[B + 1]);
+		float bZ = -slopeZ * V_DATA[A + 1] + V_DATA[A + 2];
+		Z = slopeZ * LinePos + bZ;
+
+	}
+
+
+	float ZDIFF = (1.0f / V_DATA[A + 2] - 1.0f / V_DATA[B + 2]);
+	bool usingZ = ZDIFF != 0;
+
+	if (ZDIFF != 0)
+		usingZ = ZDIFF * ZDIFF >= 0.00001f;
+
+	if (usingZ)
+	for (int a = 3; a < Stride; a++)
+	{
+		float slopeA = (V_DATA[A + a] - V_DATA[B + a]) / ZDIFF;
+		float bA = -slopeA / V_DATA[A + 2] + V_DATA[A + a];
+		XR[I * (Stride - 1) + (a - 1)] = slopeA / Z + bA;
+	}
+	else if (V_DATA[A + 1] - V_DATA[B + 1] != 0)
+	for (int a = 3; a < Stride; a++)
+	{
+		float slopeA = (V_DATA[A + a] - V_DATA[B + a]) / (V_DATA[A + 1] - V_DATA[B + 1]);
+		float bA = -slopeA * V_DATA[A + 1] + V_DATA[A + a];
+		XR[I * (Stride - 1) + (a - 1)] = (slopeA * (float)LinePos + bA);
+
+
+	}
+
+
+	XR[I * (Stride - 1) + 0] = X;
+	XR[I * (Stride - 1) + 1] = Z;
+}
+
+bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride)
+{
+	int IC = 0;
+	for (int i = 0; i < TRIS_SIZE - 1; i++)
+	{
+		float y1 = TRIS_DATA[i * Stride + 1];
+		float y2 = TRIS_DATA[(i + 1) * Stride + 1];
+
+		if (y2 == y1 && Line == y2){
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, i, i + 1, Line, Stride);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, i + 1, i, Line, Stride);
+			return true;
+		}
+
+		if (y2 < y1){
+			float t = y2;
+			y2 = y1;
+			y1 = t;
+		}
+
+		if (Line <= y2 && Line > y1){
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, i, i + 1, Line, Stride);
+			IC++;
+		}
+
+		if (IC >= 2) return true;
+	}
+
+	if (IC < 2)
+	{
+		float y1 = TRIS_DATA[0 * Stride + 1];
+		float y2 = TRIS_DATA[(TRIS_SIZE - 1) * Stride + 1];
+
+		if (y2 == y1 && Line == y2){
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, 0, (TRIS_SIZE - 1), Line, Stride);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, (TRIS_SIZE - 1), 0, Line, Stride);
+			return true;
+		}
+
+		if (y2 < y1){
+			float t = y2;
+			y2 = y1;
+			y1 = t;
+		}
+
+		if (Line <= y2 && Line > y1){
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, 0, TRIS_SIZE - 1, Line, Stride);
+			IC++;
+		}
+	}
+
+	if (IC == 2) return true;
+	else return false;
+}
+
+struct GLData
+{
+	float nearZ;
+	float farZ;
+
+	float tanVert;
+	float tanHorz;
+
+	float ow;
+	float oh;
+
+	float rw;
+	float rh;
+
+	float fw;
+	float fh;
+
+	float ox;
+	float oy;
+
+	float iox;
+	float ioy;
+
+	float oValue;
+
+	int renderWidth;
+	int renderHeight;
+
+	float matrixlerpv;
+};
+
+inline void frtlzeromem(bool* dest, int count)
+{
+	for (int i = 0; i < count; ++i)
+		dest[i] = false;
+}
+
+inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
+{
+	return ((VERTEX_DATA[Stride]) - (VERTEX_DATA[0])) * ((VERTEX_DATA[Stride * 2 + 1]) - (VERTEX_DATA[1])) - ((VERTEX_DATA[Stride * 2]) - (VERTEX_DATA[0])) * ((VERTEX_DATA[Stride + 1]) - (VERTEX_DATA[1]));
+}";
+            }
+        }
+
         ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
         {
             shaderFields = f;
@@ -1045,8 +1737,12 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
             wPath = ext;
 
-            ShaderField[] vsIn, vsOut;
+            ShaderField[] vsIn, vsOut, fsIn, fsOut;
             PrepVSData(vs, out vsIn, out vsOut, out readS, out intS);
+            PrepFSData(fs, out fsIn, out fsOut);
+
+            intS /= 4; readS /= 4;
+            intS += 3;
 
             bool forceC = cOps.Contains(CompileOption.ForceRecompile);
 
@@ -1086,10 +1782,48 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             if (!ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_Position"))
                 throw new Exception("The vertex shader needs the gl_Position vector3 set!");
 
+            if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
+            if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
+            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
+            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
+
             string sign, exec;
             WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
 
-            string shaderCode = "";
+            string sign1, exec1, ptrs1, ptrIncr;
+            WriteFSSign(fs, fsIn, fsOut, out sign1, out exec1, out ptrs1, out ptrIncr);
+
+            string shaderCode = "", entryCode = "";
+
+            entryCode += "//Autogenerated by XFParser\n\n";
+            entryCode += "#include \"stdafx.h\"\n#include <malloc.h>\n#include \"xfcore.h\"\n#include \"" + 
+                wPath + "_header.h\"\n#include <math.h>\n#include <ppl.h>\nusing namespace Concurrency;\n";
+
+            entryCode += "\n#define RETURN_VALUE\n";
+
+            string structDeclrs = "";
+
+            for (int i = 0; i < vs.shaderUniforms.Length; i++)
+            {
+                if (vs.shaderUniforms[i].dataType == DataType.Other)
+                    structDeclrs += "\nstruct " + vs.shaderUniforms[i].typeName + " {\n" + vs.shaderUniforms[i].typeAlt.data + "\n};\n";
+            }
+
+            for (int i = 0; i < fs.shaderUniforms.Length; i++)
+            {
+                if (fs.shaderUniforms[i].dataType == DataType.Other)
+                    structDeclrs += "\nstruct " + fs.shaderUniforms[i].typeName + " {\n" + fs.shaderUniforms[i].typeAlt.data + "\n};\n";
+            }
+
+            entryCode += structDeclrs + "\n";
+
+            entryCode += WriteMethods(vs.shaderMethods, vs.shaderFields, vs.shaderUniforms);
+
+            entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
+            entryCode += sign1 + "{\n" + WriteExecMethod(fs, true) + "\n}\n\n";
+
+
+            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uniformData, unsigned char** ptrPtrs, GLMatrix projData, int FACE_CULL, int isWireFrame){\n";
             shaderCode += "const int stride = " + intS + ";\n";
             shaderCode += "const int readStride = " + readS + ";\n";
             shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
@@ -1104,7 +1838,45 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             shaderCode += "bool* AP = (bool*)alloca(BUFFER_SIZE + 12);\n";
             shaderCode += "frtlzeromem(AP, BUFFER_SIZE);\n\n";
 
+            shaderCode = Regex.Replace(shaderCode, "\n", "\n\t");
 
+            
+
+            //Write ClippingCode ->
+            shaderCode += ClippingCode + "\n";
+            shaderCode += "\t" + Transforms + "\n";
+            shaderCode += "\t" + FaceCulling;
+            shaderCode += "\n\t" + ScanLineStart;
+            shaderCode += "\n\n\t\t\t" + "int wPos = renderWidth * i;\n" + "\t\t\t";
+            shaderCode += Regex.Replace(ptrs1, "\n", "\n\t") + "\n";
+
+            //Depth ->
+            shaderCode += "\t\t\t" + "Z_fptr = dptr + i * renderWidth;\n\t\t\tzBegin = slopeZ * (float)FromX + bZ;\n\n";
+
+            //DrawScanline
+            shaderCode += "\t\t\t" + "for (int o = FromX; o <= ToX; ++o, " + ptrIncr + "){\n";
+
+            shaderCode += "\t\t\t\t" + @"float depth = (1.0f / zBegin);
+				s = projData.farZ - depth;
+				zBegin += slopeZ;
+
+				if (Z_fptr[o] > s) continue;
+				Z_fptr[o] = s;
+
+				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
+				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
+
+            shaderCode += "\n\n\t\t\t\t" + exec1 + "\n";
+            shaderCode += "\t\t\t}\n\t\t}\n\t}\n}";
+
+            shaderCode = entryCode + shaderCode;
+            shaderCode += "\n\n" + ParallelCode;
+
+            
+            File.WriteAllText(foldername + @"\" + wPath + "_merged.cpp", shaderCode);
+            File.WriteAllText(foldername + @"\" + wPath + "_header.h", HeaderFile);
+
+            File.WriteAllText(foldername + @"\xfcore.h", ClipCodeHeader);
 
             Console.WriteLine("");
         }
@@ -1156,6 +1928,59 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
             vsOut = vsO.ToArray();
         }
 
+        static void PrepFSData(ShaderParser data, out ShaderField[] fsIn, out ShaderField[] fsOut)
+        {
+            int count = 0;
+
+            List<ShaderField> fsI = new List<ShaderField>();
+            List<ShaderField> fsO = new List<ShaderField>();
+
+            for (int i = 0; i < data.shaderFields.Length; i++)
+            {
+                if (data.shaderFields[i].dataMode == DataMode.In) fsI.Add(data.shaderFields[i]);
+                else if (data.shaderFields[i].dataMode == DataMode.Out) fsO.Add(data.shaderFields[i]);
+                else throw new Exception("An error occured (9582)");
+            }
+
+            for (int i = 0; i < fsI.Count; i++)
+                count += fsI[i].layoutValueGL != -1 ? 1 : 0;
+
+            if (count != 0)
+                throw new Exception("FS layout not supported!");
+
+            int offset = 0;
+            for (int i = 0; i < fsI.Count; i++)
+            {
+                fsI[i].layoutPosition = offset;
+                offset += fsI[i].GetSize();
+            }
+
+            int offset1 = 0;
+            for (int i = 0; i < fsO.Count; i++)
+            {
+                fsO[i].layoutPosition = offset1;
+                offset1 += fsO[i].GetSize();
+            }
+
+            fsIn = fsI.ToArray();
+            fsOut = fsO.ToArray();
+        }
+
+        static string WriteExecMethod(ShaderParser data, bool wrapGLPos = false)
+        {
+            string mainCode = Regex.Replace(data.shaderMethods[data.shaderMethods.Length - 1].contents, ";", ";\n\t");
+            mainCode = Regex.Replace(mainCode, "{", "{\n\t");
+            mainCode = "\t" + Regex.Replace(mainCode, "}", "}\n\t");
+
+            for (int i = 0; i < data.shaderFields.Length; i++)
+                mainCode = WrapVariablePointer(mainCode, data.shaderFields[i].name);
+
+            if (wrapGLPos)
+                mainCode = WrapVariablePointer(mainCode, "gl_Position");
+
+            return mainCode;
+        }
+
         static void WriteVSSign(ShaderParser data, ShaderField[] vsIn, ShaderField[] vsOut, out string sign, out string exec)
         {
             string methodSign = "inline void VSExec(";
@@ -1189,6 +2014,55 @@ extern " + "\"C\"" + @" __declspec(dllexport) int32_t CheckSize()
 
             exec = methodExec.Substring(0, methodExec.Length - 2) + ");";
             sign = methodSign.Substring(0, methodSign.Length - 2) + ")";          
+        }
+
+        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, out string sign, out string exec, out string ptrs, out string ptrsinc)
+        {
+            string methodSign = "inline void FSExec(";
+            string methodExec = "FSExec(";
+            string ptrsDecl = "";
+            string ptrsIncr = "";
+
+            for (int i = 0; i < fsOut.Length; i++)
+            {
+                string type = TypeToString(fsOut[i].dataType);
+                methodExec += "ptr_" + i + " + o, ";
+                methodSign += type + "* " + fsOut[i].name + ", ";
+
+                ptrsDecl += type + "* " + "ptr_" + i + " = (" + type + "*)(ptrPtrs[" + i + "] + wPos * " + TypeToSize(fsOut[i].dataType) + ");\n";
+                ptrsIncr += "++ptr_" + i + ", ";
+            }
+
+            for (int i = 0; i < fsIn.Length; i++)
+            {
+                string type = TypeToString(fsIn[i].dataType);
+                methodExec += "(" + type + "*)(attribs + " + (fsIn[i].layoutPosition / 4) + "), ";
+                methodSign += type + "* " + fsIn[i].name + ", ";
+            }
+
+
+            for (int i = 0; i < data.shaderUniforms.Length; i++)
+            {
+                string type = data.shaderUniforms[i].dataType != DataType.Other ? TypeToString(data.shaderUniforms[i].dataType) : data.shaderUniforms[i].typeName;
+
+                methodExec += "*(" + type + "*)(uniformData + " + data.shaderUniforms[i].layoutPosition + "), ";
+                methodSign += type + " " + data.shaderUniforms[i].name + ", ";
+            }
+
+            if (methodExec.Length > 2)
+                methodExec = methodExec.Substring(0, methodExec.Length - 2) + ");";
+
+            if (methodSign.Length > 2)
+                methodSign = methodSign.Substring(0, methodSign.Length - 2) + ")";
+
+            if (ptrsIncr.Length > 2)
+                ptrsIncr = ptrsIncr.Substring(0, ptrsIncr.Length - 2);
+
+
+            sign = methodSign;
+            exec = methodExec;
+            ptrs = ptrsDecl;
+            ptrsinc = ptrsIncr;
         }
 
         static bool WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)

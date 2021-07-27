@@ -121,9 +121,9 @@ namespace xfcore
             TargetBuffer.ReleaseLock();
         }
 
-        public static void Draw(GLBuffer buffer, Shader shader, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
-        { 
-            
+        public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
+        {
+
         }
 
     }
@@ -225,8 +225,58 @@ namespace xfcore
     }
 
     public struct GLMatrix
-    { 
-        
+    {
+        internal float hFOV;
+        internal float vFOV;
+
+        internal float hSize;
+        internal float vSize;
+
+        internal float iValue;
+
+        GLMatrix(float vfov, float hfov, float vsize, float hsize, float iValue = 0)
+        {
+            vFOV = vfov;
+            hFOV = hfov;
+
+            vSize = vsize;
+            hSize = hsize;
+
+            this.iValue = iValue;
+        }
+
+        public static GLMatrix Perspective(float vFOV, float hFOV)
+        {
+            return new GLMatrix(vFOV, hFOV, 0, 0, 0f);
+        }
+
+        public static GLMatrix Perspective(float FOV, int viewportWidth, int viewportHeight)
+        {
+            float aspectRatio = (float)viewportWidth / (float)viewportHeight;
+            return new GLMatrix(FOV, FOV / aspectRatio, 0, 0, 0f);
+        }
+
+        public static GLMatrix Orthographic(float vSize, float hSize)
+        {
+            return new GLMatrix(0, 0, vSize, hSize, 1f);
+        }
+
+        public static GLMatrix Orthographic(float Size, int viewportWidth, int viewportHeight)
+        {
+            float aspectRatio = (float)viewportWidth / (float)viewportHeight;
+            return new GLMatrix(0, 0, Size, Size / aspectRatio, 1f);
+        }
+
+        public static GLMatrix Mix(GLMatrix perspectiveMat, GLMatrix orthographicMat, float factorOfB)
+        {
+            if (perspectiveMat.iValue != 0)
+                throw new Exception("perspectiveMat must be a perspective matrix!");
+
+            if (orthographicMat.iValue != 1)
+                throw new Exception("orthographicMat must be a orthographic matrix!");
+
+           return new GLMatrix(0, 0, 0, 0, 0);
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -6,7 +6,6 @@ out vec3 FragPos;
 out vec3 Normal;
 
 uniform mat4 transform; //projection is done internally
-uniform vec3 someData;
 
 void main()
 {
