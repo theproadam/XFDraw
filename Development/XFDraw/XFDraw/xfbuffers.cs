@@ -367,7 +367,7 @@ namespace xfcore.Buffers
 
             if (Source.Length <= 0) throw new Exception("Size must be bigger than zero!");
             if (Source.Length % Stride != 0) throw new Exception("Invalid Stride OR Size!");
-
+            
             stride = Stride;
             Size = Source.Length * 4;
             Interlocked.Add(ref Buffer_RAM_Usage, Size);

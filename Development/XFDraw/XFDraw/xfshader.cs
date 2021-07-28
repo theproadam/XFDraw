@@ -26,24 +26,33 @@ namespace xfcore.Shaders
         delegate void ShdrScrnCallDel(int Width, int Height, byte** ptrPtrs, void* UniformPointer);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        delegate void ShdrCallDel();
+        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, char* uData, byte** ptrPtrs, GLData pData, int FACE, long mode);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate int SafetyChkDel();
 
         ShdrScrnCallDel ShaderCallScreen;
+        internal ShdrCallDel ShaderCall;
         ShaderCompile shaderData;
 
         ShaderField[] uniformVS;
         ShaderField[] uniformFS;
 
-        ShaderField[] fieldVS;
-        ShaderField[] fieldFS;
+        ShaderField[] fieldVSIn;
+        ShaderField[] fieldFSIn;
+
+        ShaderField[] fieldVSOut;
+        ShaderField[] fieldFSOut;
 
         byte[] uniformBytesVS;
         byte[] uniformBytesFS;
 
         GLTexture[] textureSlots;
+
+        internal int readStride;
+        internal int intStride;
+
+        bool isScreenSpace = false;
 
         internal object ThreadLock = new object();
 
@@ -74,23 +83,41 @@ namespace xfcore.Shaders
 
             int ptrSize = GetShaderData();
 
+            isScreenSpace = sModule.GetScreenSpace();
+
             if (ptrSize != 4)
                 throw new Exception("XFDraw only supports shaders compiled for 32 bit systems!");
+           
+            if (isScreenSpace)
+                ShaderCallScreen = (ShdrScrnCallDel)Marshal.GetDelegateForFunctionPointer(ShaderCallTrigger, typeof(ShdrScrnCallDel));
+            else
+                ShaderCall = (ShdrCallDel)Marshal.GetDelegateForFunctionPointer(ShaderCallTrigger, typeof(ShdrCallDel));
 
-            ShaderCallScreen = (ShdrScrnCallDel)Marshal.GetDelegateForFunctionPointer(ShaderCallTrigger, typeof(ShdrScrnCallDel));
             shaderData = sModule;
-
-
 
             int sizeValue;
             uniformFS = shaderData.PrepareUniformsFS(out sizeValue);
             uniformBytesFS = new byte[sizeValue];
 
-          //  uniformVS = shaderData.PrepareUniformsVS(out sizeValue);
-          //  uniformBytesVS = new byte[sizeValue];
+            uniformVS = shaderData.PrepareUniformsVS(out sizeValue);
+            uniformBytesVS = new byte[sizeValue];
 
-            fieldFS = shaderData.GetFieldFS();
-            textureSlots = new GLTexture[fieldFS.Length];
+            //fieldFSIn = 
+
+
+            fieldFSIn = shaderData.sFieldsInFS;
+            fieldFSOut = shaderData.sFieldsOutFS;
+
+            fieldVSIn = shaderData.sFieldsInVS;
+            fieldVSOut = shaderData.sFieldsOutVS;
+
+            readStride = shaderData.readStride;
+            intStride = shaderData.inteStride;
+
+            if (isScreenSpace)
+                textureSlots = new GLTexture[fieldFSIn.Length + fieldFSOut.Length];
+            else 
+                textureSlots = new GLTexture[fieldFSOut.Length];
 	    }
 
         public void SetValue(string uniformName, object value)
@@ -107,6 +134,31 @@ namespace xfcore.Shaders
                 uniformName = uniformName.Split('.')[0];
                 isStruct = true;
                 
+            }
+
+            for (int i = 0; i < uniformVS.Length; i++)
+            {
+                if (uniformVS[i].name == uniformName)
+                {
+                    if (uniformVS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
+
+                    if (isStruct) uniformVS[i].typeAlt.SetValue(structFind, uniformVS[i].layoutPosition, uniformBytesVS, value);
+                    else
+                    {
+                        int mSize = Marshal.SizeOf(value);
+                        if (uniformVS[i].GetSize() != mSize)
+                            throw new Exception("\"" + uniformName + "\" is not the same size as the value!");
+
+                        GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
+                        byte* ptr = (byte*)handle.AddrOfPinnedObject();
+
+                        for (int n = 0; n < mSize; n++)
+                            uniformBytesVS[uniformVS[i].layoutPosition + n] = ptr[n];
+
+                        handle.Free();
+                    }
+                    setCount++;
+                }
             }
 
             for (int i = 0; i < uniformFS.Length; i++)
@@ -145,16 +197,32 @@ namespace xfcore.Shaders
         {
             int setCount = 0;
 
-            for (int i = 0; i < fieldFS.Length; i++)
+            for (int i = 0; i < fieldFSOut.Length; i++)
             {
-                if (fieldFS[i].name == bufferName)
+                if (fieldFSOut[i].name == bufferName)
                 {
-                    if (buffer.Stride != fieldFS[i].GetSize())
-                        throw new Exception("\"" + fieldFS[i].typeName + "\" is not the same size (" +
-                            fieldFS[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
+                    if (buffer.Stride != fieldFSOut[i].GetSize())
+                        throw new Exception("\"" + fieldFSOut[i].typeName + "\" is not the same size (" +
+                            fieldFSOut[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
 
                     textureSlots[i] = buffer;
                     setCount++;
+                }
+            }
+
+            if (isScreenSpace) 
+            { 
+                for (int i = 0; i < fieldFSIn.Length; i++)
+                {
+                    if (fieldFSIn[i].name == bufferName)
+                    {
+                        if (buffer.Stride != fieldFSIn[i].GetSize())
+                            throw new Exception("\"" + fieldFSIn[i].typeName + "\" is not the same size (" +
+                                fieldFSIn[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
+
+                        textureSlots[i] = buffer;
+                        setCount++;
+                    }
                 }
             }
 
@@ -205,14 +273,76 @@ namespace xfcore.Shaders
             }
         }
 
-        public void Throw()
+        internal GLTexture[] GetTextureSlots()
         {
-            throw new Exception();
+            return textureSlots;
+        }
+
+        internal byte[] GetUniformVS()
+        {
+            return uniformBytesVS;
+        }
+
+        internal byte[] GetUniformFS()
+        {
+            return uniformBytesFS;
         }
 
         public Shader DuplicateShader()
         {
             return null;
+        }
+    }
+
+    struct GLData
+    {
+        float nearZ;
+        float farZ;
+
+        float tanVert;
+        float tanHorz;
+
+        float ow;
+        float oh;
+
+        float rw;
+        float rh;
+
+        float fw;
+        float fh;
+
+        float ox;
+        float oy;
+
+        float iox;
+        float ioy;
+
+        float oValue;
+
+        int renderWidth;
+        int renderHeight;
+
+        float matrixlerpv;
+
+        internal GLData(int rWidth, int rHeight, GLMatrix proj)
+        {
+            if (proj.ZNear <= 0) throw new Exception("Invalid ZNear!");
+            if (proj.ZFar <= 0) throw new Exception("Invalid ZFar");
+            if (proj.ZNear >= proj.ZFar) throw new Exception("Invalid ZNear ZFar");
+
+            nearZ = proj.ZNear;
+            farZ = proj.ZFar;
+
+            renderWidth = rWidth;
+            renderHeight = rHeight;
+
+            rw = ((float)rWidth - 1f) / 2f;
+            rh = ((float)rHeight - 1f) / 2f;
+
+
+            iox = 1f / ox;
+            ioy = 1f / oy;
+            
         }
     }
 }

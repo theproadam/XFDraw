@@ -441,21 +441,22 @@ namespace xfcore.Extras
         }
 
         /// <summary>
-        /// Create Camera Rotation where EulerAngles are yaw (x) * pitch (y) * roll (z)
+        /// Create Camera Rotation where EulerAngles are yaw (z axis) * pitch (y axis) * roll (x axis)
         /// </summary>
         /// <param name="EulerAngles"></param>
         /// <returns></returns>
         public static Matrix4x4 RotationMatrix(Vector3 EulerAngles)
         {
             Matrix4x4 result = new Matrix4x4();
+            const float deg2rad = (float)(Math.PI / 180d);
 
-            float cosa = (float)Math.Cos(EulerAngles.x);
-            float cosb = (float)Math.Cos(EulerAngles.y);
-            float cosy = (float)Math.Cos(EulerAngles.z);
+            float cosa = (float)Math.Cos(deg2rad * EulerAngles.z);
+            float cosb = (float)Math.Cos(deg2rad * EulerAngles.y);
+            float cosy = (float)Math.Cos(deg2rad * EulerAngles.x);
 
-            float sina = (float)Math.Sin(EulerAngles.x);
-            float sinb = (float)Math.Sin(EulerAngles.y);
-            float siny = (float)Math.Sin(EulerAngles.z);
+            float sina = (float)Math.Sin(deg2rad * EulerAngles.z);
+            float sinb = (float)Math.Sin(deg2rad * EulerAngles.y);
+            float siny = (float)Math.Sin(deg2rad * EulerAngles.x);
 
             result.X0Y0 = cosa * cosb;
             result.X1Y0 = cosa * sinb * siny - sina * cosy;
@@ -624,7 +625,7 @@ namespace xfcore.Extras
         }
 
         /// <summary>
-        /// Create Camera Rotation where EulerAngles are yaw (x) * pitch (y) * roll (z)
+        /// Create Camera Rotation where EulerAngles are yaw (z axis) * pitch (y axis) * roll (x axis)
         /// </summary>
         /// <param name="EulerAngles"></param>
         /// <returns></returns>
@@ -632,13 +633,15 @@ namespace xfcore.Extras
         {
             Matrix3x3 result = new Matrix3x3();
 
-            float cosa = (float)Math.Cos(EulerAngles.x);
-            float cosb = (float)Math.Cos(EulerAngles.y);
-            float cosy = (float)Math.Cos(EulerAngles.z);
+            const float deg2rad = (float)(Math.PI / 180d);
 
-            float sina = (float)Math.Sin(EulerAngles.x);
-            float sinb = (float)Math.Sin(EulerAngles.y);
-            float siny = (float)Math.Sin(EulerAngles.z);
+            float cosa = (float)Math.Cos(deg2rad * EulerAngles.z);
+            float cosb = (float)Math.Cos(deg2rad * EulerAngles.y);
+            float cosy = (float)Math.Cos(deg2rad * EulerAngles.x);
+
+            float sina = (float)Math.Sin(deg2rad * EulerAngles.z);
+            float sinb = (float)Math.Sin(deg2rad * EulerAngles.y);
+            float siny = (float)Math.Sin(deg2rad * EulerAngles.x);
 
             result.X0Y0 = cosa * cosb;
             result.X1Y0 = cosa * sinb * siny - sina * cosy;

@@ -121,9 +121,73 @@ namespace xfcore
             TargetBuffer.ReleaseLock();
         }
 
+        static void fRtlZeroMem(byte* ptr, int size)
+        {
+            for (int i = 0; i < size; i++)
+                ptr[i] = 0;
+        }
+
+
         public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
         {
+            lock (shader.ThreadLock)
+            {
+                if (shader.readStride != buffer.stride)
+                    throw new Exception("The buffer is not the same stride as the shader read stride!");
 
+                //ADD BUFFER SIZE CHECKING
+
+                if (buffer.Size < 3 * buffer.stride)
+                    throw new Exception("This function requires a an entire triangle to draw!");
+
+                GLTexture[] textureSlots = shader.GetTextureSlots();
+
+                for (int i = 0; i < textureSlots.Length; i++)
+                    if (textureSlots[i] == null)
+                        throw new Exception("One of the assigned textures is null!");
+
+                if (textureSlots.Length == 0)
+                    throw new Exception("Atleast one Buffer must be assigned!");
+
+                for (int i = 0; i < textureSlots.Length; i++)
+                    textureSlots[i].RequestLock();
+
+                int width = textureSlots[0].Width, height = textureSlots[0].Height;
+
+                GLData drawConfig = new GLData();
+
+                for (int i = 1; i < textureSlots.Length; i++)
+                {
+                    if (textureSlots[i].Height != height) throw new Exception("Height must be the same on all buffers!");
+                    if (textureSlots[i].Width != width) throw new Exception("Width must be the same on all buffers!");
+                }
+
+                IntPtr ptrPtrs = Marshal.AllocHGlobal(textureSlots.Length * 4);
+                GCHandle uniformDataVS = GCHandle.Alloc(shader.GetUniformVS(), GCHandleType.Pinned);
+                GCHandle uniformDataFS = GCHandle.Alloc(shader.GetUniformFS(), GCHandleType.Pinned);
+
+                byte* bptr = (byte*)ptrPtrs;
+
+                fRtlZeroMem(bptr, textureSlots.Length * 4); //Zero it just in case something is wrong, so it crashes instantly.
+
+                byte** PTRS = (byte**)bptr;
+                for (int i = 0; i < textureSlots.Length; i++)
+                    PTRS[i] = (byte*)textureSlots[i].GetAddress();
+
+                //Call the shader
+                //ShaderCallScreen(width, height, PTRS, (void*)uniformData.AddrOfPinnedObject());
+
+                //shader.ShaderCall()
+
+                //shader.ShaderCall();
+
+                Marshal.FreeHGlobal(ptrPtrs);
+                uniformDataVS.Free();
+                uniformDataFS.Free();
+
+                for (int i = 0; i < textureSlots.Length; i++)
+                    textureSlots[i].ReleaseLock();
+            }
         }
 
     }
@@ -234,6 +298,9 @@ namespace xfcore
 
         internal float iValue;
 
+        public float ZNear;
+        public float ZFar;
+
         GLMatrix(float vfov, float hfov, float vsize, float hsize, float iValue = 0)
         {
             vFOV = vfov;
@@ -243,26 +310,41 @@ namespace xfcore
             hSize = hsize;
 
             this.iValue = iValue;
+
+            ZNear = 0.03f;
+            ZFar = 1000f;
         }
 
         public static GLMatrix Perspective(float vFOV, float hFOV)
         {
+            if (vFOV <= 0 || vFOV >= 180) throw new Exception("Invalid vFOV");
+            if (hFOV <= 0 || hFOV >= 180) throw new Exception("Invalid hFOV");
+
             return new GLMatrix(vFOV, hFOV, 0, 0, 0f);
         }
 
         public static GLMatrix Perspective(float FOV, int viewportWidth, int viewportHeight)
         {
+            if (FOV <= 0 || FOV >= 180) throw new Exception("Invalid FOV");
+            if (viewportWidth <= 0 || viewportHeight <= 0) throw new Exception("Invalid width or height!");
+
             float aspectRatio = (float)viewportWidth / (float)viewportHeight;
             return new GLMatrix(FOV, FOV / aspectRatio, 0, 0, 0f);
         }
 
         public static GLMatrix Orthographic(float vSize, float hSize)
         {
+            if (vSize <= 0) throw new Exception("Invalid vSize");
+            if (hSize <= 0) throw new Exception("Invalid hSize");
+
             return new GLMatrix(0, 0, vSize, hSize, 1f);
         }
 
         public static GLMatrix Orthographic(float Size, int viewportWidth, int viewportHeight)
         {
+            if (Size <= 0) throw new Exception("Invalid Size");
+            if (viewportWidth <= 0 || viewportHeight <= 0) throw new Exception("Invalid width or height!");
+
             float aspectRatio = (float)viewportWidth / (float)viewportHeight;
             return new GLMatrix(0, 0, Size, Size / aspectRatio, 1f);
         }
@@ -274,6 +356,8 @@ namespace xfcore
 
             if (orthographicMat.iValue != 1)
                 throw new Exception("orthographicMat must be a orthographic matrix!");
+
+            throw new Exception("Not Yet Supported!");
 
            return new GLMatrix(0, 0, 0, 0, 0);
         }

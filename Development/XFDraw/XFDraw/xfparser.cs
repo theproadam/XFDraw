@@ -17,142 +17,49 @@ namespace xfcore.Shaders.Builder
         public static string COMPILER_NAME = "cl.exe";
         public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Zc:forScope /Oi /MD -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot";
 
-        ShaderField[] sFieldsVS;
-        ShaderField[] sUniformsVS;
-        ShaderMethod[] sMethodsVS;
-        ShaderStruct[] sStructsVS;
+        internal ShaderField[] sFieldsInVS;
+        internal ShaderField[] sFieldsOutVS;
+        internal ShaderField[] sUniformsVS;
+        internal ShaderMethod[] sMethodsVS;
+        internal ShaderStruct[] sStructsVS;
 
-        ShaderField[] sFieldsFS;
-        ShaderField[] sUniformsFS;
-        ShaderMethod[] sMethodsFS;
-        ShaderStruct[] sStructsFS;
+        internal ShaderField[] sFieldsInFS;
+        internal ShaderField[] sFieldsOutFS;
+        internal ShaderField[] sUniformsFS;
+        internal ShaderMethod[] sMethodsFS;
+        internal ShaderStruct[] sStructsFS;
 
         bool skipCompile = false;
         bool isScreenSpace = false;
         string shaderName;
 
+        internal int readStride;
+        internal int inteStride;
+
         internal ShaderCompile(ShaderParser VS, ShaderParser FS, bool isScreen, string sName, bool skipcompile)
         {
             if (!isScreen)
             {
-                sFieldsVS = VS.shaderFields;
+                sFieldsInVS = VS.shaderFieldIns;
+                sFieldsOutVS = VS.shaderFieldOuts;
                 sUniformsVS = VS.shaderUniforms;
                 sMethodsVS = VS.shaderMethods;
                 sStructsVS = VS.shaderStructs;
             }
 
-            sFieldsFS = FS.shaderFields;
+            sFieldsInFS = FS.shaderFieldIns;
+            sFieldsOutFS = FS.shaderFieldOuts;
             sUniformsFS = FS.shaderUniforms;
             sMethodsFS = FS.shaderMethods;
             sStructsFS = FS.shaderStructs;
 
+            readStride = VS.readStride / 4;
+            inteStride = VS.internalStride / 4;
 
             isScreenSpace = isScreen;
             shaderName = sName;
 
             skipCompile = skipcompile;
-        }
-
-        public string PrintVertexShader()
-        {
-            if (isScreenSpace)
-                throw new Exception("This is a screenspace shader!");
-
-            string str = "";
-
-            for (int i = 0; i < sFieldsVS.Length; i++)
-                str += sFieldsVS[i].dataMode.ToString() + " " + sFieldsVS[i].dataType.ToString() + " " + sFieldsVS[i].name + ";\n";
-
-            str += "\n";
-
-            for (int i = 0; i < sStructsVS.Length; i++)
-            {
-                str += "struct " + sStructsVS[i].structName + " {";
-
-                for (int j = 0; j < sStructsVS[i].structFields.Length; j++)
-                {
-                    str += "\n\t" + sStructsVS[i].structFields[j].dataType.ToString() + " " + sStructsVS[i].structFields[j].name + ";";
-                }
-                str += "\n};\n";
-            }
-
-            str += "\n";
-
-            for (int i = 0; i < sMethodsVS.Length; i++)
-            {
-                string nstr = "\t" + Regex.Replace(sMethodsVS[i].contents, ";", ";\n\t");
-                str += sMethodsVS[i].entryName + "\n{\n" + nstr.Substring(0, nstr.Length - 1) + "}\n\n";
-            }
-
-            return str;
-        }
-
-        public string PrintFragmentShader()
-        {
-            if (isScreenSpace)
-                throw new Exception("This is a screenspace shader!");
-
-            string str = "";
-
-            for (int i = 0; i < sFieldsFS.Length; i++)
-                str += sFieldsFS[i].dataMode.ToString() + " " + sFieldsFS[i].dataType.ToString() + " " + sFieldsFS[i].name + ";\n";
-
-            str += "\n";
-
-            for (int i = 0; i < sStructsFS.Length; i++)
-            {
-                str += "struct " + sStructsFS[i].structName + " {";
-
-                for (int j = 0; j < sStructsFS[i].structFields.Length; j++)
-                {
-                    str += "\n\t" + sStructsFS[i].structFields[j].dataType.ToString() + " " + sStructsFS[i].structFields[j].name + ";";
-                }
-                str += "\n};\n";
-            }
-
-            str += "\n";
-
-            for (int i = 0; i < sMethodsFS.Length; i++)
-            {
-                string nstr = "\t" + Regex.Replace(sMethodsFS[i].contents, ";", ";\n\t");
-                str += sMethodsFS[i].entryName + "\n{\n" + nstr.Substring(0, nstr.Length - 1) + "}\n\n";
-            }
-
-            return str;
-        }
-
-        public string PrintScreenSpaceShader()
-        {
-            if (!isScreenSpace)
-                throw new Exception("Not a screenspace shader!");
-
-            string str = "";
-
-            for (int i = 0; i < sFieldsFS.Length; i++)
-                str += sFieldsFS[i].dataMode.ToString() + " " + sFieldsFS[i].dataType.ToString() + " " + sFieldsFS[i].name + ";\n";
-
-            str += "\n";
-
-            for (int i = 0; i < sStructsFS.Length; i++)
-            {
-                str += "struct " + sStructsFS[i].structName + " {";
-
-                for (int j = 0; j < sStructsFS[i].structFields.Length; j++)
-                {
-                    str += "\n\t" + sStructsFS[i].structFields[j].dataType.ToString() + " " + sStructsFS[i].structFields[j].name + ";";
-                }
-                str += "\n};\n";
-            }
-
-            str += "\n";
-
-            for (int i = 0; i < sMethodsFS.Length; i++)
-            {
-                string nstr = "\t" + Regex.Replace(sMethodsFS[i].contents, ";", ";\n\t");
-                str += sMethodsFS[i].entryName + "\n{\n" + nstr.Substring(0, nstr.Length - 1) + "}\n\n";
-            }
-
-            return str;
         }
 
         public bool Compile(out Shader compiledShader)
@@ -255,20 +162,23 @@ namespace xfcore.Shaders.Builder
             return uniforms.ToArray();
         }
 
-        internal ShaderField[] GetFieldFS()
+        internal bool GetScreenSpace()
         {
-            return sFieldsFS;
+            return isScreenSpace;
         }
-
 
     }
 
     public class ShaderParser
     {
-        internal ShaderField[] shaderFields;
+        internal ShaderField[] shaderFieldOuts;
+        internal ShaderField[] shaderFieldIns;
         internal ShaderField[] shaderUniforms;
         internal ShaderMethod[] shaderMethods;
         internal ShaderStruct[] shaderStructs;
+
+        internal int internalStride;
+        internal int readStride;
 
         static string HeaderFile
         {
@@ -1247,7 +1157,7 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 }"; }
         }
 
-        static string ClipCodeHeader
+        static string ClipCodeSource
         {
             get
             {
@@ -1635,7 +1545,8 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
 
         ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
         {
-            shaderFields = f;
+            PrepVSData(f, out shaderFieldIns, out shaderFieldOuts, out readStride, out internalStride);
+
             shaderUniforms = u;
             shaderMethods = m;
             shaderStructs = s;
@@ -1659,10 +1570,8 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             
             string namePath = "";
 
-            int readStride, iStride;
-
-            WriteShaders(vertexShader, fragmentShader, vsModule, fsModule, compileOptions, out namePath, out readStride, out iStride);
-            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, false);
+            bool skipcompile = !WriteShaders(vertexShader, fragmentShader, vsModule, fsModule, compileOptions, out namePath);
+            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, skipcompile);
 
             return true;
         }
@@ -1696,26 +1605,25 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             int vFieldC = 0;
             int fFieldC = 0;
 
-            for (int i = 0; i < vs.shaderFields.Length; i++)
+            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
             {
-                if (vs.shaderFields[i].dataMode == DataMode.In) continue;
                 int count = 0;
                 fFieldC = 0;
 
-                for (int j = 0; j < fs.shaderFields.Length; j++)
+                for (int j = 0; j < fs.shaderFieldIns.Length; j++)
                 {
-                    if (fs.shaderFields[j].dataMode == DataMode.Out) continue;
                     fFieldC++;
-                    if (vs.shaderFields[i].name == fs.shaderFields[j].name){
+                    if (vs.shaderFieldOuts[i].name == fs.shaderFieldIns[j].name)
+                    {
                         count++;
-                        if (vs.shaderFields[i].GetSize() != fs.shaderFields[j].GetSize())
-                            throw new Exception("The vs OUT \"" + vs.shaderFields[i].name + "\" is not the same size as the FS out");
+                        if (vs.shaderFieldOuts[i].GetSize() != fs.shaderFieldIns[j].GetSize())
+                            throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" is not the same size as the FS in!");
                     }
                 }
 
                 vFieldC++;
-                if (count == 0) throw new Exception("The vs OUT \"" + vs.shaderFields[i].name + "\" does not exist in the fs!");
-                if (count > 1) throw new Exception("The vs OUT \"" + vs.shaderFields[i].name + "\" exists multiple times in the fs!");
+                if (count == 0) throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" does not exist in the fs!");
+                if (count > 1) throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" exists multiple times in the fs!");
             }
 
             if (vFieldC != fFieldC) throw new Exception("There seems to me a mismatch in the attribute count between the vs and fs!");
@@ -1723,25 +1631,34 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
 
         static void CheckForNonFloats(ShaderParser vs)
         {
-            for (int i = 0; i < vs.shaderFields.Length; i++)
+            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
             {
-                DataType d = vs.shaderFields[i].dataType;
+                DataType d = vs.shaderFieldOuts[i].dataType;
 
                 if (!(d == DataType.vec2 || d == DataType.vec3))
                     throw new Exception("The vertex shader can only work with floating point types!");
             }
+
+            for (int i = 0; i < vs.shaderFieldIns.Length; i++)
+            {
+                DataType d = vs.shaderFieldIns[i].dataType;
+
+                if (!(d == DataType.vec2 || d == DataType.vec3))
+                    throw new Exception("The vertex shader can only work with floating point types!");
+            }
+
         }
 
-        static void WriteShaders(string filePath1, string filePath2, ShaderParser vs, ShaderParser fs, CompileOption[] cOps, out string wPath, out int readS, out int intS)
+        static bool WriteShaders(string filePath1, string filePath2, ShaderParser vs, ShaderParser fs, CompileOption[] cOps, out string wPath)
         {
             string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
             wPath = ext;
 
-            ShaderField[] vsIn, vsOut, fsIn, fsOut;
-            PrepVSData(vs, out vsIn, out vsOut, out readS, out intS);
-            PrepFSData(fs, out fsIn, out fsOut);
-
-            intS /= 4; readS /= 4;
+            ShaderField[] vsIn = vs.shaderFieldIns, vsOut = vs.shaderFieldOuts;
+            ShaderField[] fsIn = fs.shaderFieldIns, fsOut = fs.shaderFieldOuts;
+            
+            int intS = vs.internalStride / 4;
+            int readS = vs.readStride / 4;
             intS += 3;
 
             bool forceC = cOps.Contains(CompileOption.ForceRecompile);
@@ -1769,7 +1686,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             if (File.Exists(foldername + @"\" + filePath2))
             {
                 if (File.ReadLines(filePath2).SequenceEqual(File.ReadLines(foldername + @"\" + filePath2)) && prevFile)
-                    return;
+                    return false;
 
                 File.Delete(foldername + @"\" + filePath2);
             }
@@ -1796,10 +1713,10 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             string shaderCode = "", entryCode = "";
 
             entryCode += "//Autogenerated by XFParser\n\n";
-            entryCode += "#include \"stdafx.h\"\n#include <malloc.h>\n#include \"xfcore.h\"\n#include \"" + 
+            entryCode += "#include <malloc.h>\n#include \"xfcore.cpp\"\n#include \"" + 
                 wPath + "_header.h\"\n#include <math.h>\n#include <ppl.h>\nusing namespace Concurrency;\n";
 
-            entryCode += "\n#define RETURN_VALUE\n";
+            entryCode += "\n#define RETURN_VALUE\n#define RtlZeroMemory frtlzeromem\n";
 
             string structDeclrs = "";
 
@@ -1817,13 +1734,13 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
 
             entryCode += structDeclrs + "\n";
 
-            entryCode += WriteMethods(vs.shaderMethods, vs.shaderFields, vs.shaderUniforms);
+            entryCode += WriteMethods(vs.shaderMethods, vsOut, vsIn, vs.shaderUniforms);
 
             entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
             entryCode += sign1 + "{\n" + WriteExecMethod(fs, true) + "\n}\n\n";
 
 
-            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uniformData, unsigned char** ptrPtrs, GLMatrix projData, int FACE_CULL, int isWireFrame){\n";
+            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uniformData, unsigned char** ptrPtrs, GLData projData, int FACE_CULL, int isWireFrame){\n";
             shaderCode += "const int stride = " + intS + ";\n";
             shaderCode += "const int readStride = " + readS + ";\n";
             shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
@@ -1876,21 +1793,22 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             File.WriteAllText(foldername + @"\" + wPath + "_merged.cpp", shaderCode);
             File.WriteAllText(foldername + @"\" + wPath + "_header.h", HeaderFile);
 
-            File.WriteAllText(foldername + @"\xfcore.h", ClipCodeHeader);
+            File.WriteAllText(foldername + @"\xfcore.cpp", ClipCodeSource);
 
-            Console.WriteLine("");
+            return true;
         }
 
-        static void PrepVSData(ShaderParser data, out ShaderField[] vsIn, out ShaderField[] vsOut, out int readS, out int iS)
+        static void PrepVSData(ShaderField[] shaderFields, out ShaderField[] vsIn, out ShaderField[] vsOut, out int readS, out int iS)
         {
             int count = 0;
 
             List<ShaderField> vsI = new List<ShaderField>();
             List<ShaderField> vsO = new List<ShaderField>();
 
-            for (int i = 0; i < data.shaderFields.Length; i++){
-                if (data.shaderFields[i].dataMode == DataMode.In) vsI.Add(data.shaderFields[i]);
-                else if (data.shaderFields[i].dataMode == DataMode.Out) vsO.Add(data.shaderFields[i]);
+            for (int i = 0; i < shaderFields.Length; i++)
+            {
+                if (shaderFields[i].dataMode == DataMode.In) vsI.Add(shaderFields[i]);
+                else if (shaderFields[i].dataMode == DataMode.Out) vsO.Add(shaderFields[i]);
                 else throw new Exception("An error occured (9582)");
             }
 
@@ -1900,8 +1818,10 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             if (!(count == 0 || count == vsI.Count))
                 throw new Exception("VS layout not set correctly!");
 
-            if (count != 0){
-                vsI.Sort(delegate(ShaderField x, ShaderField y) {
+            if (count != 0)
+            {
+                vsI.Sort(delegate(ShaderField x, ShaderField y)
+                {
                     return x.layoutValueGL.CompareTo(y.layoutValueGL);
                 });
             }
@@ -1928,17 +1848,17 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             vsOut = vsO.ToArray();
         }
 
-        static void PrepFSData(ShaderParser data, out ShaderField[] fsIn, out ShaderField[] fsOut)
+        static void PrepFSData(ShaderField[] shaderFields, out ShaderField[] fsIn, out ShaderField[] fsOut)
         {
             int count = 0;
 
             List<ShaderField> fsI = new List<ShaderField>();
             List<ShaderField> fsO = new List<ShaderField>();
 
-            for (int i = 0; i < data.shaderFields.Length; i++)
+            for (int i = 0; i < shaderFields.Length; i++)
             {
-                if (data.shaderFields[i].dataMode == DataMode.In) fsI.Add(data.shaderFields[i]);
-                else if (data.shaderFields[i].dataMode == DataMode.Out) fsO.Add(data.shaderFields[i]);
+                if (shaderFields[i].dataMode == DataMode.In) fsI.Add(shaderFields[i]);
+                else if (shaderFields[i].dataMode == DataMode.Out) fsO.Add(shaderFields[i]);
                 else throw new Exception("An error occured (9582)");
             }
 
@@ -1966,14 +1886,21 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             fsOut = fsO.ToArray();
         }
 
+
         static string WriteExecMethod(ShaderParser data, bool wrapGLPos = false)
         {
             string mainCode = Regex.Replace(data.shaderMethods[data.shaderMethods.Length - 1].contents, ";", ";\n\t");
             mainCode = Regex.Replace(mainCode, "{", "{\n\t");
             mainCode = "\t" + Regex.Replace(mainCode, "}", "}\n\t");
 
-            for (int i = 0; i < data.shaderFields.Length; i++)
-                mainCode = WrapVariablePointer(mainCode, data.shaderFields[i].name);
+            for (int i = 0; i < data.shaderFieldIns.Length; i++)
+                mainCode = WrapVariablePointer(mainCode, data.shaderFieldIns[i].name);
+
+            for (int i = 0; i < data.shaderFieldOuts.Length; i++)
+                mainCode = WrapVariablePointer(mainCode, data.shaderFieldOuts[i].name);
+
+
+
 
             if (wrapGLPos)
                 mainCode = WrapVariablePointer(mainCode, "gl_Position");
@@ -2105,9 +2032,10 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             string mainCode = data.shaderMethods[data.shaderMethods.Length - 1].contents;
             string structDeclrs = "";
 
+            ShaderField[] inoutFields = data.shaderFieldIns.Concat(data.shaderFieldOuts).ToArray();
+
             ShaderField[] uniforms = data.shaderUniforms;
-            ShaderField[] inoutFields = data.shaderFields;
-            string methods = WriteMethods(data.shaderMethods, inoutFields, uniforms);
+            string methods = WriteMethods(data.shaderMethods, data.shaderFieldOuts, data.shaderFieldIns, uniforms);
 
             for (int i = 0; i < uniforms.Length; i++)
             {
@@ -2200,7 +2128,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             return true;
         }
 
-        static string WriteMethods(ShaderMethod[] methods, ShaderField[] inoutFields, ShaderField[] uniforms)
+        static string WriteMethods(ShaderMethod[] methods, ShaderField[] outFields, ShaderField[] inFields, ShaderField[] uniforms)
         {
             string signatures = "";
             string output = "";
@@ -2216,9 +2144,15 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
                         throw new Exception("XFDraw Parser does not support having uniforms inside other methods. Please copy them manually!");
                 }
 
-                for (int o = 0; o < inoutFields.Length; o++)
+                for (int o = 0; o < outFields.Length; o++)
                 {
-                    if (ContainsName(methods[i].contents, inoutFields[o].name))
+                    if (ContainsName(methods[i].contents, outFields[o].name))
+                        throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
+                }
+
+                for (int o = 0; o < inFields.Length; o++)
+                {
+                    if (ContainsName(methods[i].contents, inFields[o].name))
                         throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
                 }
 
