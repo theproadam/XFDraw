@@ -1,17 +1,19 @@
 ﻿//version 330 Core
 layout (location = 0) in vec3 pos;
-layout (location = 1) in vec3 norm;
+layout (location = 1) in vec2 uv;
 
-out vec3 FragPos;
-out vec3 Normal;
+//uniform mat3 transform; //projection is done internally
+out vec2 uv_data;
+out vec3 some_data;
 
-uniform mat4 transform; //projection is done internally
+uniform vec3 cameraPos;
+uniform mat3 cameraRot;
 
 void main()
 {
-	FragPos = pos;
-	gl_Position = vec3(transform * vec4(pos, 1.0f));
-	Normal = norm;
+	gl_Position = cameraRot * (pos * 50.0f - cameraPos);
+	uv_data = uv;
+	some_data = vec3(0, 0, 0);
 }
 //todo add inverse and transpose!
 

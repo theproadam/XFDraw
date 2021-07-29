@@ -47,13 +47,11 @@ namespace XFDemo
         static Bitmap frameData = new Bitmap(400, 300);
 
         static GLBuffer cubeBuffer;
-        static Matrix4x4 transformMatrix;
+        static Matrix3x3 transformMatrix;
         static Shader basicShader;
         static GLMatrix projMatrix;
 
         #endregion
-
-
 
         static void Main(string[] args)
         {
@@ -71,6 +69,7 @@ namespace XFDemo
 
             cubeBuffer = GLPrimitives.Cube;
 
+
             RT = new RenderThread(144);
             RT.RenderFrame += RT_RenderFrame;
 
@@ -81,19 +80,22 @@ namespace XFDemo
             Console.Write("Initializing XFCore -> "); GL.Initialize(); Console.WriteLine("Success");
 
             //Prep the vignette buffer->
-            vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
-            vignetteBuffer.Clear();
+         //   vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
+         //   vignetteBuffer.Clear();
 
-            vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
-            vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
-            vignetteShader.Pass();
+          //  vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
+         ////   vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
+         //   vignetteShader.Pass();
 
+          //  colorShift.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
+          //  colorShift.AssignBuffer("color", colorBuffer);
+         //   colorShift.Pass();
 
-            colorShift.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
-            colorShift.AssignBuffer("color", colorBuffer);
-            colorShift.Pass();
-
+            basicShader.AssignBuffer("FragColor", colorBuffer);
             projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
+
+            Shader spare = basicShader.DuplicateShader();
+
 
             RT.Start();
             Application.Run(renderForm);
@@ -110,23 +112,20 @@ namespace XFDemo
             deltaT = (float)deltaTime.Elapsed.TotalMilliseconds;
             deltaTime.Restart();
 
-            transformMatrix = inputManager.CreateCameraMatrix();
+            transformMatrix = inputManager.CreateCameraRotationMatrix();
+
+            basicShader.SetValue("cameraRot", transformMatrix);
+            basicShader.SetValue("cameraPos", inputManager.cameraPosition);
 
             ComputeColor();
 
-       //     GL.Clear(colorBuffer, clearColor);
-       //     GL.Clear(depthBuffer);
-
+            GL.Clear(colorBuffer, clearColor);
+            GL.Clear(depthBuffer);
 
             sw.Start();
-         //   vignetteShader.Pass();
-          //  GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
-
-         //   GLDebug.DrawWireframe(cubeBuffer, colorBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
-//
-            //GL.Draw()
 
             GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
+           
 
             sw.Stop();
 
@@ -143,7 +142,7 @@ namespace XFDemo
         static void ReadyShaders()
         {
           //  vignetteShader = CompileShader("vignetteShader.cpp");
-         //   colorShift = CompileShader("simpleShader.cpp");
+          //  colorShift = CompileShader("simpleShader.cpp");
             basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp");
             
 
@@ -179,7 +178,7 @@ namespace XFDemo
         {
             ShaderCompile sModule;
             Console.Write("Parsing Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
-            if (!ShaderParser.Parse(vsShaderName, fsShaderName, out sModule))
+            if (!ShaderParser.Parse(vsShaderName, fsShaderName, out sModule, CompileOption.ForceRecompile))
             {
                 Console.WriteLine("Failed to parse Shader!");
                 Console.ReadLine();
@@ -187,9 +186,9 @@ namespace XFDemo
             }
             Console.WriteLine("Success!");
 
-            //throw new Exception("check parse level!");
+         //   ShaderCompile.COMMAND_LINE = "";
 
-            ShaderCompile.COMMAND_LINE = "";
+            //throw new Exception();
 
             Shader outputShader;
           
@@ -456,9 +455,9 @@ namespace XFDemo
             }
         }
 
-        public Matrix4x4 CreateCameraMatrix()
+        public Matrix3x3 CreateCameraRotationMatrix()
         {
-            return Matrix4x4.TranslationMatrix(cameraPosition) * Matrix4x4.RotationMatrix(cameraRotation);
+            return Matrix3x3.RollMatrix(-cameraRotation.y) * Matrix3x3.PitchMatrix(-cameraRotation.z);
         }
     }
 }

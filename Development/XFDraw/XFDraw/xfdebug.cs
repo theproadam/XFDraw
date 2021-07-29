@@ -63,8 +63,8 @@ namespace xfcore.Debug
 
                 WireframeDebug((int*)target.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS, &PC, &TC);
 
-                Interlocked.Add(ref GLInfo.pixelCount, PC);
-                Interlocked.Add(ref GLInfo.triangleCount, TC);
+              //  Interlocked.Add(ref GLInfo.pixelCount, PC);
+              //  Interlocked.Add(ref GLInfo.triangleCount, TC);
 
             }
 
@@ -110,8 +110,8 @@ namespace xfcore.Debug
                 //         FillFlatDebug2((int*)target.HEAP_ptr, (float*)depth.HEAP_ptr, (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS);
 
 
-                Interlocked.Add(ref GLInfo.pixelCount, PC);
-                Interlocked.Add(ref GLInfo.triangleCount, TC);
+              //  Interlocked.Add(ref GLInfo.pixelCount, PC);
+              //  Interlocked.Add(ref GLInfo.triangleCount, TC);
 
             }
 
@@ -213,7 +213,7 @@ namespace xfcore.Debug
         #region Debuggable
         static void FillFlatDebug2(int* iptr, float* dptr, float* p, int count, int stride, int iColor, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig)
         {
-            float M_PI = 3.14159265358f;
+            const float M_PI = 3.14159265358f;
 
             float radsFOV = rconfig.degFOV * M_PI / 180.0f;
 

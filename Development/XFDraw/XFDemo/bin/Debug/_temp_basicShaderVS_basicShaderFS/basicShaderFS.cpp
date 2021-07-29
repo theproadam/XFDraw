@@ -1,30 +1,15 @@
 ﻿//version 330 Core
 out byte4 FragColor;
 
-in vec3 FragPos;
-in vec3 Normal;
+in vec3 some_data;
+in vec2 uv_data;
 
-struct Material {
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
-	float shininess;
-};
-
-struct Light {
-	vec3 position;
-
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
-};
-
-uniform vec3 viewPos;
-uniform Material material;
-uniform Light light;
 
 void main()
 {
-	vec3 result = vec3(0.5f, 0.5f, 0.5);
-	FragColor = byte4(result.x * 255, result.y * 255, result.z * 255);
+	//vec3 result = vec3(0.5f, 0.5f, 0.5);
+//	FragColor = byte4(result.x * 255, result.y * 255, result.z * 255);
+
+	FragColor = byte4(uv_data.x * 255, uv_data.y * 255, 0);
+
 }

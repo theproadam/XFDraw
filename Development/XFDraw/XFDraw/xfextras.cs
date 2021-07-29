@@ -440,6 +440,42 @@ namespace xfcore.Extras
             }
         }
 
+        public Matrix4x4(bool makeIdentityMatrix)
+        {
+            fixed (Matrix4x4* mat4 = &this)
+            {
+                //tell the compiler to screw off
+            }
+
+            if (makeIdentityMatrix)
+                this.SetIdentityMatrix();
+            else
+                this.SetZeroMatrix();
+        }
+
+        public Matrix4x4(Matrix3x3 mat3)
+        {
+            X0Y0 = mat3.X0Y0;
+            X1Y0 = mat3.X1Y0;
+            X2Y0 = mat3.X2Y0;
+            X3Y0 = 0;
+
+            X0Y1 = mat3.X0Y1;
+            X1Y1 = mat3.X1Y1;
+            X2Y1 = mat3.X2Y1;
+            X3Y1 = 0;
+
+            X0Y2 = mat3.X0Y2;
+            X1Y2 = mat3.X1Y2;
+            X2Y2 = mat3.X2Y2;
+            X3Y2 = 0;
+
+            X0Y3 = 0;
+            X1Y3 = 0;
+            X2Y3 = 0;
+            X3Y3 = 1;
+        }
+
         /// <summary>
         /// Create Camera Rotation where EulerAngles are yaw (z axis) * pitch (y axis) * roll (x axis)
         /// </summary>
@@ -488,6 +524,7 @@ namespace xfcore.Extras
             result.X3Y0 = Position.x;
             result.X3Y1 = Position.y;
             result.X3Y2 = Position.z;
+            result.X3Y3 = 1;
 
             return result;
         }
@@ -654,6 +691,78 @@ namespace xfcore.Extras
             result.X0Y2 = -sinb;
             result.X1Y2 = cosb * siny;
             result.X2Y2 = cosb * cosy;
+
+            return result;
+        }
+
+        public static Matrix3x3 YawMatrix(float zAxisEulerAngle)
+        {
+            Matrix3x3 result = new Matrix3x3();
+
+            const float deg2rad = (float)(Math.PI / 180d);
+
+            float cosa = (float)Math.Cos(deg2rad * zAxisEulerAngle);
+            float sina = (float)Math.Sin(deg2rad * zAxisEulerAngle);
+
+            result.X0Y0 = cosa;
+            result.X1Y0 = -sina;
+            result.X2Y0 = 0;
+
+            result.X0Y1 = sina;
+            result.X1Y1 = cosa;
+            result.X2Y1 = 0;
+
+            result.X0Y2 = 0;
+            result.X1Y2 = 0;
+            result.X2Y2 = 1;
+
+            return result;  
+        }
+
+        public static Matrix3x3 PitchMatrix(float yAxisEulerAngle)
+        {
+            Matrix3x3 result = new Matrix3x3();
+
+            const float deg2rad = (float)(Math.PI / 180d);
+
+            float cosb = (float)Math.Cos(deg2rad * yAxisEulerAngle);
+            float sinb = (float)Math.Sin(deg2rad * yAxisEulerAngle);
+
+            result.X0Y0 = cosb;
+            result.X1Y0 = 0;
+            result.X2Y0 = sinb;
+
+            result.X0Y1 = 0;
+            result.X1Y1 = 1;
+            result.X2Y1 = 0;
+
+            result.X0Y2 = -sinb;
+            result.X1Y2 = 0;
+            result.X2Y2 = cosb;
+
+            return result;
+        }
+
+        public static Matrix3x3 RollMatrix(float xAxisEulerAngle)
+        {
+            Matrix3x3 result = new Matrix3x3();
+
+            const float deg2rad = (float)(Math.PI / 180d);
+
+            float cosy = (float)Math.Cos(deg2rad * xAxisEulerAngle);
+            float siny = (float)Math.Sin(deg2rad * xAxisEulerAngle);
+
+            result.X0Y0 = 1;
+            result.X1Y0 = 0;
+            result.X2Y0 = 0;
+
+            result.X0Y1 = 0;
+            result.X1Y1 = cosy;
+            result.X2Y1 = -siny;
+
+            result.X0Y2 = 0;
+            result.X1Y2 = siny;
+            result.X2Y2 = cosy;
 
             return result;
         }

@@ -36,7 +36,7 @@ struct vec3
 
 	vec3 operator-(const vec3& a) const
 	{
-		return vec3(a.x - x, a.y - y, a.z - z);
+		return vec3(x - a.x, y - a.y, z - a.z);
 	}
 
 	vec3 operator*(const float& a) const
@@ -179,6 +179,34 @@ struct mat3
 	float X1Y2;
 	float X2Y2;
 
+    vec3 operator*(const vec3& B) const
+	{
+		vec3 result;
+		result.x = X0Y0 * B.x + X1Y0 * B.y + X2Y0 * B.z;
+		result.y = X0Y1 * B.x + X1Y1 * B.y + X2Y1 * B.z;
+		result.z = X0Y2 * B.x + X1Y2 * B.y + X2Y2 * B.z;
+
+		return result;
+	}
+
+	mat3 operator*(const mat3& B) const
+	{
+		mat3 result = mat3();
+
+		result.X0Y0 = X0Y0 * B.X0Y0 + X1Y0 * B.X0Y1 + X2Y0 * B.X0Y2;
+		result.X1Y0 = X0Y0 * B.X1Y0 + X1Y0 * B.X1Y1 + X2Y0 * B.X1Y2;
+		result.X2Y0 = X0Y0 * B.X2Y0 + X1Y0 * B.X2Y1 + X2Y0 * B.X2Y2;
+
+		result.X0Y1 = X0Y1 * B.X0Y0 + X1Y1 * B.X0Y1 + X2Y1 * B.X0Y2;
+		result.X1Y1 = X0Y1 * B.X1Y0 + X1Y1 * B.X1Y1 + X2Y1 * B.X1Y2;
+		result.X2Y1 = X0Y1 * B.X2Y0 + X1Y1 * B.X2Y1 + X2Y1 * B.X2Y2;
+
+		result.X0Y2 = X0Y2 * B.X0Y0 + X1Y2 * B.X0Y1 + X2Y2 * B.X0Y2;
+		result.X1Y2 = X0Y2 * B.X1Y0 + X1Y2 * B.X1Y1 + X2Y2 * B.X1Y2;
+		result.X2Y2 = X0Y2 * B.X2Y0 + X1Y2 * B.X2Y1 + X2Y2 * B.X2Y2;
+
+		return result;
+	}
 
 };
 

@@ -343,8 +343,6 @@ namespace xfcore.Buffers
             }
         }
 
-
-
         public GLBuffer(int size, int Stride = 3)
         {
             if (size <= 0) throw new Exception("Size must be bigger than zero!");
@@ -382,6 +380,8 @@ namespace xfcore.Buffers
 
         public void Resize(int size, int newStride = 3)
         {
+            throw new Exception("not safe!");
+
             lock (ThreadLock)
             {
                 Interlocked.Add(ref Buffer_RAM_Usage, -size);

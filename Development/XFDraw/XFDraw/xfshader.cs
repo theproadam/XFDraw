@@ -26,10 +26,12 @@ namespace xfcore.Shaders
         delegate void ShdrScrnCallDel(int Width, int Height, byte** ptrPtrs, void* UniformPointer);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, char* uData, byte** ptrPtrs, GLData pData, int FACE, long mode);
+        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, byte* uData1, byte* uData2, byte** ptrPtrs, GLData pData, int FACE, int mode);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate int SafetyChkDel();
+
+        int hModule;
 
         ShdrScrnCallDel ShaderCallScreen;
         internal ShdrCallDel ShaderCall;
@@ -52,7 +54,7 @@ namespace xfcore.Shaders
         internal int readStride;
         internal int intStride;
 
-        bool isScreenSpace = false;
+        internal bool isScreenSpace = false;
 
         internal object ThreadLock = new object();
 
@@ -67,7 +69,7 @@ namespace xfcore.Shaders
             if (!File.Exists(shaderDLL))
                 throw new FileNotFoundException("File not found!");
 
-            int hModule = LoadLibrary(shaderDLL);
+            hModule = LoadLibrary(shaderDLL);
             if (hModule == 0) throw new Exception("Could not load shader: hModule from LoadLibrary() is zero!");
 
             IntPtr SafetyCheckTrigger = GetProcAddress(hModule, "CheckSize");
@@ -99,20 +101,20 @@ namespace xfcore.Shaders
             uniformFS = shaderData.PrepareUniformsFS(out sizeValue);
             uniformBytesFS = new byte[sizeValue];
 
-            uniformVS = shaderData.PrepareUniformsVS(out sizeValue);
-            uniformBytesVS = new byte[sizeValue];
+            if (!isScreenSpace)
+            {
+                uniformVS = shaderData.PrepareUniformsVS(out sizeValue);
+                uniformBytesVS = new byte[sizeValue];
 
-            //fieldFSIn = 
+                fieldVSIn = shaderData.sFieldsInVS;
+                fieldVSOut = shaderData.sFieldsOutVS;
 
+                readStride = shaderData.readStride;
+                intStride = shaderData.inteStride;
+            }
 
             fieldFSIn = shaderData.sFieldsInFS;
             fieldFSOut = shaderData.sFieldsOutFS;
-
-            fieldVSIn = shaderData.sFieldsInVS;
-            fieldVSOut = shaderData.sFieldsOutVS;
-
-            readStride = shaderData.readStride;
-            intStride = shaderData.inteStride;
 
             if (isScreenSpace)
                 textureSlots = new GLTexture[fieldFSIn.Length + fieldFSOut.Length];
@@ -136,6 +138,7 @@ namespace xfcore.Shaders
                 
             }
 
+            if (!isScreenSpace)
             for (int i = 0; i < uniformVS.Length; i++)
             {
                 if (uniformVS[i].name == uniformName)
@@ -232,6 +235,9 @@ namespace xfcore.Shaders
 
         public void Pass()
         {
+            if (!isScreenSpace)
+                throw new Exception("Pass() can only be used with screenspace shaders!");
+
             //Prevent a user from triggering the shader in a multithread environment
             lock (ThreadLock)
             {
@@ -288,9 +294,14 @@ namespace xfcore.Shaders
             return uniformBytesFS;
         }
 
+        public void FreeLibrary()
+        {
+            FreeLibrary(hModule);
+        }
+
         public Shader DuplicateShader()
         {
-            return null;
+            throw new Exception();
         }
     }
 
@@ -330,6 +341,10 @@ namespace xfcore.Shaders
             if (proj.ZFar <= 0) throw new Exception("Invalid ZFar");
             if (proj.ZNear >= proj.ZFar) throw new Exception("Invalid ZNear ZFar");
 
+            const float deg2rad = (float)(Math.PI / 180d);
+
+            matrixlerpv = proj.iValue;
+
             nearZ = proj.ZNear;
             farZ = proj.ZFar;
 
@@ -339,9 +354,22 @@ namespace xfcore.Shaders
             rw = ((float)rWidth - 1f) / 2f;
             rh = ((float)rHeight - 1f) / 2f;
 
+            tanVert = (float)Math.Tan(deg2rad * proj.vFOV / 2.0f) * (1.0f - proj.iValue);
+            tanHorz = (float)Math.Tan(deg2rad * proj.hFOV / 2.0f) * (1.0f - proj.iValue);
+
+            fw = rw / (float)Math.Tan(deg2rad * proj.vFOV / 2.0f);
+            fh = rh / (float)Math.Tan(deg2rad * proj.hFOV / 2.0f);
+
+            ow = proj.vSize * proj.iValue;
+            oh = proj.hSize * proj.iValue;
+
+            ox = rw / (proj.vSize == 0 ? 1 : proj.vSize);
+            oy = rh / (proj.hSize == 0 ? 1 : proj.hSize);
 
             iox = 1f / ox;
             ioy = 1f / oy;
+
+            oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
             
         }
     }

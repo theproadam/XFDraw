@@ -11,11 +11,12 @@ using xfcore.Shaders;
 
 namespace xfcore.Shaders.Builder
 {
+    [Serializable]
     public class ShaderCompile
     {
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
-        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Zc:forScope /Oi /MD -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot";
+        public static string COMMAND_LINE = "/openmp /nologo /GS /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot"; //GL hang?
 
         internal ShaderField[] sFieldsInVS;
         internal ShaderField[] sFieldsOutVS;
@@ -45,6 +46,9 @@ namespace xfcore.Shaders.Builder
                 sUniformsVS = VS.shaderUniforms;
                 sMethodsVS = VS.shaderMethods;
                 sStructsVS = VS.shaderStructs;
+
+                readStride = VS.readStride / 4;
+                inteStride = VS.internalStride / 4;
             }
 
             sFieldsInFS = FS.shaderFieldIns;
@@ -53,8 +57,7 @@ namespace xfcore.Shaders.Builder
             sMethodsFS = FS.shaderMethods;
             sStructsFS = FS.shaderStructs;
 
-            readStride = VS.readStride / 4;
-            inteStride = VS.internalStride / 4;
+           
 
             isScreenSpace = isScreen;
             shaderName = sName;
@@ -169,7 +172,8 @@ namespace xfcore.Shaders.Builder
 
     }
 
-    public class ShaderParser
+    [Serializable]
+    public partial class ShaderParser
     {
         internal ShaderField[] shaderFieldOuts;
         internal ShaderField[] shaderFieldIns;
@@ -180,9 +184,658 @@ namespace xfcore.Shaders.Builder
         internal int internalStride;
         internal int readStride;
 
+        ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
+        {
+            PrepVSData(f, out shaderFieldIns, out shaderFieldOuts, out readStride, out internalStride);
+
+            shaderUniforms = u;
+            shaderMethods = m;
+            shaderStructs = s;
+        }
+
+        public static bool Parse(string vertexShader, string fragmentShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
+        {
+            if (!File.Exists(vertexShader) || !File.Exists(fragmentShader))
+                throw new FileNotFoundException();
+
+            string[] analyzeVS = File.ReadAllLines(vertexShader);
+            string VSReady = PrepareInput(analyzeVS);
+            ShaderParser vsModule = Parse(VSReady);
+
+            string[] analyzeFS = File.ReadAllLines(fragmentShader);
+            string FSReady = PrepareInput(analyzeFS);
+            ShaderParser fsModule = Parse(FSReady);
+
+            CheckForNonFloats(vsModule); //Check is done automatically during linkage checking
+            CheckVSFSLinkage(vsModule, fsModule);
+            
+            string namePath = "";
+
+            bool skipcompile = !WriteShaders(vertexShader, fragmentShader, vsModule, fsModule, compileOptions, out namePath);
+            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, skipcompile);
+
+            return true;
+        }
+
+        public static bool Parse(string screenspaceShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
+        {
+            if (!File.Exists(screenspaceShader))
+                throw new FileNotFoundException();
+
+            string[] analyzeS = File.ReadAllLines(screenspaceShader);
+            string SReady = PrepareInput(analyzeS);
+            ShaderParser sModule = Parse(SReady);
+
+            string shaderName = "";
+
+            bool skipcompile = !WriteShader(screenspaceShader, sModule, compileOptions, out shaderName);
+            shaderModule = new ShaderCompile(null, sModule, true, shaderName, skipcompile);
+
+            return true;
+        }
+
+        public static string PrepareInput(string[] str)
+        {
+            str = RemoveComments(str);
+            string s = FlattenString(str);
+            return RemoveBlockComments(s);
+        }
+
+        static void CheckVSFSLinkage(ShaderParser vs, ShaderParser fs)
+        {
+            int vFieldC = 0;
+            int fFieldC = 0;
+
+            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
+            {
+                int count = 0;
+                fFieldC = 0;
+
+                for (int j = 0; j < fs.shaderFieldIns.Length; j++)
+                {
+                    fFieldC++;
+                    if (vs.shaderFieldOuts[i].name == fs.shaderFieldIns[j].name)
+                    {
+                        count++;
+                        if (vs.shaderFieldOuts[i].GetSize() != fs.shaderFieldIns[j].GetSize())
+                            throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" is not the same size as the FS in!");
+                    }
+                }
+
+                vFieldC++;
+                if (count == 0) throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" does not exist in the fs!");
+                if (count > 1) throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" exists multiple times in the fs!");
+            }
+
+            if (vFieldC != fFieldC) throw new Exception("There seems to me a mismatch in the attribute count between the vs and fs!");
+
+            ShaderField[] reOrgData = new ShaderField[fs.shaderFieldIns.Length];
+
+            if (vs.shaderFieldOuts.Length != fs.shaderFieldIns.Length)
+                throw new Exception("A vs OUT and fs IN mismatched occured, but the previous test passed. Please report This!");
+
+            //technically this loop should have been integrated earlier
+            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
+            {
+                for (int j = 0; j < fs.shaderFieldIns.Length; j++)
+                {
+                    if (vs.shaderFieldOuts[i].name == fs.shaderFieldIns[j].name)
+                    {
+                        reOrgData[i] = fs.shaderFieldIns[j];
+                    }
+                }
+            }
+
+            fs.shaderFieldIns = reOrgData;
+
+            int offset = 0;
+            for (int i = 0; i < fs.shaderFieldIns.Length; i++)
+            {
+                fs.shaderFieldIns[i].layoutPosition = offset;
+                offset += fs.shaderFieldIns[i].GetSize();
+            }
+
+        }
+
+        static void CheckForNonFloats(ShaderParser vs)
+        {
+            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
+            {
+                DataType d = vs.shaderFieldOuts[i].dataType;
+
+                if (!(d == DataType.vec2 || d == DataType.vec3))
+                    throw new Exception("The vertex shader can only work with floating point types!");
+            }
+
+            for (int i = 0; i < vs.shaderFieldIns.Length; i++)
+            {
+                DataType d = vs.shaderFieldIns[i].dataType;
+
+                if (!(d == DataType.vec2 || d == DataType.vec3))
+                    throw new Exception("The vertex shader in's only work with Vector3 types! (vec3)");
+            }
+
+        }
+
+
+        static bool WriteShaders(string filePath1, string filePath2, ShaderParser vs, ShaderParser fs, CompileOption[] cOps, out string wPath)
+        {
+            string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
+            wPath = ext;
+
+            ShaderField[] vsIn = vs.shaderFieldIns, vsOut = vs.shaderFieldOuts;
+            ShaderField[] fsIn = fs.shaderFieldIns, fsOut = fs.shaderFieldOuts;
+            
+            int intS = vs.internalStride / 4;
+            int readS = vs.readStride / 4;
+            intS += 3;
+
+            bool forceC = cOps.Contains(CompileOption.ForceRecompile);
+
+            string foldername = "_temp_" + ext;
+            //realPath = foldername;
+
+            #region Foldering
+
+            if (!Directory.Exists(foldername))
+                Directory.CreateDirectory(foldername);
+
+            bool prevFile = false;
+
+            if (File.Exists(foldername + @"\" + filePath1))
+            {
+                if (File.ReadLines(filePath1).SequenceEqual(File.ReadLines(foldername + @"\" + filePath1)) && !forceC)
+                    prevFile = true;
+                else
+                    File.Delete(foldername + @"\" + filePath1);
+            }
+
+            if (forceC) prevFile = false;
+
+            if (File.Exists(foldername + @"\" + filePath2))
+            {
+                if (File.ReadLines(filePath2).SequenceEqual(File.ReadLines(foldername + @"\" + filePath2)) && prevFile)
+                    return false;
+
+                File.Delete(foldername + @"\" + filePath2);
+            }
+
+            File.Copy(filePath1, foldername + @"\" + filePath1);
+            File.Copy(filePath2, foldername + @"\" + filePath2);
+
+            #endregion
+
+            if (!ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_Position"))
+                throw new Exception("The vertex shader needs the gl_Position vector3 set!");
+
+            if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
+            if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
+            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
+            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
+
+            string sign, exec;
+            WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
+
+            string sign1, exec1, ptrs1, ptrIncr;
+            WriteFSSign(fs, fsIn, fsOut, out sign1, out exec1, out ptrs1, out ptrIncr);
+
+            string shaderCode = "", entryCode = "";
+
+            entryCode += "//Autogenerated by XFParser\n\n";
+            entryCode += "#include <malloc.h>\n#include \"xfcore.cpp\"\n#include \"" + 
+                wPath + "_header.h\"\n#include <math.h>\n#include <ppl.h>\nusing namespace Concurrency;\n";
+
+            entryCode += "\n#define RETURN_VALUE\n#define RtlZeroMemory frtlzeromem\n";
+
+            string structDeclrs = "";
+
+            for (int i = 0; i < vs.shaderUniforms.Length; i++)
+            {
+                if (vs.shaderUniforms[i].dataType == DataType.Other)
+                    structDeclrs += "\nstruct " + vs.shaderUniforms[i].typeName + " {\n" + vs.shaderUniforms[i].typeAlt.data + "\n};\n";
+            }
+
+            for (int i = 0; i < fs.shaderUniforms.Length; i++)
+            {
+                if (fs.shaderUniforms[i].dataType == DataType.Other)
+                    structDeclrs += "\nstruct " + fs.shaderUniforms[i].typeName + " {\n" + fs.shaderUniforms[i].typeAlt.data + "\n};\n";
+            }
+
+            entryCode += structDeclrs + "\n";
+
+            entryCode += WriteMethods(vs.shaderMethods, vsOut, vsIn, vs.shaderUniforms);
+
+            entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
+            entryCode += sign1 + "{\n" + WriteExecMethod(fs, false) + "\n}\n\n";
+
+
+            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire){\n";
+            shaderCode += "const int stride = " + intS + ";\n";
+            shaderCode += "const int readStride = " + readS + ";\n";
+            shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
+
+            shaderCode += "float* VERTEX_DATA = (float*)alloca(stride * 3 * 4);\n";
+            shaderCode += "int BUFFER_SIZE = 3;\n";
+
+            shaderCode += "for (int b = 0; b < 3; ++b){\n\t";
+            shaderCode += "float* input = p + (index * faceStride + b * readStride);\n\t";
+            shaderCode += "float* output = VERTEX_DATA + b * stride;\n\t" + exec + "\n}\n\n";
+
+            shaderCode += "bool* AP = (bool*)alloca(BUFFER_SIZE + 12);\n";
+            shaderCode += "frtlzeromem(AP, BUFFER_SIZE);\n\n";
+
+            shaderCode = Regex.Replace(shaderCode, "\n", "\n\t");
+
+            
+
+            //Write ClippingCode ->
+            shaderCode += ClippingCode + "\n";
+            shaderCode += "\t" + Transforms + "\n";
+            shaderCode += "\t" + FaceCulling;
+            shaderCode += "\n\t" + ScanLineStart;
+            shaderCode += "\n\n\t\t\t" + "int wPos = renderWidth * i;\n" + "\t\t\t";
+            shaderCode += Regex.Replace(ptrs1, "\n", "\n\t") + "\n";
+
+            //Depth ->
+            shaderCode += "\t\t\t" + "Z_fptr = dptr + i * renderWidth;\n\t\t\tzBegin = slopeZ * (float)FromX + bZ;\n\n";
+
+            //DrawScanline
+            shaderCode += "\t\t\t" + "for (int o = FromX; o <= ToX; ++o " + "" + "){\n"; //ptrsIncrWarn
+
+            shaderCode += "\t\t\t\t" + @"float depth = (1.0f / zBegin);
+				s = projData.farZ - depth;
+				zBegin += slopeZ;
+
+				if (Z_fptr[o] > s) continue;
+				Z_fptr[o] = s;
+
+				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
+				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
+
+            shaderCode += "\n\n\t\t\t\t" + exec1 + "\n";
+            shaderCode += "\t\t\t}\n\t\t}\n\t}\n}";
+
+            shaderCode = entryCode + shaderCode;
+            shaderCode += "\n\n" + ParallelCode;
+
+            
+            File.WriteAllText(foldername + @"\" + wPath + "_merged.cpp", shaderCode);
+            File.WriteAllText(foldername + @"\" + wPath + "_header.h", HeaderFile);
+
+            File.WriteAllText(foldername + @"\xfcore.cpp", ClipCodeSource);
+
+            WriteSerializationBuffer(vs, fs);
+
+            return true;
+        }
+
+        static bool WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
+        {
+            string foldername = "_temp_" + filePath.Split('.')[0];
+
+            writtenPath = filePath.Split('.')[0];
+
+            if (!Directory.Exists(foldername))
+                Directory.CreateDirectory(foldername);
+
+            if (File.Exists(foldername + @"\" + filePath))
+            {
+                if (File.ReadLines(filePath).SequenceEqual(File.ReadLines(foldername + @"\" + filePath)) && !cOps.Contains(CompileOption.ForceRecompile))
+                    if (File.Exists(foldername + @"\" + writtenPath + "_merged.dll"))
+                        return false;        
+
+                File.Delete(foldername + @"\" + filePath);
+            }
+
+            File.Copy(filePath, foldername + @"\" + filePath);
+
+            List<string> ptrs = new List<string>();
+
+            string ptrsIncr = ""; //Pointers that are incremented
+            string methdSign = ""; //Method Signature for pointers
+
+            string methdSignUnifm = ""; //Method signature for uniforms
+
+            string indt = "\t\t", indt1 = "\t"; //indent level 1 & 2
+
+            string uFields = ""; //uniform field and data copying
+
+            string execSignPtr = ""; //inline void shaderMethod(float* INOUT)
+            string execSignUni = ""; //inline void shaderMethod(vec3 UNIFORM)
+
+            if (!data.shaderMethods[data.shaderMethods.Length - 1].isEntryPoint)
+                throw new Exception("No void main() shader entry point detected!");
+
+            string mainCode = data.shaderMethods[data.shaderMethods.Length - 1].contents;
+            string structDeclrs = "";
+
+            ShaderField[] inoutFields = data.shaderFieldIns.Concat(data.shaderFieldOuts).ToArray();
+
+            ShaderField[] uniforms = data.shaderUniforms;
+            string methods = WriteMethods(data.shaderMethods, data.shaderFieldOuts, data.shaderFieldIns, uniforms);
+
+            for (int i = 0; i < uniforms.Length; i++)
+            {
+                if (uniforms[i].dataType == DataType.Other)
+                    structDeclrs += "struct " + uniforms[i].typeName + " {\n" + uniforms[i].typeAlt.data + "\n};";
+
+                string type = uniforms[i].dataType != DataType.Other ? TypeToString(uniforms[i].dataType) : uniforms[i].typeName;
+                int size = uniforms[i].dataType != DataType.Other ? TypeToSize(uniforms[i].dataType) : uniforms[i].FieldSize;
+
+                if (size == -1) throw new Exception("A parsing error occured! (10512)");
+
+                uFields += indt1 + type + " uniform_" + i + ";\n";
+                uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", " + size + ");\n";
+
+                methdSignUnifm += "uniform_" + i + ", ";
+                execSignUni += type + " " + uniforms[i].name + ", ";
+            }
+
+            for (int i = 0; i < inoutFields.Length; i++)
+            {
+                if (inoutFields[i].dataType == DataType.Other) throw new Exception("Custom structs cannot be used as in/out fields!");
+
+                string type = TypeToString(inoutFields[i].dataType);
+
+                ptrs.Add(indt + type + "* " + "ptr_" + i + " = (" + type + "*)(ptrPtrs[" + i + "] + wPos * " + TypeToSize(inoutFields[i].dataType) + ");\n");
+                ptrsIncr += ", ++ptr_" + i;
+                methdSign += "ptr_" + i + ", ";
+                execSignPtr += type + "* " + inoutFields[i].name + ", ";
+            }
+
+            mainCode = Regex.Replace(mainCode, ";", ";\n\t");
+            mainCode = Regex.Replace(mainCode, "{", "{\n\t");
+            mainCode = "\t" + Regex.Replace(mainCode, "}", "}\n\t");
+
+            for (int i = 0; i < inoutFields.Length; i++)
+                mainCode = WrapVariablePointer(mainCode, inoutFields[i].name);
+
+            bool XYReq = ContainsName(mainCode, "gl_FragCoord");
+
+            string methodSignExec = execSignPtr + execSignUni;
+
+            if (XYReq)
+                methodSignExec += "vec3 gl_FragCoord, ";
+
+            if (methodSignExec.Length > 2)
+                methodSignExec = methodSignExec.Substring(0, methodSignExec.Length - 2);
+
+            List<string> shaderOutput = new List<string>();
+            shaderOutput.Add("//Autogenerated by XFDraw shader parser");
+            shaderOutput.Add("#include \"" + writtenPath + "_header.h" + "\"\n");
+
+            if (structDeclrs != "") shaderOutput.Add(structDeclrs);
+            if (methods != "") shaderOutput.Add(methods);  
+
+            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){\n" + mainCode + "\n}");
+
+            //Add Base Part
+            const string entry = "extern \"C\" __declspec(dllexport) void ";
+            shaderOutput.Add(entry + "ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){");
+
+            shaderOutput.Add(uFields);
+
+            shaderOutput.Add("#pragma omp parallel for");
+            shaderOutput.Add("\tfor (int h = 0; h < Height; ++h){");
+            shaderOutput.Add("\t\tint wPos = Width * h;");
+            shaderOutput.AddRange(ptrs);
+
+            string methodSignPre = methdSign + methdSignUnifm;
+
+            if (XYReq)
+            {
+                shaderOutput.Add("\t\tvec3 gl_FragCoord = vec3(0, h, 0);");
+                methodSignPre += "gl_FragCoord, ";
+                ptrsIncr += ", ++gl_FragCoord.x";
+            }
+
+
+            if (methodSignPre.Length > 2)
+                methodSignPre = methodSignPre.Substring(0, methodSignPre.Length - 2);
+
+
+            shaderOutput.Add("\t\tfor (int w = 0; w < Width; ++w" + ptrsIncr + "){");
+            shaderOutput.Add("\t\t\tshaderMethod(" + methodSignPre + ");\n\t\t}\n\t}");
+
+            shaderOutput.Add("}");
+
+            File.WriteAllLines(foldername + @"\" + filePath.Split('.')[0] + "_merged.cpp", shaderOutput.ToArray());
+            File.WriteAllText(foldername + @"\" + filePath.Split('.')[0] + "_header.h", HeaderFile);
+
+            return true;
+        }
+
+        static ShaderParser Parse(string str)
+        {
+            str = Regex.Replace(str, @"\s+", " ");
+
+            string mainMethod = "";
+
+            List<ShaderField> shaderFields = new List<ShaderField>();
+            List<ShaderStruct> shaderStructs = new List<ShaderStruct>();
+            List<ShaderMethod> shaderMethods = new List<ShaderMethod>();
+            bool hasEntry = false;
+
+            string buildstr = "";
+            for (int i = 0; i < str.Length; i++)
+            {
+                if (str[i] == '{')
+                {
+                    if (buildstr.StartsWith("void main()"))
+                    {
+                        if (hasEntry) throw new Exception("Two entry points detected!");
+
+                        int frm = i + 1;
+                        ReadMethod(i + 1, str, out i);
+                        mainMethod = str.Substring(frm, i - frm - 1);
+
+                        hasEntry = true;
+                        buildstr = "";
+
+                        if (i >= str.Length) break;
+                    }
+                    else if (buildstr.StartsWith("struct "))
+                    {
+                        int frm = i + 1;
+                        ReadMethod(i + 1, str, out i);
+                        shaderStructs.Add(new ShaderStruct(buildstr, str.Substring(frm, i - frm - 1)));
+                        buildstr = "";
+
+                        i++; //remove trailing: ;
+                        if (i >= str.Length) break;
+                    }
+                    else if (buildstr.StartsWith("inline void main()"))
+                    {
+                        throw new Exception("Please do not manually inline the entry point!");
+                    }
+                    else
+                    {
+                        int frm = i + 1;
+                        ReadMethod(i + 1, str, out i);
+                        shaderMethods.Add(new ShaderMethod(buildstr, str.Substring(frm, i - frm - 1), false));
+
+                        buildstr = "";
+
+                        if (i >= str.Length) break;
+                    }
+                }
+
+                if (str[i] == ';')
+                {
+                    //WARNING CAREFUL FOR VS layout location attrib!
+                    shaderFields.Add(new ShaderField(buildstr));
+                    buildstr = "";
+                }
+                else buildstr += str[i];
+            }
+
+            if (mainMethod == "") throw new Exception("No valid entry point found!");
+            shaderMethods.Add(new ShaderMethod("void main()", mainMethod, true));
+
+
+            //Validate methods with structs
+            for (int i = 0; i < shaderFields.Count; i++)
+            {
+                if (shaderFields[i].dataType == DataType.Other)
+                {
+                    if (shaderFields[i].dataMode != DataMode.Uniform)
+                        throw new Exception("Custom structs can only be uniform value!");
+
+                    if (!shaderStructs.Any(shaderStruct => shaderStruct.structName == shaderFields[i].typeName))
+                        throw new Exception("Could not find struct called \"" + shaderFields[i].typeName + "\" for \"" + shaderFields[i].name + "\"");
+                }
+            }
+
+            ShaderField[] sf = shaderFields.ToArray();
+
+            for (int i = 0; i < sf.Length; i++)
+            {
+                if (sf[i].dataType == DataType.Other)
+                {
+                    int count = 0;
+
+                    for (int j = 0; j < shaderStructs.Count; j++)
+                    {
+                        if (sf[i].typeName == shaderStructs[j].structName)
+                        {
+                            sf[i].FieldSize = shaderStructs[j].Size;
+                            sf[i].typeAlt = shaderStructs[j];
+                            count++;
+                        }
+                    }
+                    if (count == 0)
+                        throw new Exception("Could not find a struct declaration of \"" + sf[i].typeName + "\"");
+                    else if (count > 1)
+                        throw new Exception("Multiple declarations of \"" + sf[i].typeName + "\" found!");
+                }
+            }
+
+            ShaderField[] uni, field;
+            int size = 0;
+            PrepareFields(sf, out field, out uni, out size);
+
+            return new ShaderParser(field, uni, shaderMethods.ToArray(), shaderStructs.ToArray());
+
+        }
+
+        static void ReadMethod(int currentIndex, string str, out int outindex)
+        {
+            int bracketCeption = 0;
+
+            for (int i = currentIndex; i < str.Length; i++)
+            {
+                char s = str[i];
+
+                if (str[i] == '{')
+                    bracketCeption++;
+                else if (str[i] == '}')
+                    bracketCeption--;
+
+                if (bracketCeption == -1)
+                {
+                    outindex = i + 1;
+                    return;
+                }
+            }
+
+            throw new Exception("Shader method is invalid!");
+        }
+
+        static void PrepareFields(ShaderField[] sFields, out ShaderField[] inout, out ShaderField[] uniform, out int Size)
+        {
+            List<ShaderField> uniforms = new List<ShaderField>();
+            List<ShaderField> inouts = new List<ShaderField>();
+
+            for (int i = 0; i < sFields.Length; i++)
+            {
+                if (sFields[i].dataMode == DataMode.Uniform)
+                    uniforms.Add(sFields[i]);
+                else inouts.Add(sFields[i]);
+            }
+
+            int offset = 0;
+            for (int i = 0; i < uniforms.Count; i++)
+            {
+                uniforms[i].layoutPosition = offset;
+                offset += uniforms[i].GetSize();
+            }
+
+            Size = offset;
+            uniform = uniforms.ToArray();
+            inout = inouts.ToArray();
+        }
+
+        static int TypeToSize(DataType dataType)
+        {
+            if (dataType == DataType.byte4) return 4;
+            else if (dataType == DataType.fp32) return 4;
+            else if (dataType == DataType.int2) return 8;
+            else if (dataType == DataType.int32) return 4;
+            else if (dataType == DataType.vec2) return 8;
+            else if (dataType == DataType.vec3) return 12;
+            else throw new Exception("not implemented yet!");
+        }
+
+        static string TypeToString(DataType dataType)
+        {
+            if (dataType == DataType.byte4) return "byte4";
+            else if (dataType == DataType.fp32) return "float";
+            else if (dataType == DataType.int2) return "int2";
+            else if (dataType == DataType.int32) return "int";
+            else if (dataType == DataType.vec2) return "vec2";
+            else if (dataType == DataType.vec3) return "vec3";
+            else if (dataType == DataType.mat4) return "mat4";
+            else if (dataType == DataType.mat3) return "mat3";
+            else throw new Exception("not implemented yet!");
+        }
+
+        static string WriteSerializationBuffer(ShaderParser VS, ShaderParser FS)
+        {
+            string buffers = "";
+            string str = "void ReadyShader(long* vs_parse_size, long* fs_parse_size, long* compiled_version)\n{";
+
+            string vs_buffer = "const unsigned char vs_serial_buffer[] = \"";
+            string fs_buffer = "const unsigned char fs_serial_buffer[] = \"";
+
+
+            int vSize = 0;
+            int fSize = 0;
+
+            if (VS != null)
+            {
+                byte[] VS_BUF = Serializer.Serialize(VS);
+                vs_buffer += System.Text.Encoding.UTF8.GetString(VS_BUF) + "\";\n";
+
+                buffers += buf;
+                vSize = VS_BUF.Length;
+            }
+
+            if (true)
+            {
+                byte[] FS_BUF = Serializer.Serialize(FS);
+                fs_buffer += System.Text.Encoding.UTF8.GetString(FS_BUF) + "\";\n";
+
+                buffers += buf;
+                fSize = FS_BUF.Length;
+            }
+
+            str += "*vs_parse_size = " + vSize + ";\n";
+            str += "*fs_parse_size = " + fSize + ";\n";
+            str += "*compiled_version = 0;\n}";
+
+ 
+            return str;
+        }
+
+    }
+
+    public partial class ShaderParser
+    {
         static string HeaderFile
         {
-            get { return @"#include <cstdint>
+            get
+            {
+                return @"#include <cstdint>
 #include <math.h>
 
 struct vec3
@@ -220,7 +873,7 @@ struct vec3
 
 	vec3 operator-(const vec3& a) const
 	{
-		return vec3(a.x - x, a.y - y, a.z - z);
+		return vec3(x - a.x, y - a.y, z - a.z);
 	}
 
 	vec3 operator*(const float& a) const
@@ -363,6 +1016,34 @@ struct mat3
 	float X1Y2;
 	float X2Y2;
 
+    vec3 operator*(const vec3& B) const
+	{
+		vec3 result;
+		result.x = X0Y0 * B.x + X1Y0 * B.y + X2Y0 * B.z;
+		result.y = X0Y1 * B.x + X1Y1 * B.y + X2Y1 * B.z;
+		result.z = X0Y2 * B.x + X1Y2 * B.y + X2Y2 * B.z;
+
+		return result;
+	}
+
+	mat3 operator*(const mat3& B) const
+	{
+		mat3 result = mat3();
+
+		result.X0Y0 = X0Y0 * B.X0Y0 + X1Y0 * B.X0Y1 + X2Y0 * B.X0Y2;
+		result.X1Y0 = X0Y0 * B.X1Y0 + X1Y0 * B.X1Y1 + X2Y0 * B.X1Y2;
+		result.X2Y0 = X0Y0 * B.X2Y0 + X1Y0 * B.X2Y1 + X2Y0 * B.X2Y2;
+
+		result.X0Y1 = X0Y1 * B.X0Y0 + X1Y1 * B.X0Y1 + X2Y1 * B.X0Y2;
+		result.X1Y1 = X0Y1 * B.X1Y0 + X1Y1 * B.X1Y1 + X2Y1 * B.X1Y2;
+		result.X2Y1 = X0Y1 * B.X2Y0 + X1Y1 * B.X2Y1 + X2Y1 * B.X2Y2;
+
+		result.X0Y2 = X0Y2 * B.X0Y0 + X1Y2 * B.X0Y1 + X2Y2 * B.X0Y2;
+		result.X1Y2 = X0Y2 * B.X1Y0 + X1Y2 * B.X1Y1 + X2Y2 * B.X1Y2;
+		result.X2Y2 = X0Y2 * B.X2Y0 + X1Y2 * B.X2Y1 + X2Y2 * B.X2Y2;
+
+		return result;
+	}
 
 };
 
@@ -460,7 +1141,8 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 {
 	return inNormal * -2.0f * dot(inNormal, inDirection) + inDirection;
 }
-"; }
+";
+            }
         }
 
         static string IncludeFileVSFS
@@ -470,7 +1152,9 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 
         static string ClippingCode
         {
-            get { return @"#pragma region NearPlaneCFG
+            get
+            {
+                return @"#pragma region NearPlaneCFG
 
 	int v = 0;
 
@@ -993,7 +1677,8 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 		VERTEX_DATA = strFLT;
 		BUFFER_SIZE = API / stride;
 	}
-#pragma endregion"; }
+#pragma endregion";
+            }
         }
 
         static string Transforms
@@ -1052,14 +1737,14 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
         {
             get
             {
-                return @"if (FACE_CULL == 1 || FACE_CULL == 2)
+                return @"if (facecull == 1 || facecull == 2)
 	{
 		float A = BACKFACECULLS(VERTEX_DATA, stride);
-		if (FACE_CULL == 2 && A > 0) return RETURN_VALUE;
-		else if (FACE_CULL == 1 && A < 0) return RETURN_VALUE;
+		if (facecull == 2 && A > 0) return RETURN_VALUE;
+		else if (facecull == 1 && A < 0) return RETURN_VALUE;
 	}
 
-	if (isWireFrame)
+	if (isWire)
 	{
 		//DrawWireFrame(&data);
 		return RETURN_VALUE;
@@ -1149,12 +1834,15 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 
         static string ParallelCode
         {
-            get { return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uData, unsigned char** ptrPtrs, GLData pData, int FACE, long mode)
+            get
+            {
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode)
 {
 	parallel_for(start, stop, [&](int index){
-		MethodExec(index,tris, dptr, uData, ptrPtrs, pData, FACE, mode);
+		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode);
 	});
-}"; }
+}";
+            }
         }
 
         static string ClipCodeSource
@@ -1543,259 +2231,148 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             }
         }
 
-        ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
+        //->
+
+        static string WriteMethods(ShaderMethod[] methods, ShaderField[] outFields, ShaderField[] inFields, ShaderField[] uniforms)
         {
-            PrepVSData(f, out shaderFieldIns, out shaderFieldOuts, out readStride, out internalStride);
+            string signatures = "";
+            string output = "";
 
-            shaderUniforms = u;
-            shaderMethods = m;
-            shaderStructs = s;
-        }
-
-        public static bool Parse(string vertexShader, string fragmentShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
-        {
-            if (!File.Exists(vertexShader) || !File.Exists(fragmentShader))
-                throw new FileNotFoundException();
-
-            string[] analyzeVS = File.ReadAllLines(vertexShader);
-            string VSReady = PrepareInput(analyzeVS);
-            ShaderParser vsModule = Parse(VSReady);
-
-            string[] analyzeFS = File.ReadAllLines(fragmentShader);
-            string FSReady = PrepareInput(analyzeFS);
-            ShaderParser fsModule = Parse(FSReady);
-
-            CheckForNonFloats(vsModule); //Check is done automatically during linkage checking
-            CheckVSFSLinkage(vsModule, fsModule);
-            
-            string namePath = "";
-
-            bool skipcompile = !WriteShaders(vertexShader, fragmentShader, vsModule, fsModule, compileOptions, out namePath);
-            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, skipcompile);
-
-            return true;
-        }
-
-        public static bool Parse(string screenspaceShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
-        {
-            if (!File.Exists(screenspaceShader))
-                throw new FileNotFoundException();
-
-            string[] analyzeS = File.ReadAllLines(screenspaceShader);
-            string SReady = PrepareInput(analyzeS);
-            ShaderParser sModule = Parse(SReady);
-
-            string shaderName = "";
-
-            bool skipcompile = !WriteShader(screenspaceShader, sModule, compileOptions, out shaderName);
-            shaderModule = new ShaderCompile(null, sModule, true, shaderName, skipcompile);
-
-            return true;
-        }
-
-        public static string PrepareInput(string[] str)
-        {
-            str = RemoveComments(str);
-            string s = FlattenString(str);
-            return RemoveBlockComments(s);
-        }
-
-        static void CheckVSFSLinkage(ShaderParser vs, ShaderParser fs)
-        {
-            int vFieldC = 0;
-            int fFieldC = 0;
-
-            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
+            for (int i = 0; i < methods.Length; i++)
             {
-                int count = 0;
-                fFieldC = 0;
+                if (methods[i].isEntryPoint)
+                    continue;
 
-                for (int j = 0; j < fs.shaderFieldIns.Length; j++)
+                for (int o = 0; o < uniforms.Length; o++)
                 {
-                    fFieldC++;
-                    if (vs.shaderFieldOuts[i].name == fs.shaderFieldIns[j].name)
-                    {
-                        count++;
-                        if (vs.shaderFieldOuts[i].GetSize() != fs.shaderFieldIns[j].GetSize())
-                            throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" is not the same size as the FS in!");
-                    }
+                    if (ContainsName(methods[i].contents, uniforms[o].name))
+                        throw new Exception("XFDraw Parser does not support having uniforms inside other methods. Please copy them manually!");
                 }
 
-                vFieldC++;
-                if (count == 0) throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" does not exist in the fs!");
-                if (count > 1) throw new Exception("The vs OUT \"" + vs.shaderFieldOuts[i].name + "\" exists multiple times in the fs!");
+                for (int o = 0; o < outFields.Length; o++)
+                {
+                    if (ContainsName(methods[i].contents, outFields[o].name))
+                        throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
+                }
+
+                for (int o = 0; o < inFields.Length; o++)
+                {
+                    if (ContainsName(methods[i].contents, inFields[o].name))
+                        throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
+                }
+
+                if (ContainsName(methods[i].contents, "gl_FragCoord"))
+                    throw new Exception("XFDraw Parser does not support having gl_FragCoord inside other methods. Please copy them manually!");
+
+
+                string code = Regex.Replace(methods[i].contents, ";", ";\n\t");
+                code = Regex.Replace(code, "{", "{\n\t");
+                code = "\t" + Regex.Replace(code, "}", "}\n\t");
+
+                signatures += methods[i].entryName + ";\n";
+                output += methods[i].entryName + "{\n" + code + "\n}\n";
             }
 
-            if (vFieldC != fFieldC) throw new Exception("There seems to me a mismatch in the attribute count between the vs and fs!");
+
+            return signatures + "\n\n" + output;
         }
 
-        static void CheckForNonFloats(ShaderParser vs)
+        static bool ContainsName(string input, string name)
         {
-            for (int i = 0; i < vs.shaderFieldOuts.Length; i++)
-            {
-                DataType d = vs.shaderFieldOuts[i].dataType;
+            int result = input.IndexOf(name);
+            if (result == -1) return false;
 
-                if (!(d == DataType.vec2 || d == DataType.vec3))
-                    throw new Exception("The vertex shader can only work with floating point types!");
-            }
+            char first = result - 1 >= 0 ? input[result - 1] : (char)1;
+            char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
 
-            for (int i = 0; i < vs.shaderFieldIns.Length; i++)
-            {
-                DataType d = vs.shaderFieldIns[i].dataType;
+            if (first == (char)1 && secnd == (char)1) return true;
 
-                if (!(d == DataType.vec2 || d == DataType.vec3))
-                    throw new Exception("The vertex shader can only work with floating point types!");
-            }
-
-        }
-
-        static bool WriteShaders(string filePath1, string filePath2, ShaderParser vs, ShaderParser fs, CompileOption[] cOps, out string wPath)
-        {
-            string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
-            wPath = ext;
-
-            ShaderField[] vsIn = vs.shaderFieldIns, vsOut = vs.shaderFieldOuts;
-            ShaderField[] fsIn = fs.shaderFieldIns, fsOut = fs.shaderFieldOuts;
-            
-            int intS = vs.internalStride / 4;
-            int readS = vs.readStride / 4;
-            intS += 3;
-
-            bool forceC = cOps.Contains(CompileOption.ForceRecompile);
-
-            string foldername = "_temp_" + ext;
-            //realPath = foldername;
-
-            #region Foldering
-
-            if (!Directory.Exists(foldername))
-                Directory.CreateDirectory(foldername);
-
-            bool prevFile = false;
-
-            if (File.Exists(foldername + @"\" + filePath1))
-            {
-                if (File.ReadLines(filePath1).SequenceEqual(File.ReadLines(foldername + @"\" + filePath1)) && !forceC)
-                    prevFile = true;
-                else
-                    File.Delete(foldername + @"\" + filePath1);
-            }
-
-            if (forceC) prevFile = false;
-
-            if (File.Exists(foldername + @"\" + filePath2))
-            {
-                if (File.ReadLines(filePath2).SequenceEqual(File.ReadLines(foldername + @"\" + filePath2)) && prevFile)
-                    return false;
-
-                File.Delete(foldername + @"\" + filePath2);
-            }
-
-            File.Copy(filePath1, foldername + @"\" + filePath1);
-            File.Copy(filePath2, foldername + @"\" + filePath2);
-
-            #endregion
-
-            if (!ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_Position"))
-                throw new Exception("The vertex shader needs the gl_Position vector3 set!");
-
-            if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
-            if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
-            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
-            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
-
-            string sign, exec;
-            WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
-
-            string sign1, exec1, ptrs1, ptrIncr;
-            WriteFSSign(fs, fsIn, fsOut, out sign1, out exec1, out ptrs1, out ptrIncr);
-
-            string shaderCode = "", entryCode = "";
-
-            entryCode += "//Autogenerated by XFParser\n\n";
-            entryCode += "#include <malloc.h>\n#include \"xfcore.cpp\"\n#include \"" + 
-                wPath + "_header.h\"\n#include <math.h>\n#include <ppl.h>\nusing namespace Concurrency;\n";
-
-            entryCode += "\n#define RETURN_VALUE\n#define RtlZeroMemory frtlzeromem\n";
-
-            string structDeclrs = "";
-
-            for (int i = 0; i < vs.shaderUniforms.Length; i++)
-            {
-                if (vs.shaderUniforms[i].dataType == DataType.Other)
-                    structDeclrs += "\nstruct " + vs.shaderUniforms[i].typeName + " {\n" + vs.shaderUniforms[i].typeAlt.data + "\n};\n";
-            }
-
-            for (int i = 0; i < fs.shaderUniforms.Length; i++)
-            {
-                if (fs.shaderUniforms[i].dataType == DataType.Other)
-                    structDeclrs += "\nstruct " + fs.shaderUniforms[i].typeName + " {\n" + fs.shaderUniforms[i].typeAlt.data + "\n};\n";
-            }
-
-            entryCode += structDeclrs + "\n";
-
-            entryCode += WriteMethods(vs.shaderMethods, vsOut, vsIn, vs.shaderUniforms);
-
-            entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
-            entryCode += sign1 + "{\n" + WriteExecMethod(fs, true) + "\n}\n\n";
-
-
-            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uniformData, unsigned char** ptrPtrs, GLData projData, int FACE_CULL, int isWireFrame){\n";
-            shaderCode += "const int stride = " + intS + ";\n";
-            shaderCode += "const int readStride = " + readS + ";\n";
-            shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
-
-            shaderCode += "float* VERTEX_DATA = (float*)alloca(stride * 3 * 4);\n";
-            shaderCode += "int BUFFER_SIZE = 3;\n";
-
-            shaderCode += "for (int b = 0; b < 3; ++b){\n\t";
-            shaderCode += "float* input = p + (index * faceStride + b * readStride);\n\t";
-            shaderCode += "float* output = VERTEX_DATA + b * stride;\n\t" + exec + "\n}\n\n";
-
-            shaderCode += "bool* AP = (bool*)alloca(BUFFER_SIZE + 12);\n";
-            shaderCode += "frtlzeromem(AP, BUFFER_SIZE);\n\n";
-
-            shaderCode = Regex.Replace(shaderCode, "\n", "\n\t");
-
-            
-
-            //Write ClippingCode ->
-            shaderCode += ClippingCode + "\n";
-            shaderCode += "\t" + Transforms + "\n";
-            shaderCode += "\t" + FaceCulling;
-            shaderCode += "\n\t" + ScanLineStart;
-            shaderCode += "\n\n\t\t\t" + "int wPos = renderWidth * i;\n" + "\t\t\t";
-            shaderCode += Regex.Replace(ptrs1, "\n", "\n\t") + "\n";
-
-            //Depth ->
-            shaderCode += "\t\t\t" + "Z_fptr = dptr + i * renderWidth;\n\t\t\tzBegin = slopeZ * (float)FromX + bZ;\n\n";
-
-            //DrawScanline
-            shaderCode += "\t\t\t" + "for (int o = FromX; o <= ToX; ++o, " + ptrIncr + "){\n";
-
-            shaderCode += "\t\t\t\t" + @"float depth = (1.0f / zBegin);
-				s = projData.farZ - depth;
-				zBegin += slopeZ;
-
-				if (Z_fptr[o] > s) continue;
-				Z_fptr[o] = s;
-
-				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
-				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
-
-            shaderCode += "\n\n\t\t\t\t" + exec1 + "\n";
-            shaderCode += "\t\t\t}\n\t\t}\n\t}\n}";
-
-            shaderCode = entryCode + shaderCode;
-            shaderCode += "\n\n" + ParallelCode;
-
-            
-            File.WriteAllText(foldername + @"\" + wPath + "_merged.cpp", shaderCode);
-            File.WriteAllText(foldername + @"\" + wPath + "_header.h", HeaderFile);
-
-            File.WriteAllText(foldername + @"\xfcore.cpp", ClipCodeSource);
+            if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd) || first == '*' || first == '_' || secnd == '_')
+                return false;
 
             return true;
+        }
+
+        static string WrapVariablePointer(string input, string name)
+        {
+            MatchCollection m = Regex.Matches(input, name);
+
+            int offset = 0;
+            for (int i = 0; i < m.Count; i++)
+            {
+                int result = m[i].Index + offset;
+                if (result == -1) continue;
+
+                char first = result - 1 >= 0 ? input[result - 1] : (char)1;
+                char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
+
+                if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd) || first == '*' || first == '_' || secnd == '_')
+                    continue;
+
+                input = input.Insert(result, "(*");
+                input = input.Insert(result + name.Length + 2, ")");
+                offset += 3;
+            }
+
+            return input;
+        }
+
+        static string RemoveBlockComments(string input)
+        {
+
+        Restart:
+            int startIndex = -1;
+            bool inComment = false;
+
+
+            for (int i = 0; i < input.Length - 1; i++)
+            {
+                if (input[i] + "" + input[i + 1] == "/*")
+                {
+                    inComment = true;
+                    startIndex = i;
+                    i++;
+                }
+
+                if (input[i] + "" + input[i + 1] == "*/")
+                {
+                    if (!inComment) throw new Exception("Invalid Block Comment!");
+                    inComment = false;
+
+                    input = input.Remove(startIndex, (i + 1) - startIndex + 1);
+                    goto Restart;
+                }
+            }
+
+            if (inComment) throw new Exception("Invalid Block Comment!");
+
+            return input;
+        }
+
+        static string[] RemoveComments(string[] str)
+        {
+            List<string> strlist = new List<string>();
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                if (str[i].Contains("//"))
+                {
+                    strlist.Add(str[i].Split(new[] { "//" }, StringSplitOptions.None)[0]);
+                }
+                else strlist.Add(str[i]);
+            }
+
+            return strlist.ToArray();
+        }
+
+        static string FlattenString(string[] lines)
+        {
+            string str = "";
+
+            for (int i = 0; i < lines.Length; i++)
+                str += lines[i].Trim();
+
+            return str;
         }
 
         static void PrepVSData(ShaderField[] shaderFields, out ShaderField[] vsIn, out ShaderField[] vsOut, out int readS, out int iS)
@@ -1886,7 +2463,6 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             fsOut = fsO.ToArray();
         }
 
-
         static string WriteExecMethod(ShaderParser data, bool wrapGLPos = false)
         {
             string mainCode = Regex.Replace(data.shaderMethods[data.shaderMethods.Length - 1].contents, ";", ";\n\t");
@@ -1934,13 +2510,13 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             {
                 string type = data.shaderUniforms[i].dataType != DataType.Other ? TypeToString(data.shaderUniforms[i].dataType) : data.shaderUniforms[i].typeName;
 
-                methodExec += "*(" + type + "*)(uniformData + " + data.shaderUniforms[i].layoutPosition + "), ";
+                methodExec += "*(" + type + "*)(uData1 + " + data.shaderUniforms[i].layoutPosition + "), ";
                 methodSign += type + " " + data.shaderUniforms[i].name + ", ";
             }
 
 
             exec = methodExec.Substring(0, methodExec.Length - 2) + ");";
-            sign = methodSign.Substring(0, methodSign.Length - 2) + ")";          
+            sign = methodSign.Substring(0, methodSign.Length - 2) + ")";
         }
 
         static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, out string sign, out string exec, out string ptrs, out string ptrsinc)
@@ -1972,7 +2548,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             {
                 string type = data.shaderUniforms[i].dataType != DataType.Other ? TypeToString(data.shaderUniforms[i].dataType) : data.shaderUniforms[i].typeName;
 
-                methodExec += "*(" + type + "*)(uniformData + " + data.shaderUniforms[i].layoutPosition + "), ";
+                methodExec += "*(" + type + "*)(uData2 + " + data.shaderUniforms[i].layoutPosition + "), ";
                 methodSign += type + " " + data.shaderUniforms[i].name + ", ";
             }
 
@@ -1992,470 +2568,9 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             ptrsinc = ptrsIncr;
         }
 
-        static bool WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
-        {
-            string foldername = "_temp_" + filePath.Split('.')[0];
-
-            writtenPath = filePath.Split('.')[0];
-
-            if (!Directory.Exists(foldername))
-                Directory.CreateDirectory(foldername);
-
-            if (File.Exists(foldername + @"\" + filePath))
-            {
-                if (File.ReadLines(filePath).SequenceEqual(File.ReadLines(foldername + @"\" + filePath)) && !cOps.Contains(CompileOption.ForceRecompile))
-                    if (File.Exists(foldername + @"\" + writtenPath + "_merged.dll"))
-                        return false;        
-
-                File.Delete(foldername + @"\" + filePath);
-            }
-
-            File.Copy(filePath, foldername + @"\" + filePath);
-
-            List<string> ptrs = new List<string>();
-
-            string ptrsIncr = ""; //Pointers that are incremented
-            string methdSign = ""; //Method Signature for pointers
-
-            string methdSignUnifm = ""; //Method signature for uniforms
-
-            string indt = "\t\t", indt1 = "\t"; //indent level 1 & 2
-
-            string uFields = ""; //uniform field and data copying
-
-            string execSignPtr = ""; //inline void shaderMethod(float* INOUT)
-            string execSignUni = ""; //inline void shaderMethod(vec3 UNIFORM)
-
-            if (!data.shaderMethods[data.shaderMethods.Length - 1].isEntryPoint)
-                throw new Exception("No void main() shader entry point detected!");
-
-            string mainCode = data.shaderMethods[data.shaderMethods.Length - 1].contents;
-            string structDeclrs = "";
-
-            ShaderField[] inoutFields = data.shaderFieldIns.Concat(data.shaderFieldOuts).ToArray();
-
-            ShaderField[] uniforms = data.shaderUniforms;
-            string methods = WriteMethods(data.shaderMethods, data.shaderFieldOuts, data.shaderFieldIns, uniforms);
-
-            for (int i = 0; i < uniforms.Length; i++)
-            {
-                if (uniforms[i].dataType == DataType.Other)
-                    structDeclrs += "struct " + uniforms[i].typeName + " {\n" + uniforms[i].typeAlt.data + "\n};";
-
-                string type = uniforms[i].dataType != DataType.Other ? TypeToString(uniforms[i].dataType) : uniforms[i].typeName;
-                int size = uniforms[i].dataType != DataType.Other ? TypeToSize(uniforms[i].dataType) : uniforms[i].FieldSize;
-
-                if (size == -1) throw new Exception("A parsing error occured! (10512)");
-
-                uFields += indt1 + type + " uniform_" + i + ";\n";
-                uFields += indt1 + "fcpy((char*)(&uniform_" + i + "), (char*)UniformPointer + " + uniforms[i].layoutPosition + ", " + size + ");\n";
-
-                methdSignUnifm += "uniform_" + i + ", ";
-                execSignUni += type + " " + uniforms[i].name + ", ";
-            }
-
-            for (int i = 0; i < inoutFields.Length; i++)
-            {
-                if (inoutFields[i].dataType == DataType.Other) throw new Exception("Custom structs cannot be used as in/out fields!");
-
-                string type = TypeToString(inoutFields[i].dataType);
-
-                ptrs.Add(indt + type + "* " + "ptr_" + i + " = (" + type + "*)(ptrPtrs[" + i + "] + wPos * " + TypeToSize(inoutFields[i].dataType) + ");\n");
-                ptrsIncr += ", ++ptr_" + i;
-                methdSign += "ptr_" + i + ", ";
-                execSignPtr += type + "* " + inoutFields[i].name + ", ";
-            }
-
-            mainCode = Regex.Replace(mainCode, ";", ";\n\t");
-            mainCode = Regex.Replace(mainCode, "{", "{\n\t");
-            mainCode = "\t" + Regex.Replace(mainCode, "}", "}\n\t");
-
-            for (int i = 0; i < inoutFields.Length; i++)
-                mainCode = WrapVariablePointer(mainCode, inoutFields[i].name);
-
-            bool XYReq = ContainsName(mainCode, "gl_FragCoord");
-
-            string methodSignExec = execSignPtr + execSignUni;
-
-            if (XYReq)
-                methodSignExec += "vec3 gl_FragCoord, ";
-
-            if (methodSignExec.Length > 2)
-                methodSignExec = methodSignExec.Substring(0, methodSignExec.Length - 2);
-
-            List<string> shaderOutput = new List<string>();
-            shaderOutput.Add("//Autogenerated by XFDraw shader parser");
-            shaderOutput.Add("#include \"" + writtenPath + "_header.h" + "\"\n");
-
-            if (structDeclrs != "") shaderOutput.Add(structDeclrs);
-            if (methods != "") shaderOutput.Add(methods);  
-
-            shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){\n" + mainCode + "\n}");
-
-            //Add Base Part
-            const string entry = "extern \"C\" __declspec(dllexport) void ";
-            shaderOutput.Add(entry + "ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){");
-
-            shaderOutput.Add(uFields);
-
-            shaderOutput.Add("#pragma omp parallel for");
-            shaderOutput.Add("\tfor (int h = 0; h < Height; ++h){");
-            shaderOutput.Add("\t\tint wPos = Width * h;");
-            shaderOutput.AddRange(ptrs);
-
-            string methodSignPre = methdSign + methdSignUnifm;
-
-            if (XYReq)
-            {
-                shaderOutput.Add("\t\tvec3 gl_FragCoord = vec3(0, h, 0);");
-                methodSignPre += "gl_FragCoord, ";
-                ptrsIncr += ", ++gl_FragCoord.x";
-            }
-
-
-            if (methodSignPre.Length > 2)
-                methodSignPre = methodSignPre.Substring(0, methodSignPre.Length - 2);
-
-
-            shaderOutput.Add("\t\tfor (int w = 0; w < Width; ++w" + ptrsIncr + "){");
-            shaderOutput.Add("\t\t\tshaderMethod(" + methodSignPre + ");\n\t\t}\n\t}");
-
-            shaderOutput.Add("}");
-
-            File.WriteAllLines(foldername + @"\" + filePath.Split('.')[0] + "_merged.cpp", shaderOutput.ToArray());
-            File.WriteAllText(foldername + @"\" + filePath.Split('.')[0] + "_header.h", HeaderFile);
-
-            return true;
-        }
-
-        static string WriteMethods(ShaderMethod[] methods, ShaderField[] outFields, ShaderField[] inFields, ShaderField[] uniforms)
-        {
-            string signatures = "";
-            string output = "";
-
-            for (int i = 0; i < methods.Length; i++)
-            {
-                if (methods[i].isEntryPoint)
-                    continue;
-
-                for (int o = 0; o < uniforms.Length; o++)
-                {
-                    if (ContainsName(methods[i].contents, uniforms[o].name))
-                        throw new Exception("XFDraw Parser does not support having uniforms inside other methods. Please copy them manually!");
-                }
-
-                for (int o = 0; o < outFields.Length; o++)
-                {
-                    if (ContainsName(methods[i].contents, outFields[o].name))
-                        throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
-                }
-
-                for (int o = 0; o < inFields.Length; o++)
-                {
-                    if (ContainsName(methods[i].contents, inFields[o].name))
-                        throw new Exception("XFDraw Parser does not support having fields inside other methods. Please copy them manually!");
-                }
-
-                if (ContainsName(methods[i].contents, "gl_FragCoord"))
-                    throw new Exception("XFDraw Parser does not support having gl_FragCoord inside other methods. Please copy them manually!");
-
-
-                string code = Regex.Replace(methods[i].contents, ";", ";\n\t");
-                code = Regex.Replace(code, "{", "{\n\t");
-                code = "\t" + Regex.Replace(code, "}", "}\n\t");
-
-                signatures += methods[i].entryName + ";\n";
-                output += methods[i].entryName + "{\n" + code + "\n}\n";
-            }
-
-
-            return signatures + "\n\n" + output;
-        }
-
-        static bool ContainsName(string input, string name)
-        {
-            int result = input.IndexOf(name);
-            if (result == -1) return false;
-
-            char first = result - 1 >= 0 ? input[result - 1] : (char)1;
-            char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
-
-            if (first == (char)1 && secnd == (char)1) return true;
-
-            if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd))
-                return false;
-
-            return true;
-        }
-
-        static string WrapVariablePointer(string input, string name)
-        {
-            MatchCollection m = Regex.Matches(input, name);
-
-            int offset = 0;
-            for (int i = 0; i < m.Count; i++)
-            {
-                int result = m[i].Index + offset;
-                if (result == -1) continue;
-
-                char first = result - 1 >= 0 ? input[result - 1] : (char)1;
-                char secnd = result + name.Length < input.Length ? input[result + name.Length] : (char)1;
-
-                if (char.IsLetterOrDigit(first) || char.IsLetterOrDigit(secnd) || first == '*')
-                    continue;
-
-                input = input.Insert(result, "(*");
-                input = input.Insert(result + name.Length + 2, ")");
-                offset += 3;
-            }
-
-            return input;
-        }
-
-        static string RemoveBlockComments(string input)
-        {
-
-        Restart:
-            int startIndex = -1;
-            bool inComment = false;
-
-
-            for (int i = 0; i < input.Length - 1; i++)
-            {
-                if (input[i] + "" + input[i + 1] == "/*")
-                {
-                    inComment = true;
-                    startIndex = i;
-                    i++;
-                }
-
-                if (input[i] + "" + input[i + 1] == "*/")
-                {
-                    if (!inComment) throw new Exception("Invalid Block Comment!");
-                    inComment = false;
-
-                    input = input.Remove(startIndex, (i + 1) - startIndex + 1);
-                    goto Restart;
-                }
-            }
-
-            if (inComment) throw new Exception("Invalid Block Comment!");
-
-            return input;
-        }
-
-        static string[] RemoveComments(string[] str)
-        {
-            List<string> strlist = new List<string>();
-
-            for (int i = 0; i < str.Length; i++)
-            {
-                if (str[i].Contains("//"))
-                {
-                    strlist.Add(str[i].Split(new[] { "//" }, StringSplitOptions.None)[0]);
-                }
-                else strlist.Add(str[i]);
-            }
-
-            return strlist.ToArray();
-        }
-
-        static string FlattenString(string[] lines)
-        {
-            string str = "";
-
-            for (int i = 0; i < lines.Length; i++)
-                str += lines[i].Trim();
-
-            return str;
-        }
-
-        static ShaderParser Parse(string str)
-        {
-            str = Regex.Replace(str, @"\s+", " ");
-
-            string mainMethod = "";
-
-            List<ShaderField> shaderFields = new List<ShaderField>();
-            List<ShaderStruct> shaderStructs = new List<ShaderStruct>();
-            List<ShaderMethod> shaderMethods = new List<ShaderMethod>();
-            bool hasEntry = false;
-
-            string buildstr = "";
-            for (int i = 0; i < str.Length; i++)
-            {
-                if (str[i] == '{')
-                {
-                    if (buildstr.StartsWith("void main()"))
-                    {
-                        if (hasEntry) throw new Exception("Two entry points detected!");
-
-                        int frm = i + 1;
-                        ReadMethod(i + 1, str, out i);
-                        mainMethod = str.Substring(frm, i - frm - 1);
-
-                        hasEntry = true;
-                        buildstr = "";
-
-                        if (i >= str.Length) break;
-                    }
-                    else if (buildstr.StartsWith("struct "))
-                    {
-                        int frm = i + 1;
-                        ReadMethod(i + 1, str, out i);
-                        shaderStructs.Add(new ShaderStruct(buildstr, str.Substring(frm, i - frm - 1)));
-                        buildstr = "";
-
-                        i++; //remove trailing: ;
-                        if (i >= str.Length) break;
-                    }
-                    else if (buildstr.StartsWith("inline void main()"))
-                    {
-                        throw new Exception("Please do not manually inline the entry point!");
-                    }
-                    else
-                    {
-                        int frm = i + 1;
-                        ReadMethod(i + 1, str, out i);
-                        shaderMethods.Add(new ShaderMethod(buildstr, str.Substring(frm, i - frm - 1), false));
-
-                        buildstr = "";
-
-                        if (i >= str.Length) break;
-                    }
-                }
-
-                if (str[i] == ';')
-                {
-                    //WARNING CAREFUL FOR VS layout location attrib!
-                    shaderFields.Add(new ShaderField(buildstr));
-                    buildstr = "";
-                }
-                else buildstr += str[i];
-            }
-
-            if (mainMethod == "") throw new Exception("No valid entry point found!");
-            shaderMethods.Add(new ShaderMethod("void main()", mainMethod, true));
-
-
-            //Validate methods with structs
-            for (int i = 0; i < shaderFields.Count; i++)
-            {
-                if (shaderFields[i].dataType == DataType.Other)
-                {
-                    if (shaderFields[i].dataMode != DataMode.Uniform)
-                        throw new Exception("Custom structs can only be uniform value!");
-
-                    if (!shaderStructs.Any(shaderStruct => shaderStruct.structName == shaderFields[i].typeName))
-                        throw new Exception("Could not find struct called \"" + shaderFields[i].typeName + "\" for \"" + shaderFields[i].name + "\"");
-                }
-            }
-
-            ShaderField[] sf = shaderFields.ToArray();
-
-            for (int i = 0; i < sf.Length; i++)
-            {
-                if (sf[i].dataType == DataType.Other)
-                {
-                    int count = 0;
-
-                    for (int j = 0; j < shaderStructs.Count; j++)
-                    {
-                        if (sf[i].typeName == shaderStructs[j].structName)
-                        {
-                            sf[i].FieldSize = shaderStructs[j].Size;
-                            sf[i].typeAlt = shaderStructs[j];
-                            count++;
-                        }
-                    }
-                    if (count == 0)
-                        throw new Exception("Could not find a struct declaration of \"" + sf[i].typeName + "\"");
-                    else if (count > 1)
-                        throw new Exception("Multiple declarations of \"" + sf[i].typeName + "\" found!");
-                }
-            }
-
-            ShaderField[] uni, field;
-            int size = 0;
-            PrepareFields(sf, out field, out uni, out size);
-
-            return new ShaderParser(field, uni, shaderMethods.ToArray(), shaderStructs.ToArray());
-
-        }
-
-        static void ReadMethod(int currentIndex, string str, out int outindex)
-        {
-            int bracketCeption = 0;
-
-            for (int i = currentIndex; i < str.Length; i++)
-            {
-                char s = str[i];
-
-                if (str[i] == '{')
-                    bracketCeption++;
-                else if (str[i] == '}')
-                    bracketCeption--;
-
-                if (bracketCeption == -1)
-                {
-                    outindex = i + 1;
-                    return;
-                }
-            }
-
-            throw new Exception("Shader method is invalid!");
-        }
-
-        static void PrepareFields(ShaderField[] sFields, out ShaderField[] inout, out ShaderField[] uniform, out int Size)
-        {
-            List<ShaderField> uniforms = new List<ShaderField>();
-            List<ShaderField> inouts = new List<ShaderField>();
-
-            for (int i = 0; i < sFields.Length; i++)
-            {
-                if (sFields[i].dataMode == DataMode.Uniform)
-                    uniforms.Add(sFields[i]);
-                else inouts.Add(sFields[i]);
-            }
-
-            int offset = 0;
-            for (int i = 0; i < uniforms.Count; i++)
-            {
-                uniforms[i].layoutPosition = offset;
-                offset += uniforms[i].GetSize();
-            }
-
-            Size = offset;
-            uniform = uniforms.ToArray();
-            inout = inouts.ToArray();
-        }
-
-        static int TypeToSize(DataType dataType)
-        {
-            if (dataType == DataType.byte4) return 4;
-            else if (dataType == DataType.fp32) return 4;
-            else if (dataType == DataType.int2) return 8;
-            else if (dataType == DataType.int32) return 4;
-            else if (dataType == DataType.vec2) return 8;
-            else if (dataType == DataType.vec3) return 12;
-            else throw new Exception("not implemented yet!");
-        }
-
-        static string TypeToString(DataType dataType)
-        {
-            if (dataType == DataType.byte4) return "byte4";
-            else if (dataType == DataType.fp32) return "float";
-            else if (dataType == DataType.int2) return "int2";
-            else if (dataType == DataType.int32) return "int";
-            else if (dataType == DataType.vec2) return "vec2";
-            else if (dataType == DataType.vec3) return "vec3";
-            else if (dataType == DataType.mat4) return "mat4";
-            else if (dataType == DataType.mat4) return "mat3";
-            else throw new Exception("not implemented yet!");
-        }
-
     }
 
+    [Serializable]
     internal class ShaderField
     {
         internal string name;
@@ -2538,6 +2653,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         }
     }
 
+    [Serializable]
     internal class ShaderMethod
     {
         internal string entryName;
@@ -2552,6 +2668,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         }
     }
 
+    [Serializable]
     internal class ShaderStruct
     {
         internal string structName;
@@ -2624,6 +2741,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         }
     }
 
+    [Serializable]
     internal class StructField
     {
         internal string name;

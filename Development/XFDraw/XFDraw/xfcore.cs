@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Windows.Forms;
 using System.Threading;
+using System.Runtime.Serialization.Formatters.Binary;
 using xfcore.Shaders;
 using xfcore.Buffers;
 using xfcore.Blit;
@@ -42,6 +43,10 @@ namespace xfcore
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void Pass(void* Shader, int Width, int Height, int* sMem, int sSize, int* iInstr, int iSize, long xyPOS);
+
+        [DllImport("AdvShaderEnvTest.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void ShaderCallFunction(int start, int stop, float* tris, float* dptr, byte* uDataVS, byte* uDataFS, byte** ptrPtrs, GLData pData, long FACE, long mode);
+
 
         #endregion
 
@@ -132,13 +137,20 @@ namespace xfcore
         {
             lock (shader.ThreadLock)
             {
+                if (shader.isScreenSpace)
+                        throw new Exception("Draw() cannot be used with a screenspace shader!");
+
                 if (shader.readStride != buffer.stride)
                     throw new Exception("The buffer is not the same stride as the shader read stride!");
 
                 //ADD BUFFER SIZE CHECKING
+                int trisCount = ((buffer.Size / 4) / buffer.stride) / 3;
 
+                if (startIndex < 0) throw new Exception("Start Index Cannot be less than Zero!");
+                if (startIndex >= trisCount || stopIndex == 0) return;
+                if (stopIndex > trisCount) stopIndex = trisCount;
                 if (buffer.Size < 3 * buffer.stride)
-                    throw new Exception("This function requires a an entire triangle to draw!");
+                    throw new Exception("This function requires an entire triangle to draw!");
 
                 GLTexture[] textureSlots = shader.GetTextureSlots();
 
@@ -154,7 +166,7 @@ namespace xfcore
 
                 int width = textureSlots[0].Width, height = textureSlots[0].Height;
 
-                GLData drawConfig = new GLData();
+                GLData drawConfig = new GLData(width, height, projectionMatrix);
 
                 for (int i = 1; i < textureSlots.Length; i++)
                 {
@@ -177,9 +189,14 @@ namespace xfcore
                 //Call the shader
                 //ShaderCallScreen(width, height, PTRS, (void*)uniformData.AddrOfPinnedObject());
 
-                //shader.ShaderCall()
+                byte* uVS = (byte*)uniformDataVS.AddrOfPinnedObject();
+                byte* uFS = (byte*)uniformDataVS.AddrOfPinnedObject();
 
-                //shader.ShaderCall();
+
+                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.HEAP_ptr, (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 1, 0);
+
+              //  ShaderCallFunction(startIndex, stopIndex, (float*)buffer.HEAP_ptr, (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 0, 0);
+
 
                 Marshal.FreeHGlobal(ptrPtrs);
                 uniformDataVS.Free();
@@ -301,6 +318,12 @@ namespace xfcore
         public float ZNear;
         public float ZFar;
 
+        public static float FOVMod(float FOV, float aspectRatio)
+        {
+            const float deg2rads = (float)(Math.PI / 180d);
+            return 2.0f * (float)Math.Atan(Math.Tan(FOV * 0.5f * deg2rads) / aspectRatio) / deg2rads;
+        }
+
         GLMatrix(float vfov, float hfov, float vsize, float hsize, float iValue = 0)
         {
             vFOV = vfov;
@@ -323,13 +346,13 @@ namespace xfcore
             return new GLMatrix(vFOV, hFOV, 0, 0, 0f);
         }
 
-        public static GLMatrix Perspective(float FOV, int viewportWidth, int viewportHeight)
+        public static GLMatrix Perspective(float vFOV, int viewportWidth, int viewportHeight)
         {
-            if (FOV <= 0 || FOV >= 180) throw new Exception("Invalid FOV");
+            if (vFOV <= 0 || vFOV >= 180) throw new Exception("Invalid FOV");
             if (viewportWidth <= 0 || viewportHeight <= 0) throw new Exception("Invalid width or height!");
 
             float aspectRatio = (float)viewportWidth / (float)viewportHeight;
-            return new GLMatrix(FOV, FOV / aspectRatio, 0, 0, 0f);
+            return new GLMatrix(vFOV, FOVMod(vFOV, aspectRatio), 0, 0, 0f);
         }
 
         public static GLMatrix Orthographic(float vSize, float hSize)
@@ -371,6 +394,31 @@ namespace xfcore
         internal int renderWidth;
         internal int renderHeight;
         internal float degFOV;
+    }
+
+    internal static class Serializer
+    {
+        internal static byte[] Serialize(object input)
+        {
+            BinaryFormatter bf = new BinaryFormatter();
+            using (var ms = new MemoryStream())
+            {
+                bf.Serialize(ms, input);
+                return ms.ToArray();
+            }
+        }
+
+        internal static object DeSerialize(byte[] data)
+        {
+            using (var memStream = new MemoryStream())
+            {
+                var binForm = new BinaryFormatter();
+                memStream.Write(data, 0, data.Length);
+                memStream.Seek(0, SeekOrigin.Begin);
+                var obj = binForm.Deserialize(memStream);
+                return obj;
+            }
+        }
     }
 }
 
@@ -423,12 +471,6 @@ namespace xfcore.Info
 {
     public static class GLInfo
     {
-        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
-        static extern void SetGLInfoMode(bool TC, bool PC);
-
-        internal static int triangleCount;
-        internal static int pixelCount;
-
         /// <summary>
         /// Gets the current RAM usage of all GLTextures and GLBuffers in bytes
         /// </summary>
@@ -443,41 +485,6 @@ namespace xfcore.Info
         public static float RAMUsageMB
         {
             get { return (GLTexture.TotalRAMUsage + GLBuffer.TotalRAMUsage) / 1024f / 1024f; }
-        }
-
-        /// <summary>
-        /// Gets the amount of triangles that have been rendered
-        /// </summary>
-        public static int TriangleCount
-        {
-            get { return Interlocked.CompareExchange(ref triangleCount, 0, 0); }
-        }
-
-        /// <summary>
-        /// Gets the amount of pixels that have been rendered
-        /// </summary>
-        public static int PixelCount
-        {
-            get { return Interlocked.CompareExchange(ref pixelCount, 0, 0); }
-        }
-
-        /// <summary>
-        /// Sets the Pixel/Triangle count logging mode
-        /// </summary>
-        /// <param name="enableTriangleCount">Value for logging triangle counts</param>
-        /// <param name="enablePixelCount">Value for logging pixel fill rate</param>
-        public static void SetDrawableLogging(bool enableTriangleCount, bool enablePixelCount)
-        {
-            SetGLInfoMode(enableTriangleCount, enableTriangleCount);
-        }
-
-        /// <summary>
-        /// Resets The Triangle And Pixel Counters
-        /// </summary>
-        public static void ResetCount()
-        {
-            Interlocked.Exchange(ref pixelCount, 0);
-            Interlocked.Exchange(ref triangleCount, 0);
         }
     }
 }

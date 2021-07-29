@@ -1,14 +1,6 @@
 ﻿//vignette shader v1.0
 out byte4 color;
 uniform vec2 viewportMod;
-uniform Material colorValue;
-
-struct Material {
-	vec3 ambient;
-	vec3 diffuse;
-	vec3 specular;
-	byte4 resultColor;
-};
 
 void main()
 {
@@ -22,6 +14,5 @@ void main()
 	unsigned char G = 255 * Y;
 	unsigned char B = 0;
 
-	//color = byte4(R, G, B);
-	color = colorValue.resultColor;
+	color = byte4(R, G, B);
 }
