@@ -44,10 +44,6 @@ namespace xfcore
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void Pass(void* Shader, int Width, int Height, int* sMem, int sSize, int* iInstr, int iSize, long xyPOS);
 
-        [DllImport("AdvShaderEnvTest.dll", CallingConvention = CallingConvention.Cdecl)]
-        static extern void ShaderCallFunction(int start, int stop, float* tris, float* dptr, byte* uDataVS, byte* uDataFS, byte** ptrPtrs, GLData pData, long FACE, long mode);
-
-
         #endregion
 
         static GL()
@@ -135,8 +131,13 @@ namespace xfcore
 
         public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
         {
+            buffer.RequestLock();
+
             lock (shader.ThreadLock)
             {
+                if (shader.disposed)
+                    throw new Exception("Cannot draw using a disposed shader!");
+
                 if (shader.isScreenSpace)
                         throw new Exception("Draw() cannot be used with a screenspace shader!");
 
@@ -144,15 +145,15 @@ namespace xfcore
                     throw new Exception("The buffer is not the same stride as the shader read stride!");
 
                 //ADD BUFFER SIZE CHECKING
-                int trisCount = ((buffer.Size / 4) / buffer.stride) / 3;
+                int trisCount = ((buffer._size / 4) / buffer.stride) / 3;
 
                 if (startIndex < 0) throw new Exception("Start Index Cannot be less than Zero!");
                 if (startIndex >= trisCount || stopIndex == 0) return;
                 if (stopIndex > trisCount) stopIndex = trisCount;
-                if (buffer.Size < 3 * buffer.stride)
+                if (buffer._size < 3 * buffer.stride)
                     throw new Exception("This function requires an entire triangle to draw!");
 
-                GLTexture[] textureSlots = shader.GetTextureSlots();
+                GLTexture[] textureSlots = shader.textureSlots;
 
                 for (int i = 0; i < textureSlots.Length; i++)
                     if (textureSlots[i] == null)
@@ -175,8 +176,8 @@ namespace xfcore
                 }
 
                 IntPtr ptrPtrs = Marshal.AllocHGlobal(textureSlots.Length * 4);
-                GCHandle uniformDataVS = GCHandle.Alloc(shader.GetUniformVS(), GCHandleType.Pinned);
-                GCHandle uniformDataFS = GCHandle.Alloc(shader.GetUniformFS(), GCHandleType.Pinned);
+                GCHandle uniformDataVS = GCHandle.Alloc(shader.uniformBytesVS, GCHandleType.Pinned);
+                GCHandle uniformDataFS = GCHandle.Alloc(shader.uniformBytesFS, GCHandleType.Pinned);
 
                 byte* bptr = (byte*)ptrPtrs;
 
@@ -186,17 +187,11 @@ namespace xfcore
                 for (int i = 0; i < textureSlots.Length; i++)
                     PTRS[i] = (byte*)textureSlots[i].GetAddress();
 
-                //Call the shader
-                //ShaderCallScreen(width, height, PTRS, (void*)uniformData.AddrOfPinnedObject());
-
                 byte* uVS = (byte*)uniformDataVS.AddrOfPinnedObject();
-                byte* uFS = (byte*)uniformDataVS.AddrOfPinnedObject();
+                byte* uFS = (byte*)uniformDataFS.AddrOfPinnedObject();
 
 
-                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.HEAP_ptr, (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 1, 0);
-
-              //  ShaderCallFunction(startIndex, stopIndex, (float*)buffer.HEAP_ptr, (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 0, 0);
-
+                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 1, 0);
 
                 Marshal.FreeHGlobal(ptrPtrs);
                 uniformDataVS.Free();
@@ -205,8 +200,14 @@ namespace xfcore
                 for (int i = 0; i < textureSlots.Length; i++)
                     textureSlots[i].ReleaseLock();
             }
+
+            buffer.ReleaseLock();
         }
 
+        public static void Pass(Shader targetShader)
+        {
+            targetShader.Pass();
+        }
     }
 
     public enum GLMode
@@ -334,7 +335,7 @@ namespace xfcore
 
             this.iValue = iValue;
 
-            ZNear = 0.03f;
+            ZNear = 0.1f;
             ZFar = 1000f;
         }
 

@@ -49,7 +49,7 @@ namespace xfcore.Debug
                 int divV = (4 * 3 * Buffer.stride);
 
                 if (target.Stride != 4) throw new Exception("32bpp target required!");
-                if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
+                if (Buffer._size % divV != 0) throw new Exception("Buffer is of invalid size!");
 
                 RenderSettings RS = new RenderSettings();
                 RS.degFOV = 90f;
@@ -61,7 +61,7 @@ namespace xfcore.Debug
                 int PC = 0;
                 int TC = 0;
 
-                WireframeDebug((int*)target.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS, &PC, &TC);
+                WireframeDebug((int*)target.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer._size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS, &PC, &TC);
 
               //  Interlocked.Add(ref GLInfo.pixelCount, PC);
               //  Interlocked.Add(ref GLInfo.triangleCount, TC);
@@ -92,7 +92,7 @@ namespace xfcore.Debug
 
                 int bFCull = 2;
 
-                if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
+                if (Buffer._size % divV != 0) throw new Exception("Buffer is of invalid size!");
 
                 RenderSettings RS = new RenderSettings();
                 RS.degFOV = 90f;
@@ -105,7 +105,7 @@ namespace xfcore.Debug
                 int TC = 0;
 
                 //  if (mode)
-                FillFlatDebug((int*)target.GetAddress(), (float*)depth.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS, bFCull, &PC, &TC);
+                FillFlatDebug((int*)target.GetAddress(), (float*)depth.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer._size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS, bFCull, &PC, &TC);
                 //    else
                 //         FillFlatDebug2((int*)target.HEAP_ptr, (float*)depth.HEAP_ptr, (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, color, GetCos(camRot), GetSin(camRot), camPos, RS);
 
@@ -141,7 +141,7 @@ namespace xfcore.Debug
 
             int bFCull = 1;
 
-            if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
+            if (Buffer._size % divV != 0) throw new Exception("Buffer is of invalid size!");
 
             RenderSettings RS = new RenderSettings();
             RS.degFOV = 90f;
@@ -151,7 +151,7 @@ namespace xfcore.Debug
             RS.renderHeight = target.Height;
 
             //throw new Exception();
-            PhongBase((int*)target.GetAddress(), (float*)depth.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, pc, bFCull);
+            PhongBase((int*)target.GetAddress(), (float*)depth.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer._size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, pc, bFCull);
             //Console.WriteLine("waiting");
 
             target.ReleaseLock();
@@ -169,7 +169,7 @@ namespace xfcore.Debug
             if (depth.Stride != 4) throw new Exception("32bpp depth required!");
             int bFCull = 0;
 
-            if (Buffer.Size % divV != 0) throw new Exception("Buffer is of invalid size!");
+            if (Buffer._size % divV != 0) throw new Exception("Buffer is of invalid size!");
 
             RenderSettings RS = new RenderSettings();
             RS.degFOV = 90f;
@@ -178,7 +178,7 @@ namespace xfcore.Debug
             RS.renderWidth = depth.Width;
             RS.renderHeight = depth.Height;
 
-            DepthFill((float*)depth.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer.Size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, bFCull);
+            DepthFill((float*)depth.GetAddress(), (float*)Buffer.HEAP_ptr, Buffer._size / divV, stride, GetCos(camRot), GetSin(camRot), camPos, RS, bFCull);
 
             depth.ReleaseLock();
         }

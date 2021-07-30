@@ -11,12 +11,11 @@ using xfcore.Shaders;
 
 namespace xfcore.Shaders.Builder
 {
-    [Serializable]
     public class ShaderCompile
     {
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
-        public static string COMMAND_LINE = "/openmp /nologo /GS /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot"; //GL hang?
+        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot"; //GL hang?
 
         internal ShaderField[] sFieldsInVS;
         internal ShaderField[] sFieldsOutVS;
@@ -73,21 +72,19 @@ namespace xfcore.Shaders.Builder
 
             if (skipCompile)
             {
-                compiledShader = new Shader(folder + @"\" + shaderName + "_merged.dll", this);
+                compiledShader = new Shader(folder + @"\xf" + shaderName + ".dll", this);
                 return true;
             }
 
-            string cppFileSource = shaderName + "_merged.cpp";
-            string headerFile = shaderName + "_header.h";
-
-
+            string cppFileSource = "xf" + shaderName + ".cpp";
+            string headerFile = "xfcore.h";
 
             if (!File.Exists(folder + @"\" + cppFileSource) || !File.Exists(folder + @"\" + headerFile))
                 throw new FileNotFoundException("Missing File!");
 
             string path = System.AppDomain.CurrentDomain.BaseDirectory;
             string tempPath = path + folder + "\\";// +"_temp_" + cpp;
-            string outdir = tempPath + "\\" + shaderName + "_merged.dll";
+            string outdir = tempPath + "xf" + shaderName + ".dll";
 
             if (File.Exists(outdir))
                 File.Delete(outdir);
@@ -122,7 +119,7 @@ namespace xfcore.Shaders.Builder
             compiler.Close();
 
 
-            compiledShader = new Shader(folder + @"\" + shaderName + "_merged.dll", this);
+            compiledShader = new Shader(outdir, this);
 
             return true;
         }
@@ -184,6 +181,9 @@ namespace xfcore.Shaders.Builder
         internal int internalStride;
         internal int readStride;
 
+        static string entry = "extern \"C\" __declspec(dllexport) void ";
+        internal static int Shader_Version;
+
         ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
         {
             PrepVSData(f, out shaderFieldIns, out shaderFieldOuts, out readStride, out internalStride);
@@ -193,8 +193,18 @@ namespace xfcore.Shaders.Builder
             shaderStructs = s;
         }
 
-        public static bool Parse(string vertexShader, string fragmentShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
+        public static ShaderCompile Parse(string vertexShader, string fragmentShader, string outputName, params CompileOption[] compileOptions)
         {
+            if (outputName.Contains('.'))
+                throw new Exception("OutputName will have its own extension. Please do not add one.");
+
+            if (vertexShader.Contains('.') && vertexShader.Split('.')[0] == outputName)
+                throw new Exception("outputName must be unique when compared to vertexShader!");
+
+            if (fragmentShader.Contains('.') && fragmentShader.Split('.')[0] == outputName)
+                throw new Exception("outputName must be unique when compared to fragmentShader!");
+
+
             if (!File.Exists(vertexShader) || !File.Exists(fragmentShader))
                 throw new FileNotFoundException();
 
@@ -209,16 +219,18 @@ namespace xfcore.Shaders.Builder
             CheckForNonFloats(vsModule); //Check is done automatically during linkage checking
             CheckVSFSLinkage(vsModule, fsModule);
             
-            string namePath = "";
-
-            bool skipcompile = !WriteShaders(vertexShader, fragmentShader, vsModule, fsModule, compileOptions, out namePath);
-            shaderModule = new ShaderCompile(vsModule, fsModule, false, namePath, skipcompile);
-
-            return true;
+            bool skipcompile = !WriteShaders(vertexShader, fragmentShader, outputName, vsModule, fsModule, compileOptions);
+            return new ShaderCompile(vsModule, fsModule, false, outputName, skipcompile);
         }
 
-        public static bool Parse(string screenspaceShader, out ShaderCompile shaderModule, params CompileOption[] compileOptions)
+        public static ShaderCompile Parse(string screenspaceShader, string outputName, params CompileOption[] compileOptions)
         {
+            if (outputName.Contains('.'))
+                throw new Exception("OutputName will have its own extension. Please do not add one.");
+
+            if (screenspaceShader.Contains('.') && screenspaceShader.Split('.')[0] == outputName)
+                throw new Exception("outputName must be unique when compared to screenspaceShader!");
+
             if (!File.Exists(screenspaceShader))
                 throw new FileNotFoundException();
 
@@ -226,12 +238,8 @@ namespace xfcore.Shaders.Builder
             string SReady = PrepareInput(analyzeS);
             ShaderParser sModule = Parse(SReady);
 
-            string shaderName = "";
-
-            bool skipcompile = !WriteShader(screenspaceShader, sModule, compileOptions, out shaderName);
-            shaderModule = new ShaderCompile(null, sModule, true, shaderName, skipcompile);
-
-            return true;
+            bool skipcompile = !WriteShader(screenspaceShader, outputName, sModule, compileOptions);
+            return new ShaderCompile(null, sModule, true, outputName, skipcompile);
         }
 
         public static string PrepareInput(string[] str)
@@ -317,11 +325,10 @@ namespace xfcore.Shaders.Builder
 
         }
 
-
-        static bool WriteShaders(string filePath1, string filePath2, ShaderParser vs, ShaderParser fs, CompileOption[] cOps, out string wPath)
+        static bool WriteShaders(string filePath1, string filePath2, string outputName, ShaderParser vs, ShaderParser fs, CompileOption[] cOps)
         {
-            string ext = filePath1.Split('.')[0] + "_" + filePath2.Split('.')[0];
-            wPath = ext;
+            string ext = outputName;
+            string wPath = ext;
 
             ShaderField[] vsIn = vs.shaderFieldIns, vsOut = vs.shaderFieldOuts;
             ShaderField[] fsIn = fs.shaderFieldIns, fsOut = fs.shaderFieldOuts;
@@ -331,6 +338,7 @@ namespace xfcore.Shaders.Builder
             intS += 3;
 
             bool forceC = cOps.Contains(CompileOption.ForceRecompile);
+            bool hasSerial = !cOps.Contains(CompileOption.DoNotSerialize);
 
             string foldername = "_temp_" + ext;
             //realPath = foldername;
@@ -352,12 +360,20 @@ namespace xfcore.Shaders.Builder
 
             if (forceC) prevFile = false;
 
+            if (!File.Exists(foldername + @"\xf" + wPath + ".dll"))
+                prevFile = false;
+
             if (File.Exists(foldername + @"\" + filePath2))
             {
                 if (File.ReadLines(filePath2).SequenceEqual(File.ReadLines(foldername + @"\" + filePath2)) && prevFile)
                     return false;
 
                 File.Delete(foldername + @"\" + filePath2);
+            }
+
+            if (File.Exists(foldername + @"\" + filePath1))
+            {
+                File.Delete(foldername + @"\" + filePath1);
             }
 
             File.Copy(filePath1, foldername + @"\" + filePath1);
@@ -382,8 +398,8 @@ namespace xfcore.Shaders.Builder
             string shaderCode = "", entryCode = "";
 
             entryCode += "//Autogenerated by XFParser\n\n";
-            entryCode += "#include <malloc.h>\n#include \"xfcore.cpp\"\n#include \"" + 
-                wPath + "_header.h\"\n#include <math.h>\n#include <ppl.h>\nusing namespace Concurrency;\n";
+            entryCode += "#include <malloc.h>\n#include \"xfcore.cpp\"\n#include \"xfcore.h\"\n#include <math.h>\n#include <ppl.h>\nusing namespace Concurrency;\n";
+            if (hasSerial) entryCode += "#include \"xfconfig.cpp\"\n";
 
             entryCode += "\n#define RETURN_VALUE\n#define RtlZeroMemory frtlzeromem\n";
 
@@ -456,24 +472,34 @@ namespace xfcore.Shaders.Builder
             shaderCode += "\t\t\t}\n\t\t}\n\t}\n}";
 
             shaderCode = entryCode + shaderCode;
-            shaderCode += "\n\n" + ParallelCode;
+            shaderCode += "\n\n" + (cOps.Contains(CompileOption.UseFor) ? NotParallelCode : ParallelCode);
 
-            
-            File.WriteAllText(foldername + @"\" + wPath + "_merged.cpp", shaderCode);
-            File.WriteAllText(foldername + @"\" + wPath + "_header.h", HeaderFile);
 
+            if (hasSerial)
+                File.WriteAllText(foldername + @"\xfconfig.cpp", WriteSerializationBuffer(vs, fs));
+            else
+            {
+                string str1 = entry + "ReadyShader(long* vs_parse_size, long* fs_parse_size, long* compiled_version)\n{\n";
+
+                str1 += "\t*vs_parse_size = " + 0 + ";\n";
+                str1 += "\t*fs_parse_size = " + 0 + ";\n";
+                str1 += "\t*compiled_version = 0;\n}\n\n";
+
+                shaderCode += str1;
+            }
+
+
+            File.WriteAllText(foldername + @"\" + "xf" + wPath + ".cpp", shaderCode);
+            File.WriteAllText(foldername + @"\" + "xfcore.h", HeaderFile);
             File.WriteAllText(foldername + @"\xfcore.cpp", ClipCodeSource);
-
-            WriteSerializationBuffer(vs, fs);
-
+         
             return true;
         }
 
-        static bool WriteShader(string filePath, ShaderParser data, CompileOption[] cOps, out string writtenPath)
+        static bool WriteShader(string filePath, string outputName, ShaderParser data, CompileOption[] cOps)
         {
-            string foldername = "_temp_" + filePath.Split('.')[0];
-
-            writtenPath = filePath.Split('.')[0];
+            string foldername = "_temp_" + outputName;
+            string writtenPath = outputName;
 
             if (!Directory.Exists(foldername))
                 Directory.CreateDirectory(foldername);
@@ -481,13 +507,15 @@ namespace xfcore.Shaders.Builder
             if (File.Exists(foldername + @"\" + filePath))
             {
                 if (File.ReadLines(filePath).SequenceEqual(File.ReadLines(foldername + @"\" + filePath)) && !cOps.Contains(CompileOption.ForceRecompile))
-                    if (File.Exists(foldername + @"\" + writtenPath + "_merged.dll"))
+                    if (File.Exists(foldername + @"\xf" + writtenPath + ".dll"))
                         return false;        
 
                 File.Delete(foldername + @"\" + filePath);
             }
 
             File.Copy(filePath, foldername + @"\" + filePath);
+
+            bool hasSerial = !cOps.Contains(CompileOption.DoNotSerialize);
 
             List<string> ptrs = new List<string>();
 
@@ -562,7 +590,9 @@ namespace xfcore.Shaders.Builder
 
             List<string> shaderOutput = new List<string>();
             shaderOutput.Add("//Autogenerated by XFDraw shader parser");
-            shaderOutput.Add("#include \"" + writtenPath + "_header.h" + "\"\n");
+            shaderOutput.Add("#include \"" + "xfcore.h" + "\"\n");
+
+            if (hasSerial) shaderOutput.Add("#include \"xfconfig.cpp\"\n");
 
             if (structDeclrs != "") shaderOutput.Add(structDeclrs);
             if (methods != "") shaderOutput.Add(methods);  
@@ -570,7 +600,7 @@ namespace xfcore.Shaders.Builder
             shaderOutput.Add("inline void shaderMethod(" + methodSignExec + "){\n" + mainCode + "\n}");
 
             //Add Base Part
-            const string entry = "extern \"C\" __declspec(dllexport) void ";
+           
             shaderOutput.Add(entry + "ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){");
 
             shaderOutput.Add(uFields);
@@ -599,8 +629,21 @@ namespace xfcore.Shaders.Builder
 
             shaderOutput.Add("}");
 
-            File.WriteAllLines(foldername + @"\" + filePath.Split('.')[0] + "_merged.cpp", shaderOutput.ToArray());
-            File.WriteAllText(foldername + @"\" + filePath.Split('.')[0] + "_header.h", HeaderFile);
+            if (hasSerial)
+                File.WriteAllText(foldername + @"\xfconfig.cpp", WriteSerializationBuffer(null, data));
+            else
+            {
+                string str1 = entry + "ReadyShader(long* vs_parse_size, long* fs_parse_size, long* compiled_version)\n{\n";
+
+                str1 += "\t*vs_parse_size = " + 0 + ";\n";
+                str1 += "\t*fs_parse_size = " + 0 + ";\n";
+                str1 += "\t*compiled_version = 0;\n}\n\n";
+
+                shaderOutput.Add("\n\n\n" + str1);
+            }
+
+            File.WriteAllLines(foldername + @"\xf" + outputName + ".cpp", shaderOutput.ToArray());
+            File.WriteAllText(foldername + @"\" + "xfcore.h", HeaderFile);
 
             return true;
         }
@@ -663,7 +706,8 @@ namespace xfcore.Shaders.Builder
                 if (str[i] == ';')
                 {
                     //WARNING CAREFUL FOR VS layout location attrib!
-                    shaderFields.Add(new ShaderField(buildstr));
+                    if (buildstr != "")
+                        shaderFields.Add(new ShaderField(buildstr));
                     buildstr = "";
                 }
                 else buildstr += str[i];
@@ -773,6 +817,7 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.int32) return 4;
             else if (dataType == DataType.vec2) return 8;
             else if (dataType == DataType.vec3) return 12;
+            else if (dataType == DataType.sampler2D) return 20;
             else throw new Exception("not implemented yet!");
         }
 
@@ -786,17 +831,14 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.vec3) return "vec3";
             else if (dataType == DataType.mat4) return "mat4";
             else if (dataType == DataType.mat3) return "mat3";
+            else if (dataType == DataType.sampler2D) return "sampler2D";
             else throw new Exception("not implemented yet!");
         }
 
         static string WriteSerializationBuffer(ShaderParser VS, ShaderParser FS)
-        {
-            string buffers = "";
-            string str = "void ReadyShader(long* vs_parse_size, long* fs_parse_size, long* compiled_version)\n{";
-
-            string vs_buffer = "const unsigned char vs_serial_buffer[] = \"";
-            string fs_buffer = "const unsigned char fs_serial_buffer[] = \"";
-
+        {          
+            string vs_buffer = "const unsigned char vs_serial_buffer[] = ";
+            string fs_buffer = "const unsigned char fs_serial_buffer[] = ";
 
             int vSize = 0;
             int fSize = 0;
@@ -804,29 +846,58 @@ namespace xfcore.Shaders.Builder
             if (VS != null)
             {
                 byte[] VS_BUF = Serializer.Serialize(VS);
-                vs_buffer += System.Text.Encoding.UTF8.GetString(VS_BUF) + "\";\n";
+                string buf = "{";
 
-                buffers += buf;
+                for (int i = 0; i < VS_BUF.Length; i++)
+                    buf += VS_BUF[i] + ",";
+
+                buf = buf.Substring(0, buf.Length - 1) + " };\n\n";
+                vs_buffer += buf;
+
                 vSize = VS_BUF.Length;
             }
+            else
+                vs_buffer += "{0};\n\n";
 
             if (true)
             {
                 byte[] FS_BUF = Serializer.Serialize(FS);
-                fs_buffer += System.Text.Encoding.UTF8.GetString(FS_BUF) + "\";\n";
 
-                buffers += buf;
+                string buf = "{";
+
+                for (int i = 0; i < FS_BUF.Length; i++)
+                    buf += FS_BUF[i] + ",";
+
+                buf = buf.Substring(0, buf.Length - 1) + " };\n\n";
+                fs_buffer += buf;
+
                 fSize = FS_BUF.Length;
             }
 
-            str += "*vs_parse_size = " + vSize + ";\n";
-            str += "*fs_parse_size = " + fSize + ";\n";
-            str += "*compiled_version = 0;\n}";
+            string warning = "//This autogenerated file contains serialization data that XFDraw uses for reflection.\n";
+            warning += "//DO NOT MODIFY THE CONTENTS OF THIS FILE. DOING SO WILL SEGFAULT THE SHADER.\n\n";
 
- 
-            return str;
+            string str =  entry + "ReadyShader(long* vs_parse_size, long* fs_parse_size, long* compiled_version)\n{\n";
+
+            str += "\t*vs_parse_size = " + vSize + ";\n";
+            str += "\t*fs_parse_size = " + fSize + ";\n";
+            str += "\t*compiled_version = " + Shader_Version + ";\n}\n\n";
+
+            str += entry + @"LoadData(unsigned char* vsPtr, unsigned char* fsPtr)
+{
+	for (int i = 0; i < " + vSize + @"; i++)
+	{
+		vsPtr[i] = vs_serial_buffer[i];
+	}
+
+	for (int i = 0; i < " + fSize + @"; i++)
+	{
+		fsPtr[i] = fs_serial_buffer[i];
+	}
+}";
+
+            return warning + vs_buffer + fs_buffer + str;
         }
-
     }
 
     public partial class ShaderParser
@@ -920,7 +991,33 @@ struct vec2
 		x = 0;
 		y = 0;
 	}
+
+	vec2 operator+(const vec2& a) const
+	{
+		return vec2(a.x + x, a.y + y);
+	}
+
+	vec2 operator-(const vec2& a) const
+	{
+		return vec2(x - a.x, y - a.y);
+	}
+
+	vec2 operator*(const float& a) const
+	{
+		return vec2(a * x, a * y);
+	}
+
+	vec2 operator-() const
+	{
+		return vec2(-x, -y);
+	}
+
+	vec2 operator*(const vec2& a) const
+	{
+		return vec2(a.x * x, a.y * y);
+	}
 };
+
 
 struct vec4
 {
@@ -1000,6 +1097,8 @@ struct sampler2D
 	int width;
 	int height;
 	long* TEXTURE_ADDR;
+    int mode;
+    int mode_color;
 };
 
 struct mat3
@@ -1141,6 +1240,90 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 {
 	return inNormal * -2.0f * dot(inNormal, inDirection) + inDirection;
 }
+
+byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
+{
+	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
+	float x0 = 1.0f - x1;
+
+	float y1 = coord.y + 0.5f - (int)(coord.y + 0.5f);
+	float y0 = 1.0f - y1;
+
+	int2 X0Y0 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+	int2 X1Y0 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+
+	int2 X0Y1 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+	int2 X1Y1 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+
+	// -> if statement checking for bounds <-
+	if (true) //TEXTURE_WRAP_MODE == 0
+	{
+		if (X0Y0.X < 0) X0Y0.X = 0;
+		if (X0Y0.Y < 0) X0Y0.Y = 0;
+		if (X0Y0.X >= inputTexture.width) X0Y0.X = inputTexture.width - 1;
+		if (X0Y0.Y >= inputTexture.height) X0Y0.Y = inputTexture.height - 1;
+
+		if (X1Y0.X < 0) X1Y0.X = 0;
+		if (X1Y0.Y < 0) X1Y0.Y = 0;
+		if (X1Y0.X >= inputTexture.width) X1Y0.X = inputTexture.width - 1;
+		if (X1Y0.Y >= inputTexture.height) X1Y0.Y = inputTexture.height - 1;
+
+		if (X0Y1.X < 0) X0Y1.X = 0;
+		if (X0Y1.Y < 0) X0Y1.Y = 0;
+		if (X0Y1.X >= inputTexture.width) X0Y1.X = inputTexture.width - 1;
+		if (X0Y1.Y >= inputTexture.height) X0Y1.Y = inputTexture.height - 1;
+
+		if (X1Y1.X < 0) X1Y1.X = 0;
+		if (X1Y1.Y < 0) X1Y1.Y = 0;
+		if (X1Y1.X >= inputTexture.width) X1Y1.X = inputTexture.width - 1;
+		if (X1Y1.Y >= inputTexture.height) X1Y1.Y = inputTexture.height - 1;
+	}
+
+	unsigned char* bptrL = (unsigned char*)(inputTexture.TEXTURE_ADDR + X0Y0.Y * inputTexture.width + X0Y0.X);
+	unsigned char* bptrLN = (unsigned char*)(inputTexture.TEXTURE_ADDR + X1Y0.Y * inputTexture.width + X1Y0.X);
+
+	unsigned char* bptrU = (unsigned char*)(inputTexture.TEXTURE_ADDR + X0Y1.Y * inputTexture.width + X0Y1.X);
+	unsigned char* bptrUN = (unsigned char*)(inputTexture.TEXTURE_ADDR + X1Y1.Y * inputTexture.width + X1Y1.X);
+
+	unsigned char B = bptrL[0] * (x0 * y0) + bptrLN[0] * (x1 * y0) + bptrU[0] * (x0 * y1) + bptrUN[0] * (x1 * y1);
+	unsigned char G = bptrL[1] * (x0 * y0) + bptrLN[1] * (x1 * y0) + bptrU[1] * (x0 * y1) + bptrUN[1] * (x1 * y1);
+	unsigned char R = bptrL[2] * (x0 * y0) + bptrLN[2] * (x1 * y0) + bptrU[2] * (x0 * y1) + bptrUN[2] * (x1 * y1);
+
+	if (sampleAlpha)
+	{
+		unsigned char A = bptrL[3] * (x0 * y0) + bptrLN[3] * (x1 * y0) + bptrU[3] * (x0 * y1) + bptrUN[3] * (x1 * y1);
+		return byte4(A, R, G, B);
+	}
+
+	return byte4(R, G, B);
+}
+
+byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
+{
+	if (TEXTURE_WRAP_MODE == 0)
+	{
+		if (coord.X < 0) coord.X = 0;
+		if (coord.Y < 0) coord.Y = 0;
+		if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
+		if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
+	}
+	else if (TEXTURE_WRAP_MODE == 1)
+	{
+		if (coord.X < 0) coord.X = coord.X % inputTexture.width + inputTexture.width;
+		if (coord.Y < 0) coord.Y = coord.Y % inputTexture.height + inputTexture.height;
+
+		if (coord.X >= inputTexture.width) coord.X = coord.X % inputTexture.width;
+		if (coord.Y >= inputTexture.height) coord.Y = coord.Y % inputTexture.height;
+	}
+	else
+	{
+		if (coord.X < 0 || coord.Y < 0 || coord.X >= inputTexture.width || coord.Y >= inputTexture.height) return TEXTURE_CLAMP_BORDER_COLOR;
+	}
+
+	return *((byte4*)(inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X));
+}
+
+
 ";
             }
         }
@@ -1841,6 +2024,19 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 	parallel_for(start, stop, [&](int index){
 		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode);
 	});
+}";
+            }
+        }
+
+        static string NotParallelCode
+        {
+            get
+            {
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode)
+{
+	for (int i = start; i < stop; i++){
+		MethodExec(i,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode);
+	}
 }";
             }
         }
@@ -2620,6 +2816,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             else if (input == "vec3") return DataType.vec3;
             else if (input == "mat3") return DataType.mat3;
             else if (input == "mat4") return DataType.mat4;
+            else if (input == "sampler2D") return DataType.sampler2D;
 
             else return DataType.Other;
         }
@@ -2643,6 +2840,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             else if (dataType == DataType.vec3) return 12;
             else if (dataType == DataType.mat4) return 64;
             else if (dataType == DataType.mat3) return 36;
+            else if (dataType == DataType.sampler2D) return 20;
             else if (dataType == DataType.Other && FieldSize != -1) return FieldSize;
             else throw new Exception("An unknown error occured (00245)");
         }
@@ -2791,6 +2989,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         byte4,// = 4,
         mat4,
         mat3,
+        sampler2D,
         Other
     }
 
@@ -2805,8 +3004,9 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
     {
         None,
         AddInlineAll,
-        ManualInlineEntry,
         ForceRecompile,
+        DoNotSerialize,
+        EnableMSAASupport,
         EnableSIMD,
         UseOMP,
         UsePPL,

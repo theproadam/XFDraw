@@ -19,6 +19,10 @@ namespace xfcore.Buffers
         private int LocalLock = 0; //0 - free, 1 - taken
         private int CriticalLock = 0; //0 - free, 1 - taken
 
+        internal int s2DMode = 0;
+        internal int s2DColor = 0;
+
+
         public int Width { get { return _width; } }
         public int Height { get { return _height; } }
         public int Stride { get { return _stride; } }
@@ -72,8 +76,7 @@ namespace xfcore.Buffers
         public delegate void ReadPixelDelegate4(GLBytes4 output);
         public delegate void ReadPixelDelegate12(GLBytes12 output);
 
-
-        public void RequestLock()
+        internal void RequestLock()
         {
             if (Interlocked.CompareExchange(ref CriticalLock, 0, 0) >= 1)
             {
@@ -89,7 +92,7 @@ namespace xfcore.Buffers
             
         }
 
-        public void ReleaseLock()
+        internal void ReleaseLock()
         {
             if (Interlocked.CompareExchange(ref LocalLockCount, 0, 1) == 1)
             {
@@ -173,10 +176,10 @@ namespace xfcore.Buffers
             ReleaseLock();
         }
 
-
-        public int this[int x, int y]
+        public void ConfigureSampler2D(TextureWarp textureWrapMode, int borderColor = 0)
         {
-            get { return 0; }
+            s2DMode = (int)textureWrapMode;
+            s2DColor = borderColor;
         }
 
         public void Clear()
@@ -281,20 +284,23 @@ namespace xfcore.Buffers
         }
     }
 
-
-
     public unsafe class GLBuffer : IDisposable
     {
         internal IntPtr HEAP_ptr;
-        internal int Size;
+        internal int _size;
         float* fptr;
+
+        private int LocalLockCount = 0;
+        private int LocalLock = 0; //0 - free, 1 - taken
+        private int CriticalLock = 0; //0 - free, 1 - taken
+
+        public int Size { get { return _size; } }
 
         static int Buffer_RAM_Usage = 0;
 
         bool disposed = false;
         internal object ThreadLock = new object();
         internal int stride;
-        internal int elementSize;
 
         public void Dispose()
         {
@@ -309,12 +315,25 @@ namespace xfcore.Buffers
 
         protected virtual void Dispose(bool disposing)
         {
-            lock (ThreadLock)
-                if (!disposed)
+            Interlocked.Increment(ref CriticalLock);
+            bool lockTaken = false;
+            Monitor.Enter(ThreadLock, ref lockTaken);
+
+            try
+            {
+                if (!this.disposed)
                 {
                     Marshal.FreeHGlobal(HEAP_ptr);
+                    HEAP_ptr = IntPtr.Zero;
+
                     disposed = true;
                 }
+            }
+            finally
+            {
+                if (lockTaken) Monitor.Exit(ThreadLock);
+                Interlocked.Decrement(ref CriticalLock);
+            }
         }
 
         public static int TotalRAMUsage
@@ -331,16 +350,51 @@ namespace xfcore.Buffers
         {
             get
             {
-                if (i >= 0 || i < Size)
-                    return fptr[i];
+                RequestLock();
+
+                if (i >= 0 || i < _size)
+                {
+                    float d = fptr[i];
+                    ReleaseLock();
+                    return d;
+                }
                 else throw new IndexOutOfRangeException();
             }
             set
             {
-                if (i >= 0 || i < Size)
+                RequestLock();
+                if (i >= 0 || i < _size)
                     fptr[i] = value;
                 else throw new IndexOutOfRangeException();
+
+                ReleaseLock();
             }
+        }
+
+        internal void RequestLock()
+        {
+            if (Interlocked.CompareExchange(ref CriticalLock, 0, 0) >= 1)
+            {
+                Monitor.Enter(ThreadLock);
+                Interlocked.Increment(ref LocalLockCount);
+            }
+            else if (Interlocked.CompareExchange(ref LocalLock, 1, 0) == 0)
+            {
+                Monitor.Enter(ThreadLock);
+                Interlocked.Increment(ref LocalLockCount);
+            }
+            else Interlocked.Increment(ref LocalLockCount);
+
+        }
+
+        internal void ReleaseLock()
+        {
+            if (Interlocked.CompareExchange(ref LocalLockCount, 0, 1) == 1)
+            {
+                Monitor.Exit(ThreadLock);
+                Interlocked.Decrement(ref LocalLock);
+            }
+            else Interlocked.Decrement(ref LocalLockCount);
         }
 
         public GLBuffer(int size, int Stride = 3)
@@ -348,13 +402,11 @@ namespace xfcore.Buffers
             if (size <= 0) throw new Exception("Size must be bigger than zero!");
             if (size % Stride != 0) throw new Exception("Invalid Stride OR Size!");
             if (size % 4 != 0) throw new Exception("GLBuffer only supports FP32 numbers!");
-
-
-            //  if (elementSize != 4) throw new Exception("Only FP32 Buffers are allowed!");
+            if (Stride <= 0) throw new Exception("Stride must be bigger than 0!");
 
             stride = Stride;
-            Size = size;
-            Interlocked.Add(ref Buffer_RAM_Usage, Size);
+            _size = size;
+            Interlocked.Add(ref Buffer_RAM_Usage, _size);
             HEAP_ptr = Marshal.AllocHGlobal(size);
             fptr = (float*)HEAP_ptr;
         }
@@ -367,9 +419,9 @@ namespace xfcore.Buffers
             if (Source.Length % Stride != 0) throw new Exception("Invalid Stride OR Size!");
             
             stride = Stride;
-            Size = Source.Length * 4;
-            Interlocked.Add(ref Buffer_RAM_Usage, Size);
-            HEAP_ptr = Marshal.AllocHGlobal(Size);
+            _size = Source.Length * 4;
+            Interlocked.Add(ref Buffer_RAM_Usage, _size);
+            HEAP_ptr = Marshal.AllocHGlobal(_size);
             fptr = (float*)HEAP_ptr;
 
             for (int i = 0; i < Source.Length; i++)
@@ -378,20 +430,94 @@ namespace xfcore.Buffers
             }
         }
 
+        public IntPtr GetAddress()
+        {
+            if (HEAP_ptr == IntPtr.Zero)
+                throw new Exception("FATAL ERROR: GLBuffer Handle is IntPtr.Zero!");
+
+            return HEAP_ptr;
+        }
+
         public void Resize(int size, int newStride = 3)
         {
-            throw new Exception("not safe!");
+            if (size <= 0) throw new Exception("Cannot allocate a buffer of size zero or less!");
+            if (newStride <= 0) throw new Exception("Stride must be bigger than zero!");
+            if (size % newStride != 0) throw new Exception("Stride must be a multiple of size!");
+            if (size % 4 != 0) throw new Exception("GLBuffer only supports FP32 numbers!");
 
-            lock (ThreadLock)
+            Interlocked.Increment(ref CriticalLock);
+            bool lockTaken = false;
+            Monitor.Enter(ThreadLock, ref lockTaken);
+
+            try
             {
                 Interlocked.Add(ref Buffer_RAM_Usage, -size);
-                Size = size;
+                _size = size;
 
-                HEAP_ptr = Marshal.ReAllocHGlobal(HEAP_ptr, (IntPtr)(Size));
+                HEAP_ptr = Marshal.ReAllocHGlobal(HEAP_ptr, (IntPtr)(_size));
                 fptr = (float*)HEAP_ptr;
                 stride = newStride;
-                Interlocked.Add(ref Buffer_RAM_Usage, Size);
+                Interlocked.Add(ref Buffer_RAM_Usage, _size);
+            }
+            finally
+            {
+                if (lockTaken) Monitor.Exit(ThreadLock);
+                Interlocked.Decrement(ref CriticalLock);
             }
         }
+    }
+
+    internal class SmartLock
+    {
+        private object ThreadLock = new object();
+        private int LocalLockCount = 0;
+        private int LocalLock = 0; //0 - free, 1 - taken
+        private int CriticalLock = 0; //0 - free, 1 - taken
+
+        public void RequestLock()
+        {
+            if (Interlocked.CompareExchange(ref CriticalLock, 0, 0) >= 1)
+            {
+                Monitor.Enter(ThreadLock);
+                Interlocked.Increment(ref LocalLockCount);
+            }
+            else if (Interlocked.CompareExchange(ref LocalLock, 1, 0) == 0)
+            {
+                Monitor.Enter(ThreadLock);
+                Interlocked.Increment(ref LocalLockCount);
+            }
+            else Interlocked.Increment(ref LocalLockCount);
+
+        }
+
+        public void ReleaseLock()
+        {
+            if (Interlocked.CompareExchange(ref LocalLockCount, 0, 1) == 1)
+            {
+                Monitor.Exit(ThreadLock);
+                Interlocked.Decrement(ref LocalLock);
+            }
+            else Interlocked.Decrement(ref LocalLockCount);
+        }
+
+        public void RequestCriticalLock()
+        {
+            Interlocked.Increment(ref CriticalLock);
+            Monitor.Enter(ThreadLock);
+        }
+
+        public void ReleaseCriticalLock()
+        {
+            Monitor.Exit(ThreadLock);
+            Interlocked.Decrement(ref CriticalLock);
+        }
+    }
+
+    public enum TextureWarp
+    {
+        GL_CLAMP_TO_EDGE = 0,
+        GL_REPEAT = 1,
+        GL_MIRRORED_REPEAT = 2,
+        GL_CLAMP_TO_BORDER = 3
     }
 }

@@ -51,6 +51,8 @@ namespace XFDemo
         static Shader basicShader;
         static GLMatrix projMatrix;
 
+        static GLTexture cubeTexture;
+
         #endregion
 
         static void Main(string[] args)
@@ -62,10 +64,12 @@ namespace XFDemo
             renderForm.Text = "Game Window";
             renderForm.ClientSize = new Size(viewportWidth, viewportHeight);
             renderForm.StartPosition = FormStartPosition.CenterScreen;
+            renderForm.SizeChanged += renderForm_SizeChanged;
 
             formData = new BlitData(renderForm);
             colorBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
             depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
+            vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
             cubeBuffer = GLPrimitives.Cube;
 
@@ -79,22 +83,57 @@ namespace XFDemo
 
             Console.Write("Initializing XFCore -> "); GL.Initialize(); Console.WriteLine("Success");
 
-            //Prep the vignette buffer->
-         //   vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
-         //   vignetteBuffer.Clear();
+            vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
+            vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
+            vignetteShader.Pass();
 
-          //  vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
-         ////   vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
-         //   vignetteShader.Pass();
+            colorShift.AssignBuffer("color", colorBuffer);
+            colorShift.AssignBuffer("opacity", vignetteBuffer);
 
-          //  colorShift.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
-          //  colorShift.AssignBuffer("color", colorBuffer);
          //   colorShift.Pass();
 
             basicShader.AssignBuffer("FragColor", colorBuffer);
-            projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
-            Shader spare = basicShader.DuplicateShader();
+            cubeTexture = new GLTexture(512, 512, typeof(Color4));
+            cubeTexture.Clear();
+
+            cubeTexture.LockPixels(delegate(GLBytes4 data) {
+                for (int i = 0; i < 512; i++)
+                {
+                    data.SetPixel(i, i, (int)new Color4(255, 255, 255));
+                }
+
+                for (int i = 0; i < 512; i++)
+                {
+                    data.SetPixel((512 - 1) - i, i, (int)new Color4(255, 255, 255));
+                }
+
+                for (int i = 0; i < 512; i++)
+                {
+                    data.SetPixel(i, 0, (int)new Color4(255, 255, 255));
+                }
+
+                for (int i = 0; i < 512; i++)
+                {
+                    data.SetPixel(i, 511, (int)new Color4(255, 255, 255));
+                }
+
+                for (int i = 0; i < 512; i++)
+                {
+                    data.SetPixel(0, i, (int)new Color4(255, 255, 255));
+                }
+
+                for (int i = 0; i < 512; i++)
+                {
+                    data.SetPixel(511, i, (int)new Color4(255, 255, 255));
+                }
+            });
+
+            cubeTexture.ConfigureSampler2D(TextureWarp.GL_CLAMP_TO_EDGE);
+
+            basicShader.SetValue("myTexture", cubeTexture);
+            basicShader.SetValue("textureSize", new Vector2(512,512));
+            projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
 
             RT.Start();
@@ -124,9 +163,12 @@ namespace XFDemo
 
             sw.Start();
 
+            GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
+          //  colorShift.Pass();
+
+
             GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
            
-
             sw.Stop();
 
             Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
@@ -141,23 +183,35 @@ namespace XFDemo
 
         static void ReadyShaders()
         {
-          //  vignetteShader = CompileShader("vignetteShader.cpp");
-          //  colorShift = CompileShader("simpleShader.cpp");
-            basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp");
+            vignetteShader = CompileShader("vignetteShader.cpp", "vignettePass");
+            colorShift = CompileShader("simpleShader.cpp", "colorShifter");
+            basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp", "basicShader");
             
 
         }
 
-        static Shader CompileShader(string shaderName)
+        static void renderForm_SizeChanged(object sender, EventArgs e)
         {
-            ShaderCompile sModule;
-            Console.Write("Parsing Shader: " + shaderName + " -> ");
-            if (!ShaderParser.Parse(shaderName, out sModule))
+            lock (RT.RenderLock) //Lock statement prevents rendering while updates are occuring!
             {
-                Console.WriteLine("Failed to parse Shader!");
-                Console.ReadLine();
-                return null;
+                viewportWidth = ((Form)sender).ClientSize.Width;
+                viewportHeight = ((Form)sender).ClientSize.Height;
+
+                //Resize all of the buffers:
+                colorBuffer.Resize(viewportWidth, viewportHeight);
+                depthBuffer.Resize(viewportWidth, viewportHeight);
+                vignetteBuffer.Resize(viewportWidth, viewportHeight);
+
+                vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
+                vignetteShader.Pass();
             }
+        }
+
+        static Shader CompileShader(string shaderName, string outputName)
+        {   
+            Console.Write("Parsing Shader: " + shaderName + " -> ");
+
+            ShaderCompile sModule = ShaderParser.Parse(shaderName, outputName);
             Console.WriteLine("Success!");
 
             Shader outputShader;
@@ -174,24 +228,17 @@ namespace XFDemo
             return outputShader;
         }
 
-        static Shader CompileShader(string vsShaderName, string fsShaderName)
+        static Shader CompileShader(string vsShaderName, string fsShaderName, string outputName)
         {
-            ShaderCompile sModule;
             Console.Write("Parsing Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
-            if (!ShaderParser.Parse(vsShaderName, fsShaderName, out sModule, CompileOption.ForceRecompile))
-            {
-                Console.WriteLine("Failed to parse Shader!");
-                Console.ReadLine();
-                return null;
-            }
+
+            ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName);
             Console.WriteLine("Success!");
 
-         //   ShaderCompile.COMMAND_LINE = "";
+          //  ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
 
-            //throw new Exception();
+            Shader outputShader; 
 
-            Shader outputShader;
-          
             Console.Write("Compiling Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
             if (!sModule.Compile(out outputShader))
             {
@@ -258,7 +305,6 @@ namespace XFDemo
 
             GLExtra.BlitFromBitmap(frameData, colorBuffer, new Point(0, colorBuffer.Height - 100), new Rectangle(0, 0, 400, 100));  
         }
-
     }
 
     [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]

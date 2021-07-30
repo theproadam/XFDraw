@@ -872,6 +872,29 @@ namespace xfcore.Extras
         }
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct sampler2D
+    {
+        int w;
+        int h;
+        int* TEXTURE_ADDR;
+        int mode;
+        int mode_color;
+
+        public sampler2D(GLTexture source)
+        {
+            if (source.Stride != 4)
+                throw new Exception("sampler2D only works with 32bpp textures!");
+
+            w = source.Width;
+            h = source.Height;
+            TEXTURE_ADDR = (int*)source.GetAddress();
+
+            mode = source.s2DMode;
+            mode_color = source.s2DColor;
+        }
+    }
+
     public static class GLPrimitives
     {
         public static GLBuffer Cube
@@ -1166,5 +1189,13 @@ namespace xfcore
             return new Vector3((float)Math.Sin(EulerAnglesDEG.x / 57.2958f), (float)Math.Sin(EulerAnglesDEG.y / 57.2958f), (float)Math.Sin(EulerAnglesDEG.z / 57.2958f));
         }
 
+    }
+
+    public class MSAA_Config
+    {
+        public MSAA_Config(GLTexture linkedBuffer, Vector2[] samplePattern)
+        {
+
+        }
     }
 }
