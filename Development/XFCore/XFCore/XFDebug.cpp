@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include <atomic>
 #include <omp.h>
+#include <malloc.h>
 #include "XFCore.h"
 #include <math.h>
 #include <ppl.h>
-
 using namespace Concurrency;
+
 #include <iostream>
 
 #define M_PI 3.14159265358979323846f
@@ -1841,8 +1842,6 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 
 	int BUFFER_SIZE = 3;
 
-	
-
 	bool shadowsEnabled = pc.shadowMapPresent == 1 ? true : false;
 
 	for (int b = 0; b < 3; ++b)
@@ -1870,12 +1869,8 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 		}
 
 	}
-	//TODO: Replace RTL_ZERO_MEMORY with a simple loop, it should be much faster
 
 	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
-	//bool* AP = (bool*)(VERTEX_DATA + 48);
-
-	//RtlZeroMemory(AP, BUFFER_SIZE);
 	frtlzeromem(AP, BUFFER_SIZE);
 	
 #pragma region NearPlaneCFG
@@ -2420,38 +2415,19 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 		if (VERTEX_DATA[im * stride + 1] > yMax) yMax = (int)(VERTEX_DATA[im * stride + 1]);
 		if (VERTEX_DATA[im * stride + 1] < yMin) yMin = (int)(VERTEX_DATA[im * stride + 1]);
 	}
-	
-	if (false)
-	for (int im = 0; im < 1; im++)
-	{
-		int posX = VERTEX_DATA[im * stride + 0];
-		int posY = VERTEX_DATA[im * stride + 1];
-
-		if (posX < 0) posX = 0;
-		if (posX >= RW) posX = RW - 1;
-		if (posY < 0) posY = 0;
-		if (posY >= RH) posY = RH - 1;
-
-		iptr[posX + posY * RW] = FastInt(VERTEX_DATA[im * stride + 3] * 127.5f + 127.5f, VERTEX_DATA[im * stride + 4] * 127.5f + 127.5f, VERTEX_DATA[im * stride + 5] * 127.5f + 127.5f);
-	}
-
-
-	
+		
 	if (FACE_CULL == 1 || FACE_CULL == 2)
 	{
 		float A = BACKFACECULLS(VERTEX_DATA, stride);
 		if (FACE_CULL == 2 && A > 0) return RETURN_VALUE;
 		else if (FACE_CULL == 1 && A < 0) return RETURN_VALUE;
 	}
+
 	if (yMax >= RH) yMax = RH - 1;
 	if (yMin < 0) yMin = 0;
 
-	float slopeZ;
-	float bZ;
-	float s;
-
-	float sA;
-	float sB;
+	float slopeZ, bZ, s;
+	float sA, sB;
 
 	//float* Intersects = (float*)alloca(16);
 	float* Intersects = (float*)alloca((4 + (stride - 3) * 5) * 4);
@@ -2466,14 +2442,12 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 	float* FROM;
 	float* TO;
 
-	int FromX;
-	int ToX;
+	int FromX, ToX;
 
 	int* RGB_iptr;
 	float* Z_fptr;
 
 	float zBegin;
-
 	float oValue = 0.0f;
 
 	float fwi = 1.0f / fw;
@@ -2497,10 +2471,6 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 			FromX = (int)FROM[0] == 0 ? 0 : FROM[0] + 1;
 			ToX = (int)TO[0];
 
-		//	*(iptr + i * RW + FromX) = FastInt(FROM[2] * 127.5f + 127.5f, FROM[3] * 127.5f + 127.5f, FROM[4] * 127.5f + 127.5f);
-		//	*(iptr + i * RW + ToX) = FastInt(TO[2] * 127.5f + 127.5f, TO[3] * 127.5f + 127.5f, TO[4] * 127.5f + 127.5f);
-
-		//	continue;
 #pragma region Z_Interpolation
 			slopeZ = (FROM[1] - TO[1]) / (FROM[0] - TO[0]);
 			bZ = -slopeZ * FROM[0] + FROM[1];
@@ -2585,7 +2555,9 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 					if (dotp > 1.0f) dotp = 1.0f;
 					else if (dotp < -1.0f) dotp = -1.0f;
 
-					nBias *= (-fabsf(dotp) + 1.0f);
+				//	nBias *= (-fabsf(dotp) + 1.0f);
+
+					
 
 					vec3 resl = vec3(az[3] + shadowNormal.x * nBias, az[4] + shadowNormal.y * nBias, az[5] - shadowNormal.z * nBias);
 			
@@ -2594,12 +2566,12 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 
 					ToXY(vec3(az[3], az[4], az[5]), pc.srw, pc.srh, pc.sfw, pc.sfh, &XTrue, &YTrue);
 
-					//az[5] = farZ - (az[5] + shadowNormal.z * nBias);
-					az[5] = farZ - az[5];
+					az[5] = farZ - (az[5] + shadowNormal.z * nBias);
+				//	az[5] = farZ - az[5];
 
 					int iX = (int)X;
 					int iY = (int)Y;
-
+					
 					//Sample Smart ->
 
 					float xhgh = X - iX;
@@ -2611,20 +2583,27 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 
 				//	ShadowMult = (SampleShadow(iX, iY, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY, pc, az[5]) * xhgh) * ylwr +
 				//		(SampleShadow(iX, iY + 1, pc, az[5]) * xlwr + SampleShadow(iX + 1, iY + 1, pc, az[5]) * xhgh) * yhgh;
+					vec3 lightDir = normalize(pc.lightPosition - FragPos);
+					float diff = dot(Normal, lightDir);
 
-
-					if (true)
+					if (diff < 0.45f)
 					{
 						float sampleDepth;
-					//	sampleDepth = textureBILINEAR(pc, vec3(X - 0.5f, Y - 0.5f, 0));
-					//	sampleDepth += textureBILINEAR(pc, vec3(X - 0.5f, Y + 0.5f, 0));
-					//	sampleDepth += textureBILINEAR(pc, vec3(X + 0.5f, Y + 0.5f, 0));
-					//	sampleDepth += textureBILINEAR(pc, vec3(X + 0.5f, Y - 0.5f, 0));
 						sampleDepth = textureBILINEAR(pc, vec3(X, Y, 0));
+
+						
+					//	vec3 diffuse = pc.lightColor * diff;
 
 						//sampleDepth *= 0.20f;
 
-						float deltaV = az[5] - (sampleDepth - pc.ShadowBias);
+						float vou = sqrtf(1.0f - dotp * dotp) / dotp;
+
+						if (vou < 0.0f) vou = 0.0f;
+						else if (vou > 2.0f) vou = 2.0f;
+
+						float extraBias = pc.ShadowBias * vou;
+
+						float deltaV = az[5] - (sampleDepth - extraBias);
 
 						if (deltaV > 0)
 						{
@@ -2648,8 +2627,13 @@ void FillPhong(int index, float* p, int* iptr, float* dptr, int stride, int RW, 
 							ShadowMult = (5.0f - ab) * 0.2f;
 						}
 
+						//ShadowMult *= diff;
 						//ShadowMult *= (1.0f - nBias);
 
+					}
+					else
+					{
+						ShadowMult = 0.05f;
 					}
 
 					if (false)
@@ -3425,6 +3409,7 @@ extern "C"
 		float radsFOV = rconfig.degFOV * M_PI / 180.0f;
 
 		float nearZ = rconfig.nearZ, farZ = rconfig.farZ;
+
 		float fovCoefficient = (float)tan((M_PI / 2.0f) - (radsFOV / 2.0f));
 		float hFovCoefficient = ((float)rconfig.renderWidth / (float)rconfig.renderHeight) * (float)tan((M_PI / 2.0f) - (radsFOV / 2.0f));
 

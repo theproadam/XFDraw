@@ -21,7 +21,7 @@ namespace xfcore.Buffers
 
         internal int s2DMode = 0;
         internal int s2DColor = 0;
-
+        internal int s2DFilter = 0;
 
         public int Width { get { return _width; } }
         public int Height { get { return _height; } }
@@ -176,15 +176,24 @@ namespace xfcore.Buffers
             ReleaseLock();
         }
 
-        public void ConfigureSampler2D(TextureWarp textureWrapMode, int borderColor = 0)
+        public void ConfigureSampler2D(TextureFiltering filterMode, TextureWarp wrapMode, int borderColor = 0)
         {
-            s2DMode = (int)textureWrapMode;
+            if (wrapMode == TextureWarp.GL_MIRRORED_REPEAT)
+                throw new Exception("GL_MIRRORED_REPEAT is not supported. Sorry!");
+
+            s2DMode = (int)wrapMode;
             s2DColor = borderColor;
+            s2DFilter = (int)filterMode;
         }
 
         public void Clear()
         {
             GL.Clear(this);
+        }
+
+        bool IsPowerOfTwo(ulong x)
+        {
+            return (x != 0) && ((x & (x - 1)) == 0);
         }
     }
 
@@ -467,6 +476,72 @@ namespace xfcore.Buffers
         }
     }
 
+    public class GLCubemap
+    {
+        internal GLTexture[] cubemap = new GLTexture[6];
+
+        public GLTexture FRONT { 
+            get { return cubemap[0]; } 
+            set { cubemap[0] = value; } 
+        }
+        public GLTexture BACK
+        {
+            get { return cubemap[1]; }
+            set { cubemap[1] = value; }
+        }
+        public GLTexture LEFT
+        {
+            get { return cubemap[2]; }
+            set { cubemap[2] = value; }
+        }
+        public GLTexture RIGHT
+        {
+            get { return cubemap[3]; }
+            set { cubemap[3] = value; }
+        }
+        public GLTexture TOP
+        {
+            get { return cubemap[4]; }
+            set { cubemap[4] = value; }
+        }
+        public GLTexture BOTTOM
+        {
+            get { return cubemap[5]; }
+            set { cubemap[5] = value; }
+        }
+
+        public void Clear(byte R, byte G, byte B)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                GL.Clear(cubemap[i], R, G, B);
+            }
+        }
+
+        public GLCubemap(GLTexture front, GLTexture back, GLTexture left, GLTexture right, GLTexture top, GLTexture bottom)
+        {
+            cubemap[0] = front;
+            cubemap[1] = back;
+            cubemap[2] = left;
+            cubemap[3] = right;
+            cubemap[4] = top;
+            cubemap[5] = bottom;
+        }
+
+        internal bool isValid()
+        {
+            bool h = (FRONT.Height == BACK.Height & BACK.Height == LEFT.Height & LEFT.Height == RIGHT.Height & RIGHT.Height == TOP.Height & TOP.Height == BOTTOM.Height);
+            bool w = (FRONT.Width == BACK.Width & BACK.Width == LEFT.Width & LEFT.Width == RIGHT.Width & RIGHT.Width == TOP.Width & TOP.Width == BOTTOM.Width);
+            bool s = (FRONT.Stride == BACK.Stride & BACK.Stride == LEFT.Stride & LEFT.Stride == RIGHT.Stride & RIGHT.Stride == TOP.Stride & TOP.Stride == BOTTOM.Stride);
+            bool sxsy = FRONT.Height == FRONT.Width;
+
+            if (FRONT.Stride != 4)
+                throw new Exception("All cubemaps must be 32bpp");
+
+            return s & w & h & sxsy;
+        }
+    }
+
     internal class SmartLock
     {
         private object ThreadLock = new object();
@@ -519,5 +594,11 @@ namespace xfcore.Buffers
         GL_REPEAT = 1,
         GL_MIRRORED_REPEAT = 2,
         GL_CLAMP_TO_BORDER = 3
+    }
+
+    public enum TextureFiltering
+    { 
+        GL_NEAREST = 0,
+        GL_LINEAR = 1
     }
 }

@@ -52,6 +52,12 @@ namespace XFDemo
         static GLMatrix projMatrix;
 
         static GLTexture cubeTexture;
+        static MSAAData MSAA;
+
+        //reflections demo
+        static GLCubemap skybox;
+        static Shader teapotShader;
+        static GLBuffer teapotObject;
 
         #endregion
 
@@ -71,8 +77,10 @@ namespace XFDemo
             depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
             vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
-            cubeBuffer = GLPrimitives.Cube;
-
+          //  cubeBuffer = GLPrimitives.Cube;         
+            STLImporter sImport = new STLImporter("Teapot Fixed.stl");
+            float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(sImport.AllTriangles, 89);
+            teapotObject = new GLBuffer(cNorm, 6);
 
             RT = new RenderThread(144);
             RT.RenderFrame += RT_RenderFrame;
@@ -95,44 +103,20 @@ namespace XFDemo
             basicShader.AssignBuffer("FragColor", colorBuffer);
 
             cubeTexture = new GLTexture(512, 512, typeof(Color4));
-            cubeTexture.Clear();
+            GL.Clear(cubeTexture, 255, 127, 0);
 
-            cubeTexture.LockPixels(delegate(GLBytes4 data) {
-                for (int i = 0; i < 512; i++)
-                {
-                    data.SetPixel(i, i, (int)new Color4(255, 255, 255));
-                }
-
-                for (int i = 0; i < 512; i++)
-                {
-                    data.SetPixel((512 - 1) - i, i, (int)new Color4(255, 255, 255));
-                }
-
-                for (int i = 0; i < 512; i++)
-                {
-                    data.SetPixel(i, 0, (int)new Color4(255, 255, 255));
-                }
-
-                for (int i = 0; i < 512; i++)
-                {
-                    data.SetPixel(i, 511, (int)new Color4(255, 255, 255));
-                }
-
-                for (int i = 0; i < 512; i++)
-                {
-                    data.SetPixel(0, i, (int)new Color4(255, 255, 255));
-                }
-
-                for (int i = 0; i < 512; i++)
-                {
-                    data.SetPixel(511, i, (int)new Color4(255, 255, 255));
-                }
-            });
-
-            cubeTexture.ConfigureSampler2D(TextureWarp.GL_CLAMP_TO_EDGE);
+            cubeTexture.ConfigureSampler2D(TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_BORDER, 2094);
 
             basicShader.SetValue("myTexture", cubeTexture);
-            basicShader.SetValue("textureSize", new Vector2(512,512));
+            basicShader.SetValue("textureSize", new Vector2(512, 512));
+
+            teapotShader.AssignBuffer("FragColor", colorBuffer);
+
+
+            skybox = CubemapLoader.Load(@"skybox_data\");
+
+         //   skybox.Clear(255, 0, 0);
+
             projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
 
@@ -153,8 +137,12 @@ namespace XFDemo
 
             transformMatrix = inputManager.CreateCameraRotationMatrix();
 
-            basicShader.SetValue("cameraRot", transformMatrix);
-            basicShader.SetValue("cameraPos", inputManager.cameraPosition);
+          //  basicShader.SetValue("cameraRot", transformMatrix);
+          //  basicShader.SetValue("cameraPos", inputManager.cameraPosition);
+
+            teapotShader.SetValue("cameraRot", transformMatrix);
+            teapotShader.SetValue("cameraPos", inputManager.cameraPosition);
+
 
             ComputeColor();
 
@@ -163,12 +151,13 @@ namespace XFDemo
 
             sw.Start();
 
+            GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+
             GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
-          //  colorShift.Pass();
+         //   GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
+            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
 
-            GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
-           
             sw.Stop();
 
             Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
@@ -177,7 +166,6 @@ namespace XFDemo
             DrawText();
 
             GL.Blit(colorBuffer, formData);
-
             FramesRendered++;            
         }
 
@@ -186,7 +174,7 @@ namespace XFDemo
             vignetteShader = CompileShader("vignetteShader.cpp", "vignettePass");
             colorShift = CompileShader("simpleShader.cpp", "colorShifter");
             basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp", "basicShader");
-            
+            teapotShader = CompileShader("teapotVS.cpp", "teapotFS.cpp", "teapotShader");
 
         }
 
@@ -230,16 +218,16 @@ namespace XFDemo
 
         static Shader CompileShader(string vsShaderName, string fsShaderName, string outputName)
         {
-            Console.Write("Parsing Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
+            Console.Write("\nParsing Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
 
-            ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName);
+            ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName, CompileOption.None);
             Console.WriteLine("Success!");
 
-          //  ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
+        //    ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
 
-            Shader outputShader; 
+            Shader outputShader;
 
-            Console.Write("Compiling Shader: " + vsShaderName + ", " + fsShaderName + " -> ");
+            Console.Write("Compiling Shader, This may take some time: " + outputName + " -> \n");
             if (!sModule.Compile(out outputShader))
             {
                 Console.WriteLine("Failed to compile Shader!");
@@ -505,5 +493,54 @@ namespace XFDemo
         {
             return Matrix3x3.RollMatrix(-cameraRotation.y) * Matrix3x3.PitchMatrix(-cameraRotation.z);
         }
+    }
+
+    public static class CubemapLoader
+    {
+        public static GLCubemap Load(string folderPath)
+        {
+            Bitmap front = new Bitmap(folderPath + @"\FRONT.jpg");
+            Bitmap back = new Bitmap(folderPath + @"\BACK.jpg");
+            Bitmap top = new Bitmap(folderPath + @"\TOP.jpg");
+            Bitmap bottom = new Bitmap(folderPath + @"\BOTTOM.jpg");           
+            Bitmap left = new Bitmap(folderPath + @"\LEFT.jpg");
+            Bitmap right = new Bitmap(folderPath + @"\RIGHT.jpg");
+
+            GLTexture gfront = new GLTexture(front.Width, front.Height, typeof(Color4));
+            GLTexture gback = new GLTexture(back.Width, back.Height, typeof(Color4));
+            GLTexture gtop = new GLTexture(top.Width, top.Height, typeof(Color4));
+            GLTexture gbottom = new GLTexture(bottom.Width, bottom.Height, typeof(Color4));
+            GLTexture gleft = new GLTexture(left.Width, left.Height, typeof(Color4));
+            GLTexture gright = new GLTexture(right.Width, right.Height, typeof(Color4));
+
+            //GLExtra.BlitFromBitmap(front, gfront, new Point(0, 0), new Rectangle(0, 0, gfront.Width, gfront.Height));
+            //GLExtra.BlitFromBitmap(back, gback, new Point(0, 0), new Rectangle(0, 0, gback.Width, gback.Height));
+            //GLExtra.BlitFromBitmap(top, gtop, new Point(0, 0), new Rectangle(0, 0, gtop.Width, gtop.Height));
+            //GLExtra.BlitFromBitmap(bottom, gbottom, new Point(0, 0), new Rectangle(0, 0, gbottom.Width, gbottom.Height));
+            //GLExtra.BlitFromBitmap(left, gleft, new Point(0, 0), new Rectangle(0, 0, gleft.Width, gleft.Height));
+            //GLExtra.BlitFromBitmap(right, gright, new Point(0, 0), new Rectangle(0, 0, gright.Width, gright.Height));
+
+            BitmapConvert(front, gfront);
+            BitmapConvert(back, gback);
+            BitmapConvert(top, gtop);
+            BitmapConvert(bottom, gbottom);
+            BitmapConvert(left, gleft);
+            BitmapConvert(right, gright);
+
+
+
+           
+
+            return new GLCubemap(gfront, gback, gleft, gright, gtop, gbottom);
+        }
+
+        static void BitmapConvert(Bitmap src, GLTexture dest)
+        { 
+            Bitmap bmp = new Bitmap(src);
+            bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+
+            GLExtra.BlitFromBitmap(bmp, dest, new Point(0, 0), new Rectangle(0, 0, dest.Width, dest.Height));
+        }
+
     }
 }

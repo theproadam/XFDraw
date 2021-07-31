@@ -6,7 +6,48 @@ extern bool CountPixels;
 extern bool ForceUseOpenMP;
 
 
+struct vec2
+{
+	float x;
+	float y;
 
+	vec2(float X, float Y)
+	{
+		x = X;
+		y = Y;
+	}
+
+	vec2()
+	{
+		x = 0;
+		y = 0;
+	}
+
+	vec2 operator+(const vec2& a) const
+	{
+		return vec2(a.x + x, a.y + y);
+	}
+
+	vec2 operator-(const vec2& a) const
+	{
+		return vec2(x - a.x, y - a.y);
+	}
+
+	vec2 operator*(const float& a) const
+	{
+		return vec2(a * x, a * y);
+	}
+
+	vec2 operator-() const
+	{
+		return vec2(-x, -y);
+	}
+
+	vec2 operator*(const vec2& a) const
+	{
+		return vec2(a.x * x, a.y * y);
+	}
+};
 
 struct vec3
 {
@@ -72,6 +113,51 @@ struct vec3
 	}
 };
 
+struct mat3
+{
+	float X0Y0;
+	float X1Y0;
+	float X2Y0;
+
+	float X0Y1;
+	float X1Y1;
+	float X2Y1;
+
+	float X0Y2;
+	float X1Y2;
+	float X2Y2;
+
+	vec3 operator*(const vec3& B) const
+	{
+		vec3 result;
+		result.x = X0Y0 * B.x + X1Y0 * B.y + X2Y0 * B.z;
+		result.y = X0Y1 * B.x + X1Y1 * B.y + X2Y1 * B.z;
+		result.z = X0Y2 * B.x + X1Y2 * B.y + X2Y2 * B.z;
+
+		return result;
+	}
+
+	mat3 operator*(const mat3& B) const
+	{
+		mat3 result = mat3();
+
+		result.X0Y0 = X0Y0 * B.X0Y0 + X1Y0 * B.X0Y1 + X2Y0 * B.X0Y2;
+		result.X1Y0 = X0Y0 * B.X1Y0 + X1Y0 * B.X1Y1 + X2Y0 * B.X1Y2;
+		result.X2Y0 = X0Y0 * B.X2Y0 + X1Y0 * B.X2Y1 + X2Y0 * B.X2Y2;
+
+		result.X0Y1 = X0Y1 * B.X0Y0 + X1Y1 * B.X0Y1 + X2Y1 * B.X0Y2;
+		result.X1Y1 = X0Y1 * B.X1Y0 + X1Y1 * B.X1Y1 + X2Y1 * B.X1Y2;
+		result.X2Y1 = X0Y1 * B.X2Y0 + X1Y1 * B.X2Y1 + X2Y1 * B.X2Y2;
+
+		result.X0Y2 = X0Y2 * B.X0Y0 + X1Y2 * B.X0Y1 + X2Y2 * B.X0Y2;
+		result.X1Y2 = X0Y2 * B.X1Y0 + X1Y2 * B.X1Y1 + X2Y2 * B.X1Y2;
+		result.X2Y2 = X0Y2 * B.X2Y0 + X1Y2 * B.X2Y1 + X2Y2 * B.X2Y2;
+
+		return result;
+	}
+
+};
+
 inline vec3 normalize(vec3 value)
 {
 	float num = 1.0f / sqrtf(value.x * value.x + value.y * value.y + value.z * value.z);
@@ -125,7 +211,36 @@ inline void ToXY(vec3 XYZ, float srw, float srh, float sfw, float sfh, float* X,
 }
 
 
+struct GLData
+{
+	float nearZ;
+	float farZ;
 
+	float tanVert;
+	float tanHorz;
+
+	float ow;
+	float oh;
+
+	float rw;
+	float rh;
+
+	float fw;
+	float fh;
+
+	float ox;
+	float oy;
+
+	float iox;
+	float ioy;
+
+	float oValue;
+
+	int renderWidth;
+	int renderHeight;
+
+	float matrixlerpv;
+};
 
 struct RenderSettings
 {
@@ -379,6 +494,8 @@ void SIPHA(float* TA, int INDEX, float* VD, int A, int B, float TanSlope, float 
 void LIPA(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride);
 
 bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride);
+bool ScanLinePLUS_(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride);
+
 
 inline int FastInt(unsigned char R, unsigned char G, unsigned char B)
 {

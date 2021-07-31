@@ -83,7 +83,33 @@ struct vec2
 		x = 0;
 		y = 0;
 	}
+
+	vec2 operator+(const vec2& a) const
+	{
+		return vec2(a.x + x, a.y + y);
+	}
+
+	vec2 operator-(const vec2& a) const
+	{
+		return vec2(x - a.x, y - a.y);
+	}
+
+	vec2 operator*(const float& a) const
+	{
+		return vec2(a * x, a * y);
+	}
+
+	vec2 operator-() const
+	{
+		return vec2(-x, -y);
+	}
+
+	vec2 operator*(const vec2& a) const
+	{
+		return vec2(a.x * x, a.y * y);
+	}
 };
+
 
 struct vec4
 {
@@ -163,6 +189,9 @@ struct sampler2D
 	int width;
 	int height;
 	long* TEXTURE_ADDR;
+    int wrap_mode;
+    byte4 wrap_mode_color;
+    int filt_mode;
 };
 
 struct mat3
@@ -304,3 +333,171 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 {
 	return inNormal * -2.0f * dot(inNormal, inDirection) + inDirection;
 }
+
+inline byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
+{
+	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
+	float x0 = 1.0f - x1;
+
+	float y1 = coord.y + 0.5f - (int)(coord.y + 0.5f);
+	float y0 = 1.0f - y1;
+
+	int2 X0Y0 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+	int2 X1Y0 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+
+	int2 X0Y1 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+	int2 X1Y1 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+
+	// -> if statement checking for bounds <-
+	if (true) //TEXTURE_WRAP_MODE == 0
+	{
+		if (X0Y0.X < 0) X0Y0.X = 0;
+		if (X0Y0.Y < 0) X0Y0.Y = 0;
+		if (X0Y0.X >= inputTexture.width) X0Y0.X = inputTexture.width - 1;
+		if (X0Y0.Y >= inputTexture.height) X0Y0.Y = inputTexture.height - 1;
+
+		if (X1Y0.X < 0) X1Y0.X = 0;
+		if (X1Y0.Y < 0) X1Y0.Y = 0;
+		if (X1Y0.X >= inputTexture.width) X1Y0.X = inputTexture.width - 1;
+		if (X1Y0.Y >= inputTexture.height) X1Y0.Y = inputTexture.height - 1;
+
+		if (X0Y1.X < 0) X0Y1.X = 0;
+		if (X0Y1.Y < 0) X0Y1.Y = 0;
+		if (X0Y1.X >= inputTexture.width) X0Y1.X = inputTexture.width - 1;
+		if (X0Y1.Y >= inputTexture.height) X0Y1.Y = inputTexture.height - 1;
+
+		if (X1Y1.X < 0) X1Y1.X = 0;
+		if (X1Y1.Y < 0) X1Y1.Y = 0;
+		if (X1Y1.X >= inputTexture.width) X1Y1.X = inputTexture.width - 1;
+		if (X1Y1.Y >= inputTexture.height) X1Y1.Y = inputTexture.height - 1;
+	}
+
+	unsigned char* bptrL = (unsigned char*)(inputTexture.TEXTURE_ADDR + X0Y0.Y * inputTexture.width + X0Y0.X);
+	unsigned char* bptrLN = (unsigned char*)(inputTexture.TEXTURE_ADDR + X1Y0.Y * inputTexture.width + X1Y0.X);
+
+	unsigned char* bptrU = (unsigned char*)(inputTexture.TEXTURE_ADDR + X0Y1.Y * inputTexture.width + X0Y1.X);
+	unsigned char* bptrUN = (unsigned char*)(inputTexture.TEXTURE_ADDR + X1Y1.Y * inputTexture.width + X1Y1.X);
+
+	unsigned char B = bptrL[0] * (x0 * y0) + bptrLN[0] * (x1 * y0) + bptrU[0] * (x0 * y1) + bptrUN[0] * (x1 * y1);
+	unsigned char G = bptrL[1] * (x0 * y0) + bptrLN[1] * (x1 * y0) + bptrU[1] * (x0 * y1) + bptrUN[1] * (x1 * y1);
+	unsigned char R = bptrL[2] * (x0 * y0) + bptrLN[2] * (x1 * y0) + bptrU[2] * (x0 * y1) + bptrUN[2] * (x1 * y1);
+
+	if (sampleAlpha)
+	{
+		unsigned char A = bptrL[3] * (x0 * y0) + bptrLN[3] * (x1 * y0) + bptrU[3] * (x0 * y1) + bptrUN[3] * (x1 * y1);
+		return byte4(A, R, G, B);
+	}
+
+	return byte4(R, G, B);
+}
+
+inline byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
+{
+	if (inputTexture.wrap_mode == 0)
+	{
+		if (coord.X < 0) coord.X = 0;
+		if (coord.Y < 0) coord.Y = 0;
+		if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
+		if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
+	}
+	else if (inputTexture.wrap_mode == 1)
+	{
+		if (coord.X < 0) coord.X = coord.X % inputTexture.width + inputTexture.width;
+		if (coord.Y < 0) coord.Y = coord.Y % inputTexture.height + inputTexture.height;
+
+		if (coord.X >= inputTexture.width) coord.X = coord.X % inputTexture.width;
+		if (coord.Y >= inputTexture.height) coord.Y = coord.Y % inputTexture.height;
+	}
+	else
+	{
+		if (coord.X < 0 || coord.Y < 0 || coord.X >= inputTexture.width || coord.Y >= inputTexture.height) return (byte4)inputTexture.wrap_mode_color;
+	}
+
+	return *((byte4*)(inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X));
+}
+
+inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
+{
+	if (inputTexture.filt_mode == 0)
+	{
+		return textureNEAREST(inputTexture, int2((int)coord.x, (int)coord.y));
+	}
+	else
+	{
+		return textureBILINEAR(inputTexture, coord, sampleAlpha);
+	}
+}
+
+struct MSAAConfig
+{
+	byte4** ptrPtrs;
+	int sampleCount;
+	float* sampleBuffer;
+	float sampleMultiply;
+};
+
+inline float OnLineValue(float* A, float* B, float Cx, float Cy)
+{
+	return (B[0] - A[0]) * (Cy - A[1]) - (B[1] - A[1]) * (Cx - A[0]);
+}
+
+inline bool IsInside(float x, float y, float* VERTEX_DATA, int DATA_SIZE, int Stride)
+{
+	for (int i = 0; i < DATA_SIZE - 1; i++)
+	if (OnLineValue(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, x, y))
+		return false;
+
+	if (OnLineValue(VERTEX_DATA + (DATA_SIZE - 1) * Stride, VERTEX_DATA + 0 * Stride, x, y))
+		return false;
+
+	return true;
+}
+
+inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, float stride, float* VERTEX_DATA, float DATA_SIZE, MSAAConfig& mConfig)
+{
+	float Opacity = 0;
+
+	//Dear compiler: please unroll the loops!
+	if (mConfig.sampleCount == 2)
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			float X_SAMPLE = X + mConfig.sampleBuffer[i * 2 + 0];
+			float Y_SAMPLE = Y + mConfig.sampleBuffer[i * 2 + 1];
+
+			if (IsInside(X_SAMPLE, Y_SAMPLE, VERTEX_DATA, DATA_SIZE, stride))
+			{
+				(mConfig.ptrPtrs[i])[RW * Y + X] = data;
+			}
+		}
+	}
+	else if (mConfig.sampleCount == 4)
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			float X_SAMPLE = X + mConfig.sampleBuffer[i * 2 + 0];
+			float Y_SAMPLE = Y + mConfig.sampleBuffer[i * 2 + 1];
+
+			if (IsInside(X_SAMPLE, Y_SAMPLE, VERTEX_DATA, DATA_SIZE, stride))
+			{
+				(mConfig.ptrPtrs[i])[RW * Y + X] = data;
+			}
+		}
+	}
+	else if (mConfig.sampleCount == 8)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			float X_SAMPLE = X + mConfig.sampleBuffer[i * 2 + 0];
+			float Y_SAMPLE = Y + mConfig.sampleBuffer[i * 2 + 1];
+
+			if (IsInside(X_SAMPLE, Y_SAMPLE, VERTEX_DATA, DATA_SIZE, stride))
+			{
+				(mConfig.ptrPtrs[i])[RW * Y + X] = data;
+			}
+		}
+	}
+}
+
+
+

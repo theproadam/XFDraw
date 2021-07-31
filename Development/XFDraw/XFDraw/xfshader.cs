@@ -32,7 +32,7 @@ namespace xfcore.Shaders
         delegate void ShdrScrnCallDel(int Width, int Height, byte** ptrPtrs, void* UniformPointer);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, byte* uData1, byte* uData2, byte** ptrPtrs, GLData pData, int FACE, int mode);
+        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, byte* uData1, byte* uData2, byte** ptrPtrs, GLData pData, int FACE, int mode, MSAAConfig* msaa);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate int SafetyChkDel();
@@ -65,7 +65,9 @@ namespace xfcore.Shaders
         internal byte[] uniformBytesVS;
         internal byte[] uniformBytesFS;
 
+        internal TextureSlot[] samplerTextures;
         internal GLTexture[] textureSlots;
+        internal MSAAData msaaConfig;
 
         internal int readStride;
         internal int intStride;
@@ -215,6 +217,13 @@ namespace xfcore.Shaders
             }
             else
                 textureSlots = new GLTexture[fieldFSOut.Length];
+
+            int samplerCount = 0;
+            for (int i = 0; i < uniformFS.Length; i++)
+                if (uniformFS[i].dataType == DataType.sampler2D)
+                    uniformFS[i].sampler2DPos = samplerCount++;
+
+            samplerTextures = new TextureSlot[samplerCount];
 	    }
 
         public Shader(string shaderDLL)
@@ -312,6 +321,14 @@ namespace xfcore.Shaders
             }
             else
                 textureSlots = new GLTexture[fieldFSOut.Length];
+
+            int samplerCount = 0;
+            for (int i = 0; i < uniformFS.Length; i++)
+                if (uniformFS[i].dataType == DataType.sampler2D)
+                    uniformFS[i].sampler2DPos = samplerCount++;
+
+            samplerTextures = new TextureSlot[samplerCount];
+
         }
 
         public void SetValue(string uniformName, object value)
@@ -320,69 +337,77 @@ namespace xfcore.Shaders
             bool isStruct = false;
             string structFind = "";
 
-            if (value.GetType() == typeof(GLTexture))
-            {
-                value = (object)(new sampler2D((GLTexture)value));
-            }
+            bool isTexture = value.GetType() == typeof(GLTexture);
 
-            if (!value.GetType().IsValueType || value.GetType().IsEnum)
-                throw new Exception("Value must be a struct!");
+            if (!isTexture)
+                if (!value.GetType().IsValueType || value.GetType().IsEnum)
+                    throw new Exception("Value must be a struct!");
 
             if (uniformName.Contains('.')){
                 structFind = uniformName.Split('.')[1];
                 uniformName = uniformName.Split('.')[0];
-                isStruct = true;
-                
+                isStruct = true;       
             }
 
-            if (!isScreenSpace)
-            for (int i = 0; i < uniformVS.Length; i++)
+            lock (ThreadLock)
             {
-                if (uniformVS[i].name == uniformName)
-                {
-                    if (uniformVS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
-
-                    if (isStruct) uniformVS[i].typeAlt.SetValue(structFind, uniformVS[i].layoutPosition, uniformBytesVS, value);
-                    else
+                if (!isScreenSpace)
+                    for (int i = 0; i < uniformVS.Length; i++)
                     {
-                        int mSize = Marshal.SizeOf(value);
-                        if (uniformVS[i].GetSize() != mSize)
-                            throw new Exception("\"" + uniformName + "\" is not the same size as the value!");
+                        if (uniformVS[i].name == uniformName)
+                        {
+                            if (uniformVS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
+                            if (isTexture) throw new Exception("A texture error occured! (8592)");
 
-                        GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
-                        byte* ptr = (byte*)handle.AddrOfPinnedObject();
+                            if (isStruct) uniformVS[i].typeAlt.SetValue(structFind, uniformVS[i].layoutPosition, uniformBytesVS, value);
+                            else
+                            {
+                                int mSize = Marshal.SizeOf(value);
+                                if (uniformVS[i].GetSize() != mSize)
+                                    throw new Exception("\"" + uniformName + "\" is not the same size as the value!");
 
-                        for (int n = 0; n < mSize; n++)
-                            uniformBytesVS[uniformVS[i].layoutPosition + n] = ptr[n];
+                                GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
+                                byte* ptr = (byte*)handle.AddrOfPinnedObject();
 
-                        handle.Free();
+                                for (int n = 0; n < mSize; n++)
+                                    uniformBytesVS[uniformVS[i].layoutPosition + n] = ptr[n];
+
+                                handle.Free();
+                            }
+                            setCount++;
+                        }
                     }
-                    setCount++;
-                }
-            }
 
-            for (int i = 0; i < uniformFS.Length; i++)
-            {
-                if (uniformFS[i].name == uniformName)
+                for (int i = 0; i < uniformFS.Length; i++)
                 {
-                    if (uniformFS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
-
-                    if (isStruct) uniformFS[i].typeAlt.SetValue(structFind, uniformFS[i].layoutPosition, uniformBytesFS, value);
-                    else
+                    if (uniformFS[i].name == uniformName)
                     {
-                        int mSize = Marshal.SizeOf(value);
-                        if (uniformFS[i].GetSize() != mSize)
-                            throw new Exception("\"" + uniformName + "\" is not the same size as the value!");
+                        if (uniformFS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
 
-                        GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
-                        byte* ptr = (byte*)handle.AddrOfPinnedObject();
+                        if (isStruct) uniformFS[i].typeAlt.SetValue(structFind, uniformFS[i].layoutPosition, uniformBytesFS, value);
+                        else if (isTexture)
+                        {
+                            if (uniformFS[i].dataType != DataType.sampler2D)
+                                throw new Exception("\"" + uniformName + "\" is not a texture!");
 
-                        for (int n = 0; n < mSize; n++)
-                            uniformBytesFS[uniformFS[i].layoutPosition + n] = ptr[n];
+                            samplerTextures[uniformFS[i].sampler2DPos] = new TextureSlot(uniformName, (GLTexture)value);
+                        }
+                        else
+                        {
+                            int mSize = Marshal.SizeOf(value);
+                            if (uniformFS[i].GetSize() != mSize)
+                                throw new Exception("\"" + uniformName + "\" is not the same size as the value!");
 
-                        handle.Free();
+                            GCHandle handle = GCHandle.Alloc(value, GCHandleType.Pinned);
+                            byte* ptr = (byte*)handle.AddrOfPinnedObject();
+
+                            for (int n = 0; n < mSize; n++)
+                                uniformBytesFS[uniformFS[i].layoutPosition + n] = ptr[n];
+
+                            handle.Free();
+                        }
+                        setCount++;
                     }
-                    setCount++;
                 }
             }
 
@@ -400,35 +425,38 @@ namespace xfcore.Shaders
             if (buffer == null)
                 throw new Exception("Buffer cannot be null!");
 
-            if (!isScreenSpace)
+            lock (ThreadLock)
             {
-                for (int i = 0; i < fieldFSOut.Length; i++)
+                if (!isScreenSpace)
                 {
-                    if (fieldFSOut[i].name == bufferName)
+                    for (int i = 0; i < fieldFSOut.Length; i++)
                     {
-                        if (buffer.Stride != fieldFSOut[i].GetSize())
-                            throw new Exception("\"" + fieldFSOut[i].typeName + "\" is not the same size (" +
-                                fieldFSOut[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
+                        if (fieldFSOut[i].name == bufferName)
+                        {
+                            if (buffer.Stride != fieldFSOut[i].GetSize())
+                                throw new Exception("\"" + fieldFSOut[i].typeName + "\" is not the same size (" +
+                                    fieldFSOut[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
 
-                        textureSlots[i] = buffer;
-                        setCount++;
+                            textureSlots[i] = buffer;
+                            setCount++;
+                        }
                     }
                 }
-            }
 
 
-            if (isScreenSpace) 
-            {
-                for (int i = 0; i < fieldScreenSpace.Length; i++)
+                if (isScreenSpace)
                 {
-                    if (fieldScreenSpace[i].name == bufferName)
+                    for (int i = 0; i < fieldScreenSpace.Length; i++)
                     {
-                        if (buffer.Stride != fieldScreenSpace[i].GetSize())
-                            throw new Exception("\"" + fieldScreenSpace[i].typeName + "\" is not the same size (" +
-                                fieldScreenSpace[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
+                        if (fieldScreenSpace[i].name == bufferName)
+                        {
+                            if (buffer.Stride != fieldScreenSpace[i].GetSize())
+                                throw new Exception("\"" + fieldScreenSpace[i].typeName + "\" is not the same size (" +
+                                    fieldScreenSpace[i].GetSize() + ") as the buffer stride! (" + buffer.Stride + ")");
 
-                        textureSlots[i] = buffer;
-                        setCount++;
+                            textureSlots[i] = buffer;
+                            setCount++;
+                        }
                     }
                 }
             }
@@ -436,6 +464,17 @@ namespace xfcore.Shaders
             if (setCount == 0) throw new Exception("Buffer \"" + bufferName + "\" was not found in the shader!");
             else if (setCount >= 2) throw new Exception("Buffer \"" + bufferName + "\" was found multiple times in the shader!");
         }
+
+        public void LinkMSAAConfig(MSAAData MSAA)
+        {
+            msaaConfig = MSAA;
+        }
+
+        public void UnLinkMSAAConfig()
+        {
+            msaaConfig = null;
+        }
+
 
         public void Pass()
         {
@@ -550,6 +589,18 @@ namespace xfcore.Shaders
 
             oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
             
+        }
+    }
+
+    struct TextureSlot
+    {
+        internal string name;
+        internal GLTexture data;
+
+        internal TextureSlot(string name, GLTexture data)
+        {
+            this.name = name;
+            this.data = data;
         }
     }
 }

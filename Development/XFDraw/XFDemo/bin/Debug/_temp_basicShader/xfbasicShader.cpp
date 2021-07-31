@@ -21,11 +21,11 @@ inline void VSExec(vec3* pos, vec2* uv, vec3* gl_Position, vec2* uv_data, vec3* 
 }
 
 inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* some_data, sampler2D myTexture, vec2 textureSize){
-	(*FragColor) = textureNEAREST(myTexture, int2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
+	(*FragColor) = texture(myTexture, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
 	
 }
 
-void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire){
+void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){
 	const int stride = 8;
 	const int readStride = 5;
 	const int faceStride = 15;
@@ -661,7 +661,13 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			TO[0] = roundf(TO[0]);
 
 			//Prevent touching faces from fighting over a scanline pixel
-			FromX = (int)FROM[0] == 0 ? 0 : (int)FROM[0] + 1;
+
+			if (msaa == 0){
+			    FromX = (int)FROM[0] == 0 ? 0 : (int)FROM[0] + 1;
+			} else {
+			    FromX = (int)FROM[0];
+			}
+
 			ToX = (int)TO[0];
 
 			//integer truncating doesnt matter here as the float values are already rounded
@@ -675,7 +681,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.01f;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -713,15 +719,15 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 12));
+				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24));
 			}
 		}
 	}
 }
 
-extern "C" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode)
+extern "C" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
 {
 	parallel_for(start, stop, [&](int index){
-		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode);
+		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
 	});
 }

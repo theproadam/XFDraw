@@ -16,7 +16,7 @@ void main()
 
 	//if (color.A == 0) return;
 
-	FragColor = textureNEAREST(myTexture, int2(uv_data.x * textureSize.x, uv_data.y * textureSize.y));
+	FragColor = texture(myTexture, vec2(uv_data.x * textureSize.x, uv_data.y * textureSize.y));
 
 	//FragColor = byte4(uv_data.x * 255, uv_data.y * 255, 0);
 }

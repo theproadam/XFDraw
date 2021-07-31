@@ -878,8 +878,9 @@ namespace xfcore.Extras
         int w;
         int h;
         int* TEXTURE_ADDR;
-        int mode;
-        int mode_color;
+        int wrap_mode;
+        int wrap_mode_color;
+        int filt_mode;
 
         public sampler2D(GLTexture source)
         {
@@ -890,8 +891,9 @@ namespace xfcore.Extras
             h = source.Height;
             TEXTURE_ADDR = (int*)source.GetAddress();
 
-            mode = source.s2DMode;
-            mode_color = source.s2DColor;
+            wrap_mode = source.s2DMode;
+            wrap_mode_color = source.s2DColor;
+            filt_mode = source.s2DFilter;
         }
     }
 
@@ -1191,11 +1193,162 @@ namespace xfcore
 
     }
 
-    public class MSAA_Config
+    public unsafe class MSAAData
     {
-        public MSAA_Config(GLTexture linkedBuffer, Vector2[] samplePattern)
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void MSAA_Merge(int* TargetBuffer, int** ptrPtrs, int count, int Width, int Height);
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void MSAA_Copy(int* TargetBuffer, int** ptrPtrs, int count, int Width, int Height);
+
+
+        internal Vector2[] sPattern;
+        public GLTexture[] colorBuffers;
+        internal GLTexture targetBuffer;
+
+        GCHandle sData;
+        IntPtr ptrData;
+
+        public MSAAData(GLTexture linkedBuffer, Vector2[] samplePattern)
         {
+            if (linkedBuffer.Stride != 4)
+                throw new Exception("MSAA is only supported for 32bpp color buffer!");
+
+            int count = samplePattern.Length;
+
+            if (!(count == 2 || count == 4 || count == 8))
+                throw new Exception("Pattern size must be either 2, 4 or 8!");
+
+            sPattern = samplePattern.ToArray();
+
+            targetBuffer = linkedBuffer;
+            colorBuffers = new GLTexture[count];
+
+            for (int i = 0; i < count; i++)
+                colorBuffers[i] = new GLTexture(linkedBuffer.Width, linkedBuffer.Height, typeof(Color4));
 
         }
+
+        public void Debug()
+        {
+            colorBuffers[0].Clear();
+        }
+
+        public unsafe void Run()
+        {
+            targetBuffer.RequestLock();
+
+            //Probably not required but always good to do
+            for (int i = 0; i < colorBuffers.Length; i++)
+                colorBuffers[i].RequestLock();
+
+            //Check buffer sizes are identical!
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+            {
+                if (colorBuffers[i].Width != targetBuffer.Width)
+                    throw new Exception("One or multiple buffers arent the same width!");
+                if (colorBuffers[i].Height != targetBuffer.Height)
+                    throw new Exception("One or multiple buffers arent the same height!");
+            }
+
+            IntPtr ptrData = Marshal.AllocHGlobal(4 * colorBuffers.Length);
+            int** data = (int**)ptrData;
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+                data[i] = (int*)colorBuffers[i].GetAddress();
+
+            //Call Adv Function to merge each buffer->
+            MSAA_Merge((int*)targetBuffer.GetAddress(), data, colorBuffers.Length, targetBuffer.Width, targetBuffer.Height);
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+                colorBuffers[i].ReleaseLock();
+
+            Marshal.FreeHGlobal(ptrData);
+
+            targetBuffer.ReleaseLock();
+        }
+
+        public void CopyOver()
+        {
+            targetBuffer.RequestLock();
+
+            //Probably not required but always good to do
+            for (int i = 0; i < colorBuffers.Length; i++)
+                colorBuffers[i].RequestLock();
+
+            //Check buffer sizes are identical!
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+            {
+                if (colorBuffers[i].Width != targetBuffer.Width)
+                    throw new Exception("One or multiple buffers arent the same width!");
+                if (colorBuffers[i].Height != targetBuffer.Height)
+                    throw new Exception("One or multiple buffers arent the same height!");
+            }
+
+            IntPtr ptrData = Marshal.AllocHGlobal(4 * colorBuffers.Length);
+            int** data = (int**)ptrData;
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+                data[i] = (int*)colorBuffers[i].GetAddress();
+
+            //Call Adv Function to merge each buffer->
+            MSAA_Copy((int*)targetBuffer.GetAddress(), data, colorBuffers.Length, targetBuffer.Width, targetBuffer.Height);
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+                colorBuffers[i].ReleaseLock();
+
+            Marshal.FreeHGlobal(ptrData);
+
+            targetBuffer.ReleaseLock();
+        }
+
+        public void Clear(Color4 color)
+        {
+            for (int i = 0; i < colorBuffers.Length; i++)
+            {
+                GL.Clear(colorBuffers[i], color);
+            }
+        }
+
+        internal unsafe MSAAConfig CreateConfig()
+        {
+            sData = GCHandle.Alloc(sPattern, GCHandleType.Pinned);
+            float* Pattern = (float*)sData.AddrOfPinnedObject();
+
+            ptrData = Marshal.AllocHGlobal(4 * colorBuffers.Length);
+            int** data = (int**)ptrData;
+
+            for (int i = 0; i < colorBuffers.Length; i++)
+                data[i] = (int*)colorBuffers[i].GetAddress();
+
+            return new MSAAConfig(colorBuffers.Length, 1f / colorBuffers.Length, Pattern, data);
+
+        }
+
+        internal void Free()
+        {
+            sData.Free();
+            Marshal.FreeHGlobal(ptrData);
+        }
+
+    }
+
+    unsafe struct MSAAConfig
+    {
+	    int** ptrPtrs;
+	    int sampleCount;
+	    float* sampleBuffer;
+	    float sampleMultiply;
+
+        public MSAAConfig(int sCount, float sMult, float* sBuf, int** ptrs)
+        {
+            ptrPtrs = ptrs;
+            sampleCount = sCount;
+            sampleBuffer = sBuf;
+            sampleMultiply = sMult;
+        }
+        
     }
 }

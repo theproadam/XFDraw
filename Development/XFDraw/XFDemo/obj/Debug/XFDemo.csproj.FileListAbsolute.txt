@@ -10,3 +10,5 @@ c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\vign
 c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\simpleShader.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderFS.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\teapotFS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\teapotVS.cpp

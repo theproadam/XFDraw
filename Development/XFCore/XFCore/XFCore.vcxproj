@@ -70,7 +70,7 @@
       <SDLCheck>true</SDLCheck>
       <OpenMPSupport>true</OpenMPSupport>
       <EnableParallelCodeGeneration>false</EnableParallelCodeGeneration>
-      <AdditionalOptions>-ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot /GL %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

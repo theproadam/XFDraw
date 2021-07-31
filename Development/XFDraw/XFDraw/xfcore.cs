@@ -31,7 +31,7 @@ namespace xfcore
         static extern IntPtr MemSet(IntPtr dest, int c, int byteCount);
 
         [DllImport("kernel32.dll")]
-        static extern void RtlZeroMemory(IntPtr dst, int length);
+        internal static extern void RtlZeroMemory(IntPtr dst, int length);
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void ClearColor(int* iptr, int Width, int Height, int Color);
@@ -129,6 +129,7 @@ namespace xfcore
         }
 
 
+
         public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
         {
             buffer.RequestLock();
@@ -148,15 +149,25 @@ namespace xfcore
                 int trisCount = ((buffer._size / 4) / buffer.stride) / 3;
 
                 if (startIndex < 0) throw new Exception("Start Index Cannot be less than Zero!");
-                if (startIndex >= trisCount || stopIndex == 0) return;
+                if (startIndex >= trisCount || stopIndex == 0){
+                    buffer.ReleaseLock();
+                    return;
+                }
                 if (stopIndex > trisCount) stopIndex = trisCount;
                 if (buffer._size < 3 * buffer.stride)
                     throw new Exception("This function requires an entire triangle to draw!");
+
+                if (stopIndex * buffer.stride * 3 > buffer.Size / 4)
+                    throw new Exception("SizeCheck Failed!");
 
                 GLTexture[] textureSlots = shader.textureSlots;
 
                 for (int i = 0; i < textureSlots.Length; i++)
                     if (textureSlots[i] == null)
+                        throw new Exception("One of the assigned framebuffers is null!");
+
+                for (int i = 0; i < shader.samplerTextures.Length; i++)
+                    if (shader.samplerTextures[i].data == null)
                         throw new Exception("One of the assigned textures is null!");
 
                 if (textureSlots.Length == 0)
@@ -164,6 +175,9 @@ namespace xfcore
 
                 for (int i = 0; i < textureSlots.Length; i++)
                     textureSlots[i].RequestLock();
+
+                for (int i = 0; i < shader.samplerTextures.Length; i++)
+                    shader.samplerTextures[i].data.RequestLock();
 
                 int width = textureSlots[0].Width, height = textureSlots[0].Height;
 
@@ -173,6 +187,20 @@ namespace xfcore
                 {
                     if (textureSlots[i].Height != height) throw new Exception("Height must be the same on all buffers!");
                     if (textureSlots[i].Width != width) throw new Exception("Width must be the same on all buffers!");
+                }
+
+                for (int i = 0; i < shader.samplerTextures.Length; i++)
+                    shader.SetValue(shader.samplerTextures[i].name, new sampler2D(shader.samplerTextures[i].data));
+
+                MSAAConfig msaaData;
+                IntPtr msaaPtr = IntPtr.Zero;
+                GCHandle msaaHandle = new GCHandle();
+
+                if (shader.msaaConfig != null)
+                {
+                    msaaData = shader.msaaConfig.CreateConfig();
+                    msaaHandle = GCHandle.Alloc(msaaData, GCHandleType.Pinned);
+                    msaaPtr = msaaHandle.AddrOfPinnedObject();
                 }
 
                 IntPtr ptrPtrs = Marshal.AllocHGlobal(textureSlots.Length * 4);
@@ -191,14 +219,23 @@ namespace xfcore
                 byte* uFS = (byte*)uniformDataFS.AddrOfPinnedObject();
 
 
-                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 1, 0);
+                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 1, 0, (MSAAConfig*)msaaPtr);
 
                 Marshal.FreeHGlobal(ptrPtrs);
                 uniformDataVS.Free();
                 uniformDataFS.Free();
 
+                if (shader.msaaConfig != null)
+                {
+                    msaaHandle.Free();
+                    shader.msaaConfig.Free();
+                }
+
                 for (int i = 0; i < textureSlots.Length; i++)
                     textureSlots[i].ReleaseLock();
+
+                for (int i = 0; i < shader.samplerTextures.Length; i++)
+                    shader.samplerTextures[i].data.ReleaseLock();
             }
 
             buffer.ReleaseLock();

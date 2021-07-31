@@ -182,7 +182,7 @@ namespace xfcore.Shaders.Builder
         internal int readStride;
 
         static string entry = "extern \"C\" __declspec(dllexport) void ";
-        internal static int Shader_Version;
+        internal static int Shader_Version = 0;
 
         ShaderParser(ShaderField[] f, ShaderField[] u, ShaderMethod[] m, ShaderStruct[] s)
         {
@@ -323,6 +323,12 @@ namespace xfcore.Shaders.Builder
                     throw new Exception("The vertex shader in's only work with Vector3 types! (vec3)");
             }
 
+            for (int i = 0; i < vs.shaderUniforms.Length; i++)
+            {
+                if (vs.shaderUniforms[i].dataType == DataType.sampler2D)
+                    throw new Exception("Sampling Textures in the vertex shader is not allowed!");
+            }
+
         }
 
         static bool WriteShaders(string filePath1, string filePath2, string outputName, ShaderParser vs, ShaderParser fs, CompileOption[] cOps)
@@ -339,6 +345,7 @@ namespace xfcore.Shaders.Builder
 
             bool forceC = cOps.Contains(CompileOption.ForceRecompile);
             bool hasSerial = !cOps.Contains(CompileOption.DoNotSerialize);
+            bool allowMSAA = cOps.Contains(CompileOption.EnableMSAA);
 
             string foldername = "_temp_" + ext;
             //realPath = foldername;
@@ -392,8 +399,8 @@ namespace xfcore.Shaders.Builder
             string sign, exec;
             WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
 
-            string sign1, exec1, ptrs1, ptrIncr;
-            WriteFSSign(fs, fsIn, fsOut, out sign1, out exec1, out ptrs1, out ptrIncr);
+            string sign1, exec1, ptrs1;
+            WriteFSSign(fs, fsIn, fsOut, allowMSAA, out sign1, out exec1, out ptrs1);
 
             string shaderCode = "", entryCode = "";
 
@@ -425,7 +432,7 @@ namespace xfcore.Shaders.Builder
             entryCode += sign1 + "{\n" + WriteExecMethod(fs, false) + "\n}\n\n";
 
 
-            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire){\n";
+            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){\n";
             shaderCode += "const int stride = " + intS + ";\n";
             shaderCode += "const int readStride = " + readS + ";\n";
             shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
@@ -468,7 +475,20 @@ namespace xfcore.Shaders.Builder
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
 
+            if (allowMSAA)
+                shaderCode += "\n\t\t\t\tbyte4 defr;\n";
+
+
             shaderCode += "\n\n\t\t\t\t" + exec1 + "\n";
+
+            if (allowMSAA)
+            {
+                shaderCode += @"if (msaa != 0)
+					MSAA_SAMPLE(defr, projData.renderWidth, o, i, stride, VERTEX_DATA, BUFFER_SIZE, *msaa);
+				else
+					*(ptr_0 + o) = defr;";
+            }
+
             shaderCode += "\t\t\t}\n\t\t}\n\t}\n}";
 
             shaderCode = entryCode + shaderCode;
@@ -817,7 +837,7 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.int32) return 4;
             else if (dataType == DataType.vec2) return 8;
             else if (dataType == DataType.vec3) return 12;
-            else if (dataType == DataType.sampler2D) return 20;
+            else if (dataType == DataType.sampler2D) return 24;
             else throw new Exception("not implemented yet!");
         }
 
@@ -1097,8 +1117,9 @@ struct sampler2D
 	int width;
 	int height;
 	long* TEXTURE_ADDR;
-    int mode;
-    int mode_color;
+    int wrap_mode;
+    byte4 wrap_mode_color;
+    int filt_mode;
 };
 
 struct mat3
@@ -1241,7 +1262,7 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 	return inNormal * -2.0f * dot(inNormal, inDirection) + inDirection;
 }
 
-byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
+inline byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
 {
 	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
 	float x0 = 1.0f - x1;
@@ -1298,16 +1319,16 @@ byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = fal
 	return byte4(R, G, B);
 }
 
-byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
+inline byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
 {
-	if (TEXTURE_WRAP_MODE == 0)
+	if (inputTexture.wrap_mode == 0)
 	{
 		if (coord.X < 0) coord.X = 0;
 		if (coord.Y < 0) coord.Y = 0;
 		if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
 		if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
 	}
-	else if (TEXTURE_WRAP_MODE == 1)
+	else if (inputTexture.wrap_mode == 1)
 	{
 		if (coord.X < 0) coord.X = coord.X % inputTexture.width + inputTexture.width;
 		if (coord.Y < 0) coord.Y = coord.Y % inputTexture.height + inputTexture.height;
@@ -1317,11 +1338,93 @@ byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
 	}
 	else
 	{
-		if (coord.X < 0 || coord.Y < 0 || coord.X >= inputTexture.width || coord.Y >= inputTexture.height) return TEXTURE_CLAMP_BORDER_COLOR;
+		if (coord.X < 0 || coord.Y < 0 || coord.X >= inputTexture.width || coord.Y >= inputTexture.height) return (byte4)inputTexture.wrap_mode_color;
 	}
 
 	return *((byte4*)(inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X));
 }
+
+inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
+{
+	if (inputTexture.filt_mode == 0)
+	{
+		return textureNEAREST(inputTexture, int2((int)coord.x, (int)coord.y));
+	}
+	else
+	{
+		return textureBILINEAR(inputTexture, coord, sampleAlpha);
+	}
+}
+
+struct MSAAConfig
+{
+	byte4** ptrPtrs;
+	int sampleCount;
+	float* sampleBuffer;
+	float sampleMultiply;
+};
+
+inline float OnLineValue(float* A, float* B, float Cx, float Cy)
+{
+	return (B[0] - A[0]) * (Cy - A[1]) - (B[1] - A[1]) * (Cx - A[0]);
+}
+
+inline bool IsInside(float x, float y, float* VERTEX_DATA, int DATA_SIZE, int Stride)
+{
+	for (int i = 0; i < DATA_SIZE - 1; i++)
+	if (OnLineValue(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, x, y) < 0)
+		return false;
+
+	if (OnLineValue(VERTEX_DATA + (DATA_SIZE - 1) * Stride, VERTEX_DATA + 0 * Stride, x, y) < 0)
+		return false;
+
+	return true;
+}
+
+inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VERTEX_DATA, int DATA_SIZE, MSAAConfig& mConfig)
+{
+	//Dear compiler: please unroll the loops!
+	if (mConfig.sampleCount == 2)
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			float X_SAMPLE = X + mConfig.sampleBuffer[i * 2 + 0];
+			float Y_SAMPLE = Y + mConfig.sampleBuffer[i * 2 + 1];
+
+			if (IsInside(X_SAMPLE, Y_SAMPLE, VERTEX_DATA, DATA_SIZE, stride))
+			{
+				(mConfig.ptrPtrs[i])[RW * Y + X] = data;
+			}
+		}
+	}
+	else if (mConfig.sampleCount == 4)
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			float X_SAMPLE = X + mConfig.sampleBuffer[i * 2 + 0];
+			float Y_SAMPLE = Y + mConfig.sampleBuffer[i * 2 + 1];
+
+			if (IsInside(X_SAMPLE, Y_SAMPLE, VERTEX_DATA, DATA_SIZE, stride))
+			{
+				(mConfig.ptrPtrs[i])[RW * Y + X] = data;
+			}
+		}
+	}
+	else if (mConfig.sampleCount == 8)
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			float X_SAMPLE = X + mConfig.sampleBuffer[i * 2 + 0];
+			float Y_SAMPLE = Y + mConfig.sampleBuffer[i * 2 + 1];
+
+			if (IsInside(X_SAMPLE, Y_SAMPLE, VERTEX_DATA, DATA_SIZE, stride))
+			{
+				(mConfig.ptrPtrs[i])[RW * Y + X] = data;
+			}
+		}
+	}
+}
+
 
 
 ";
@@ -1978,7 +2081,13 @@ byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
 			TO[0] = roundf(TO[0]);
 
 			//Prevent touching faces from fighting over a scanline pixel
-			FromX = (int)FROM[0] == 0 ? 0 : (int)FROM[0] + 1;
+
+			if (msaa == 0){
+			    FromX = (int)FROM[0] == 0 ? 0 : (int)FROM[0] + 1;
+			} else {
+			    FromX = (int)FROM[0];
+			}
+
 			ToX = (int)TO[0];
 
 			//integer truncating doesnt matter here as the float values are already rounded
@@ -1992,7 +2101,7 @@ byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.01f;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -2019,10 +2128,10 @@ byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
         {
             get
             {
-                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode)
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
 {
 	parallel_for(start, stop, [&](int index){
-		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode);
+		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
 	});
 }";
             }
@@ -2032,10 +2141,10 @@ byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
         {
             get
             {
-                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode)
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
 {
 	for (int i = start; i < stop; i++){
-		MethodExec(i,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode);
+		MethodExec(i,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
 	}
 }";
             }
@@ -2715,21 +2824,31 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             sign = methodSign.Substring(0, methodSign.Length - 2) + ")";
         }
 
-        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, out string sign, out string exec, out string ptrs, out string ptrsinc)
+        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, out string sign, out string exec, out string ptrs)
         {
             string methodSign = "inline void FSExec(";
             string methodExec = "FSExec(";
             string ptrsDecl = "";
-            string ptrsIncr = "";
 
-            for (int i = 0; i < fsOut.Length; i++)
+            int startIndex = 0;
+
+            if (msaa && fsOut.Length > 0)
+            {
+                startIndex = 1;
+                methodExec += "&defr, ";
+                methodSign += "byte4" + "* " + fsOut[0].name + ", ";
+
+                ptrsDecl += "byte4" + "* " + "ptr_" + 0 + " = (" + "byte4" + "*)(ptrPtrs[" + 0 + "] + wPos * " + 4 + ");\n";
+            }
+
+            for (int i = startIndex; i < fsOut.Length; i++)
             {
                 string type = TypeToString(fsOut[i].dataType);
                 methodExec += "ptr_" + i + " + o, ";
                 methodSign += type + "* " + fsOut[i].name + ", ";
 
                 ptrsDecl += type + "* " + "ptr_" + i + " = (" + type + "*)(ptrPtrs[" + i + "] + wPos * " + TypeToSize(fsOut[i].dataType) + ");\n";
-                ptrsIncr += "++ptr_" + i + ", ";
+
             }
 
             for (int i = 0; i < fsIn.Length; i++)
@@ -2754,14 +2873,10 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             if (methodSign.Length > 2)
                 methodSign = methodSign.Substring(0, methodSign.Length - 2) + ")";
 
-            if (ptrsIncr.Length > 2)
-                ptrsIncr = ptrsIncr.Substring(0, ptrsIncr.Length - 2);
-
 
             sign = methodSign;
             exec = methodExec;
             ptrs = ptrsDecl;
-            ptrsinc = ptrsIncr;
         }
 
     }
@@ -2780,6 +2895,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         internal int FieldSize;
 
         internal int layoutValueGL = -1;
+        internal int sampler2DPos = -1;
 
         public ShaderField(string inputString)
         {
@@ -2796,7 +2912,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
 
             string[] str = inputString.Trim().Split(' ');
 
-            if (str.Length != 3) throw new Exception("Unknown Data!");
+            if (str.Length != 3) throw new Exception("Could not process: \"" + inputString + "\". Shader field is invalid!");
 
             name = str[2];
             dataType = toDataType(str[1]);
@@ -2840,7 +2956,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             else if (dataType == DataType.vec3) return 12;
             else if (dataType == DataType.mat4) return 64;
             else if (dataType == DataType.mat3) return 36;
-            else if (dataType == DataType.sampler2D) return 20;
+            else if (dataType == DataType.sampler2D) return 24;
             else if (dataType == DataType.Other && FieldSize != -1) return FieldSize;
             else throw new Exception("An unknown error occured (00245)");
         }
@@ -3006,7 +3122,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         AddInlineAll,
         ForceRecompile,
         DoNotSerialize,
-        EnableMSAASupport,
+        EnableMSAA,
         EnableSIMD,
         UseOMP,
         UsePPL,

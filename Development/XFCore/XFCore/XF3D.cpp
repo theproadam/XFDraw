@@ -445,6 +445,7 @@ void SIPHA(float* TA, int INDEX, float* VD, int A, int B, float TanSlope, float 
 	TA[INDEX + 2] = Z;
 }
 
+
 void LIPA(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride)
 {
 	float X;
@@ -638,6 +639,62 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		return true;
 	else return false;
 }
+
+bool ScanLinePLUS_(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride)
+{
+	int IC = 0;
+	for (int i = 0; i < TRIS_SIZE - 1; i++)
+	{
+		float y1 = TRIS_DATA[i * Stride + 1];
+		float y2 = TRIS_DATA[(i + 1) * Stride + 1];
+
+		if (y2 == y1 && Line == y2){
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, i, i + 1, Line, Stride);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, i + 1, i, Line, Stride);
+			return true;
+		}
+
+		if (y2 < y1){
+			float t = y2;
+			y2 = y1;
+			y1 = t;
+		}
+
+		if (Line <= y2 && Line > y1){
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, i, i + 1, Line, Stride);
+			IC++;
+		}
+
+		if (IC >= 2) return true;
+	}
+
+	if (IC < 2)
+	{
+		float y1 = TRIS_DATA[0 * Stride + 1];
+		float y2 = TRIS_DATA[(TRIS_SIZE - 1) * Stride + 1];
+
+		if (y2 == y1 && Line == y2){
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, 0, (TRIS_SIZE - 1), Line, Stride);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, (TRIS_SIZE - 1), 0, Line, Stride);
+			return true;
+		}
+
+		if (y2 < y1){
+			float t = y2;
+			y2 = y1;
+			y1 = t;
+		}
+
+		if (Line <= y2 && Line > y1){
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, 0, TRIS_SIZE - 1, Line, Stride);
+			IC++;
+		}
+	}
+
+	if (IC == 2) return true;
+	else return false;
+}
+
 
 inline void frtlzeromem(bool* dest, int count)
 {
