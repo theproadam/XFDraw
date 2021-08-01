@@ -167,8 +167,13 @@ namespace xfcore
                         throw new Exception("One of the assigned framebuffers is null!");
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
-                    if (shader.samplerTextures[i].data == null)
+                    if (shader.samplerTextures[i].IsNull())
                         throw new Exception("One of the assigned textures is null!");
+
+                for (int i = 0; i < shader.samplerTextures.Length; i++)
+                    if (!shader.samplerTextures[i].isValid())
+                        throw new Exception("One of the assigned GLCubemap is invalid!");
+
 
                 if (textureSlots.Length == 0)
                     throw new Exception("Atleast one Buffer must be assigned!");
@@ -177,7 +182,7 @@ namespace xfcore
                     textureSlots[i].RequestLock();
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
-                    shader.samplerTextures[i].data.RequestLock();
+                    shader.samplerTextures[i].RequestLock();
 
                 int width = textureSlots[0].Width, height = textureSlots[0].Height;
 
@@ -190,7 +195,12 @@ namespace xfcore
                 }
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
-                    shader.SetValue(shader.samplerTextures[i].name, new sampler2D(shader.samplerTextures[i].data));
+                {
+                    if (shader.samplerTextures[i].isTexture)
+                        shader.SetValue(shader.samplerTextures[i].name, new sampler2D(shader.samplerTextures[i]));
+                    else
+                        shader.SetValue(shader.samplerTextures[i].name, new samplerCube(shader.samplerTextures[i]));
+                }
 
                 MSAAConfig msaaData;
                 IntPtr msaaPtr = IntPtr.Zero;
@@ -235,7 +245,7 @@ namespace xfcore
                     textureSlots[i].ReleaseLock();
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
-                    shader.samplerTextures[i].data.ReleaseLock();
+                    shader.samplerTextures[i].ReleaseLock();
             }
 
             buffer.ReleaseLock();
@@ -356,6 +366,8 @@ namespace xfcore
         public float ZNear;
         public float ZFar;
 
+        public delegate Vector3 VertexTransform(Vector3 inputVertex);
+
         public static float FOVMod(float FOV, float aspectRatio)
         {
             const float deg2rads = (float)(Math.PI / 180d);
@@ -421,6 +433,47 @@ namespace xfcore
             throw new Exception("Not Yet Supported!");
 
            return new GLMatrix(0, 0, 0, 0, 0);
+        }
+
+        public Vector3 WorldToScreenPoint(Vector3 coord, System.Drawing.Size viewportSize, VertexTransform vertexShader)
+        {
+            GLData projData = new GLData(viewportSize.Width, viewportSize.Height, this);
+
+            Vector3 coordinate = vertexShader(coord);
+
+            if (projData.matrixlerpv == 0)
+            {
+                if (coordinate.z == 0)
+                    throw new Exception("Coordinate Cannot be In Camera!");
+
+                float x = (float)Math.Round(projData.rw + coordinate.x / coordinate.z * projData.fw);
+                float y = (float)Math.Round(projData.rh + coordinate.y / coordinate.z * projData.fh);
+                return new Vector3(x, y, coordinate.z);
+            }
+            else if (projData.matrixlerpv == 1)
+            {
+                float x = (float)Math.Round(projData.rw + coordinate.x * projData.iox);
+                float y = (float)Math.Round(projData.rh + coordinate.y * projData.ioy);
+                return new Vector3(x, y, coordinate.z);
+            }
+            else
+            {
+                float fwi = 1.0f / projData.fw;
+                float fhi = 1.0f / projData.fh;
+                float ox = projData.ox, oy = projData.oy;
+                float mMinOne = (1.0f - projData.matrixlerpv);
+
+                float x = (float)Math.Round(projData.rw + coordinate.x / ((coordinate.z * fwi - ox) * mMinOne + ox));
+                float y = (float)Math.Round(projData.rh + coordinate.y / ((coordinate.z * fhi - oy) * mMinOne + oy));
+                return new Vector3(x, y, coordinate.z);
+            }
+        }
+
+        public Vector3 ScreenToCameraPoint(Vector2 coord, GLTexture depthBuffer)
+        {
+            GLData projData = new GLData(depthBuffer.Width, depthBuffer.Height, this);
+            throw new NotImplementedException();
+           
         }
     }
 

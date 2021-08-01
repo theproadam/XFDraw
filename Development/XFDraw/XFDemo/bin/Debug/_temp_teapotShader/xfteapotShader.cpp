@@ -13,19 +13,25 @@ using namespace Concurrency;
 
 
 
-inline void VSExec(vec3* pos, vec3* norm, vec3* gl_Position, vec3* norm_data, vec3 cameraPos, mat3 cameraRot){
+
+
+
+inline void VSExec(vec3* pos, vec3* norm, vec3* gl_Position, vec3* norm_data, vec3* frag_pos, vec3 cameraPos, mat3 cameraRot){
 	(*gl_Position) = cameraRot * ((*pos) - cameraPos);
 	(*norm_data) = (*norm);
+	(*frag_pos) = (*pos);
 	
 }
 
-inline void FSExec(byte4* FragColor, vec3* norm_data){
-	(*FragColor) = byte4((*norm_data).x * 127.5f + 127.5f, (*norm_data).y * 127.5f + 127.5f, (*norm_data).z * 127.5f + 127.5f);
+inline void FSExec(byte4* FragColor, vec3* norm_data, vec3* frag_pos, samplerCube skybox, vec3 camera_Pos){
+	vec3 I = ((*frag_pos) - camera_Pos);
+	vec3 R = reflect(I, (*norm_data));
+	(*FragColor) = textureNEAREST(skybox, R);
 	
 }
 
 void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){
-	const int stride = 6;
+	const int stride = 9;
 	const int readStride = 6;
 	const int faceStride = 18;
 	
@@ -34,7 +40,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	for (int b = 0; b < 3; ++b){
 		float* input = p + (index * faceStride + b * readStride);
 		float* output = VERTEX_DATA + b * stride;
-		VSExec((vec3*)(input + 0), (vec3*)(input + 3), (vec3*)(output + 0), (vec3*)(output + 3), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12));
+		VSExec((vec3*)(input + 0), (vec3*)(input + 3), (vec3*)(output + 0), (vec3*)(output + 3), (vec3*)(output + 6), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12));
 	}
 	
 	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
@@ -718,7 +724,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, (vec3*)(attribs + 0));
+				FSExec(ptr_0 + o, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(samplerCube*)(uData2 + 0), *(vec3*)(uData2 + 44));
 			}
 		}
 	}

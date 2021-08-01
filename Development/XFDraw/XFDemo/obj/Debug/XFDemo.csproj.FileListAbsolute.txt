@@ -6,9 +6,9 @@ c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Debug\XFDe
 c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\obj\Debug\XFDemo.pdb
 c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDraw.dll
 c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\XFDraw.pdb
-c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\vignetteShader.cpp
-c:\Users\Adam\documents\visual studio 2013\Projects\XFDraw\XFDemo\bin\Debug\simpleShader.cpp
-C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderFS.cpp
-C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderVS.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\teapotFS.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\teapotVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderFS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\simpleShader.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\vignetteShader.cpp

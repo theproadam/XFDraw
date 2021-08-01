@@ -878,11 +878,12 @@ namespace xfcore.Extras
         int w;
         int h;
         int* TEXTURE_ADDR;
+
         int wrap_mode;
         int wrap_mode_color;
         int filt_mode;
 
-        public sampler2D(GLTexture source)
+        public sampler2D(GLTexture source, int s2DMode, int s2DColor, int s2DFilter)
         {
             if (source.Stride != 4)
                 throw new Exception("sampler2D only works with 32bpp textures!");
@@ -891,9 +892,79 @@ namespace xfcore.Extras
             h = source.Height;
             TEXTURE_ADDR = (int*)source.GetAddress();
 
-            wrap_mode = source.s2DMode;
-            wrap_mode_color = source.s2DColor;
-            filt_mode = source.s2DFilter;
+            wrap_mode = 0;
+            wrap_mode_color = 0;
+            filt_mode = 0;
+        }
+
+        public sampler2D(xfcore.Shaders.TextureSlot tSlot)
+        {
+            GLTexture source = tSlot.dataTexture;
+
+            if (source.Stride != 4)
+                throw new Exception("sampler2D only works with 32bpp textures!");
+
+            w = source.Width;
+            h = source.Height;
+            TEXTURE_ADDR = (int*)source.GetAddress();
+
+            wrap_mode = tSlot.s2DMode;
+            wrap_mode_color = tSlot.s2DColor;
+            filt_mode = tSlot.s2DFilter;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct samplerCube
+    {
+        int width;
+        int height;
+
+        int* front;
+        int* back;
+        int* left;
+        int* right;
+        int* top;
+        int* bottom;
+
+        int wrap_mode;
+        int wrap_mode_color;
+        int filt_mode;
+
+        public samplerCube(GLCubemap source, int s2DMode, int s2DColor, int s2DFilter)
+        {
+            width = source.Width;
+            height = source.Height;
+
+            front = (int*)source.FRONT.GetAddress();
+            back = (int*)source.BACK.GetAddress();
+            left = (int*)source.LEFT.GetAddress();
+            right = (int*)source.RIGHT.GetAddress();
+            top = (int*)source.TOP.GetAddress();
+            bottom = (int*)source.BOTTOM.GetAddress();
+
+            wrap_mode = 0;
+            wrap_mode_color = 0;
+            filt_mode = 0;
+        }
+
+        public samplerCube(xfcore.Shaders.TextureSlot tSlot)
+        {
+            GLCubemap source = tSlot.dataCubemap;
+
+            width = source.Width;
+            height = source.Height;
+
+            front = (int*)source.FRONT.GetAddress();
+            back = (int*)source.BACK.GetAddress();
+            left = (int*)source.LEFT.GetAddress();
+            right = (int*)source.RIGHT.GetAddress();
+            top = (int*)source.TOP.GetAddress();
+            bottom = (int*)source.BOTTOM.GetAddress();
+
+            wrap_mode = tSlot.s2DMode;
+            wrap_mode_color = tSlot.s2DColor;
+            filt_mode = tSlot.s2DFilter;
         }
     }
 

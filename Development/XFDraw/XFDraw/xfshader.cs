@@ -220,8 +220,8 @@ namespace xfcore.Shaders
 
             int samplerCount = 0;
             for (int i = 0; i < uniformFS.Length; i++)
-                if (uniformFS[i].dataType == DataType.sampler2D)
-                    uniformFS[i].sampler2DPos = samplerCount++;
+                if (uniformFS[i].dataType == DataType.sampler2D || uniformFS[i].dataType == DataType.samplerCube)
+                    uniformFS[i].texturePos = samplerCount++;
 
             samplerTextures = new TextureSlot[samplerCount];
 	    }
@@ -324,8 +324,8 @@ namespace xfcore.Shaders
 
             int samplerCount = 0;
             for (int i = 0; i < uniformFS.Length; i++)
-                if (uniformFS[i].dataType == DataType.sampler2D)
-                    uniformFS[i].sampler2DPos = samplerCount++;
+                if (uniformFS[i].dataType == DataType.sampler2D || uniformFS[i].dataType == DataType.samplerCube)
+                    uniformFS[i].texturePos = samplerCount++;
 
             samplerTextures = new TextureSlot[samplerCount];
 
@@ -338,8 +338,9 @@ namespace xfcore.Shaders
             string structFind = "";
 
             bool isTexture = value.GetType() == typeof(GLTexture);
+            bool isCubemap = value.GetType() == typeof(GLCubemap);
 
-            if (!isTexture)
+            if (!isTexture && !isCubemap)
                 if (!value.GetType().IsValueType || value.GetType().IsEnum)
                     throw new Exception("Value must be a struct!");
 
@@ -358,6 +359,7 @@ namespace xfcore.Shaders
                         {
                             if (uniformVS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
                             if (isTexture) throw new Exception("A texture error occured! (8592)");
+                            if (isCubemap) throw new Exception("A cubemap error occured! (8592)");
 
                             if (isStruct) uniformVS[i].typeAlt.SetValue(structFind, uniformVS[i].layoutPosition, uniformBytesVS, value);
                             else
@@ -385,12 +387,19 @@ namespace xfcore.Shaders
                         if (uniformFS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
 
                         if (isStruct) uniformFS[i].typeAlt.SetValue(structFind, uniformFS[i].layoutPosition, uniformBytesFS, value);
+                        else if (isCubemap)
+                        {
+                            if (uniformFS[i].dataType != DataType.samplerCube)
+                                throw new Exception("\"" + uniformName + "\" is not a cubemap!");
+
+                            samplerTextures[uniformFS[i].texturePos] = new TextureSlot(uniformName, (GLCubemap)value);
+                        }
                         else if (isTexture)
                         {
                             if (uniformFS[i].dataType != DataType.sampler2D)
-                                throw new Exception("\"" + uniformName + "\" is not a texture!");
+                                throw new Exception("\"" + uniformName + "\" is not a 2D texture!");
 
-                            samplerTextures[uniformFS[i].sampler2DPos] = new TextureSlot(uniformName, (GLTexture)value);
+                            samplerTextures[uniformFS[i].texturePos] = new TextureSlot(uniformName, (GLTexture)value);
                         }
                         else
                         {
@@ -465,6 +474,42 @@ namespace xfcore.Shaders
             else if (setCount >= 2) throw new Exception("Buffer \"" + bufferName + "\" was found multiple times in the shader!");
         }
 
+        public void ConfigureTexture(string uniformName, TextureFiltering filterMode, TextureWarp wrapMode, int borderColor = 0)
+        {
+            if (wrapMode == TextureWarp.GL_MIRRORED_REPEAT)
+                throw new Exception("GL_MIRRORED_REPEAT is not supported. Sorry!");
+
+            int setCount = 0;
+
+            lock (ThreadLock)
+            {
+                for (int i = 0; i < uniformFS.Length; i++)
+                {
+                    if (uniformFS[i].name == uniformName)
+                    {
+                        if (uniformFS[i].GetSize() == -1) throw new Exception("An error occured (12852)");
+
+                        if (uniformFS[i].dataType == DataType.samplerCube || uniformFS[i].dataType == DataType.sampler2D)
+                        {
+                            if (samplerTextures[uniformFS[i].texturePos] == null)
+                                throw new Exception("Please assign the texture first before configuring it!");
+
+                            samplerTextures[uniformFS[i].texturePos].SetS2Data(filterMode, wrapMode, borderColor);
+                        }
+                        else throw new Exception("Cannot configure a uniform that is not a GLTexutre or a GLCubemap!");
+                        
+                        setCount++;
+                    }
+                }
+            }
+
+            if (setCount == 0)
+                throw new Exception("Uniform \"" + uniformName + "\" was not found in the shader!");
+            else if (setCount >= 2)
+                throw new Exception("Uniform \"" + uniformName + "\" was found multiple times in the shader!");
+        }
+
+
         public void LinkMSAAConfig(MSAAData MSAA)
         {
             msaaConfig = MSAA;
@@ -474,7 +519,6 @@ namespace xfcore.Shaders
         {
             msaaConfig = null;
         }
-
 
         public void Pass()
         {
@@ -534,24 +578,24 @@ namespace xfcore.Shaders
         float ow;
         float oh;
 
-        float rw;
-        float rh;
+        internal float rw;
+        internal float rh;
 
-        float fw;
-        float fh;
+        internal float fw;
+        internal float fh;
 
-        float ox;
-        float oy;
+        internal float ox;
+        internal float oy;
 
-        float iox;
-        float ioy;
+        internal float iox;
+        internal float ioy;
 
         float oValue;
 
         int renderWidth;
         int renderHeight;
 
-        float matrixlerpv;
+        internal float matrixlerpv;
 
         internal GLData(int rWidth, int rHeight, GLMatrix proj)
         {
@@ -592,16 +636,82 @@ namespace xfcore.Shaders
         }
     }
 
-    struct TextureSlot
+    class TextureSlot
     {
         internal string name;
-        internal GLTexture data;
+        internal GLTexture dataTexture;
+        internal GLCubemap dataCubemap;
+
+        internal int s2DMode;
+        internal int s2DColor;
+        internal int s2DFilter;
+
+        internal bool isTexture;
+
+        internal void SetS2Data(TextureFiltering filterMode, TextureWarp wrapMode, int borderColor = 0)
+        {
+            s2DFilter = (int)filterMode;
+            s2DMode = (int)wrapMode;
+            s2DColor = borderColor;
+        }
 
         internal TextureSlot(string name, GLTexture data)
         {
             this.name = name;
-            this.data = data;
+            this.dataTexture = data;
+            dataCubemap = null;
+            isTexture = true;
         }
+
+        internal TextureSlot(string name, GLCubemap data)
+        {
+            this.name = name;
+            dataTexture = null;
+            this.dataCubemap = data;
+            isTexture = false;
+        }
+
+        internal bool IsNull()
+        {
+            return dataTexture == null && dataCubemap == null;
+        }
+
+        internal bool isValid()
+        {
+            if (dataCubemap != null)
+            {
+                return dataCubemap.isValid();
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        internal void RequestLock()
+        {
+            if (dataCubemap != null)
+            {
+                dataCubemap.RequestLock();
+            }
+            else
+            {
+                dataTexture.RequestLock();
+            }
+        }
+
+        internal void ReleaseLock()
+        {
+            if (dataCubemap != null)
+            {
+                dataCubemap.ReleaseLock();
+            }
+            else
+            {
+                dataTexture.ReleaseLock();
+            }
+        }
+
     }
 }
 

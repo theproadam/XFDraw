@@ -19,10 +19,6 @@ namespace xfcore.Buffers
         private int LocalLock = 0; //0 - free, 1 - taken
         private int CriticalLock = 0; //0 - free, 1 - taken
 
-        internal int s2DMode = 0;
-        internal int s2DColor = 0;
-        internal int s2DFilter = 0;
-
         public int Width { get { return _width; } }
         public int Height { get { return _height; } }
         public int Stride { get { return _stride; } }
@@ -175,17 +171,7 @@ namespace xfcore.Buffers
 
             ReleaseLock();
         }
-
-        public void ConfigureSampler2D(TextureFiltering filterMode, TextureWarp wrapMode, int borderColor = 0)
-        {
-            if (wrapMode == TextureWarp.GL_MIRRORED_REPEAT)
-                throw new Exception("GL_MIRRORED_REPEAT is not supported. Sorry!");
-
-            s2DMode = (int)wrapMode;
-            s2DColor = borderColor;
-            s2DFilter = (int)filterMode;
-        }
-
+        
         public void Clear()
         {
             GL.Clear(this);
@@ -510,6 +496,9 @@ namespace xfcore.Buffers
             set { cubemap[5] = value; }
         }
 
+        public int Width { get { return FRONT.Width; } }
+        public int Height { get { return FRONT.Height; } }
+
         public void Clear(byte R, byte G, byte B)
         {
             for (int i = 0; i < 6; i++)
@@ -539,6 +528,22 @@ namespace xfcore.Buffers
                 throw new Exception("All cubemaps must be 32bpp");
 
             return s & w & h & sxsy;
+        }
+
+        internal void RequestLock()
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                cubemap[i].RequestLock();
+            }
+        }
+
+        internal void ReleaseLock()
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                cubemap[i].ReleaseLock();
+            }
         }
     }
 

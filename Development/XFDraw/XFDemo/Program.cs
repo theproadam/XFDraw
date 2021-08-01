@@ -59,6 +59,11 @@ namespace XFDemo
         static Shader teapotShader;
         static GLBuffer teapotObject;
 
+        //ssr reflections demo
+        static GLBuffer ssrPlane;
+        static Shader ssrShader;
+
+
         #endregion
 
         static void Main(string[] args)
@@ -81,6 +86,8 @@ namespace XFDemo
             STLImporter sImport = new STLImporter("Teapot Fixed.stl");
             float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(sImport.AllTriangles, 89);
             teapotObject = new GLBuffer(cNorm, 6);
+
+
 
             RT = new RenderThread(144);
             RT.RenderFrame += RT_RenderFrame;
@@ -105,19 +112,19 @@ namespace XFDemo
             cubeTexture = new GLTexture(512, 512, typeof(Color4));
             GL.Clear(cubeTexture, 255, 127, 0);
 
-            cubeTexture.ConfigureSampler2D(TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_BORDER, 2094);
-
             basicShader.SetValue("myTexture", cubeTexture);
             basicShader.SetValue("textureSize", new Vector2(512, 512));
-
-            teapotShader.AssignBuffer("FragColor", colorBuffer);
-
+            basicShader.ConfigureTexture("myTexture", TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_EDGE);
 
             skybox = CubemapLoader.Load(@"skybox_data\");
 
+            teapotShader.AssignBuffer("FragColor", colorBuffer);
+            teapotShader.SetValue("skybox", skybox);
+            teapotShader.ConfigureTexture("skybox", TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_EDGE);
          //   skybox.Clear(255, 0, 0);
 
             projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
+            
 
 
             RT.Start();
@@ -142,7 +149,12 @@ namespace XFDemo
 
             teapotShader.SetValue("cameraRot", transformMatrix);
             teapotShader.SetValue("cameraPos", inputManager.cameraPosition);
+            teapotShader.SetValue("camera_Pos", inputManager.cameraPosition);
 
+            Vector3 pos = projMatrix.WorldToScreenPoint(new Vector3(0, 0, 0), new Size(viewportWidth, viewportHeight), delegate(Vector3 input) 
+            {
+                return transformMatrix * (input - inputManager.cameraPosition);
+            });
 
             ComputeColor();
 
@@ -151,12 +163,14 @@ namespace XFDemo
 
             sw.Start();
 
-            GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+          //  GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
 
             GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
-         //   GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
+            GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
-            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
+         //   GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
+
+
 
             sw.Stop();
 
@@ -175,6 +189,7 @@ namespace XFDemo
             colorShift = CompileShader("simpleShader.cpp", "colorShifter");
             basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp", "basicShader");
             teapotShader = CompileShader("teapotVS.cpp", "teapotFS.cpp", "teapotShader");
+           // ssrShader = CompileShader("teapotVS.cpp", "ssr_shader.cpp");
 
         }
 
@@ -223,7 +238,8 @@ namespace XFDemo
             ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName, CompileOption.None);
             Console.WriteLine("Success!");
 
-        //    ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
+          //  ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
+        //    ShaderCompile.COMMAND_LINE = "";
 
             Shader outputShader;
 
