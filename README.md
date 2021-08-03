@@ -83,7 +83,7 @@ Shader teapotShader; sModule.Compile(out teapotShader);
 //Prepare framebuffers, vertex buffers and projection->
 GLTexture colorBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
 GLTexture depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
-GLBuffer teapotObject = new GLBuffer(floatArrayThatHasXYZ_IJK_Normals, 6);
+GLBuffer teapotObject = new GLBuffer(floatArrayThatHasXYZ_IJK_Normals, 6); //6=stride
 GLMatrix projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
 //Assign uniforms and link buffers ->
