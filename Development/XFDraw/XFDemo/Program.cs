@@ -62,9 +62,17 @@ namespace XFDemo
         //ssr reflections demo
         static GLBuffer ssrPlane;
         static Shader ssrShader;
-
+        static GLTexture ssrBuffer;
+        static GLTexture ssrBuffer2;
+        static Shader ssrShaderReal;
+        static GLTexture ignoreBuffer;
 
         #endregion
+
+        static float rayLength = 10f;
+        static int rayCount = 10;
+        static float ray_bias = 0.05f;
+        static float min_ray_length = 0.5f;
 
         static void Main(string[] args)
         {
@@ -76,17 +84,25 @@ namespace XFDemo
             renderForm.ClientSize = new Size(viewportWidth, viewportHeight);
             renderForm.StartPosition = FormStartPosition.CenterScreen;
             renderForm.SizeChanged += renderForm_SizeChanged;
+            renderForm.KeyDown += renderForm_KeyDown;
+
 
             formData = new BlitData(renderForm);
             colorBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
             depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
             vignetteBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
+            ssrBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Vector3));
+            ssrBuffer2 = new GLTexture(viewportWidth, viewportHeight, typeof(Vector3));
+            ignoreBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
           //  cubeBuffer = GLPrimitives.Cube;         
             STLImporter sImport = new STLImporter("Teapot Fixed.stl");
             float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(sImport.AllTriangles, 89);
             teapotObject = new GLBuffer(cNorm, 6);
 
+            STLImporter planeImport = new STLImporter("plane.stl");
+            cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(planeImport.AllTriangles, 89);
+            ssrPlane = new GLBuffer(cNorm, 6);
 
 
             RT = new RenderThread(144);
@@ -124,12 +140,63 @@ namespace XFDemo
          //   skybox.Clear(255, 0, 0);
 
             projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
-            
 
 
+            ssrShader.AssignBuffer("FragColor", colorBuffer);
+            ssrShader.AssignBuffer("nor_data", ssrBuffer);
+            ssrShader.AssignBuffer("pos_data", ssrBuffer2);
+
+
+            ssrShaderReal.SetValue("skybox", skybox);
+
+            Console.WriteLine("\nCreating GL Window...");
             RT.Start();
             Application.Run(renderForm);
             RT.Stop();
+
+            Console.WriteLine("Releasing GLTextures and GLBuffers...");
+        }
+
+        static void renderForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Up)
+            {
+                ray_bias += 0.05f;
+            }
+            else if (e.KeyCode == Keys.Down)
+            {
+                ray_bias -= 0.05f;
+            }
+
+
+            if (e.KeyCode == Keys.Left)
+            {
+                rayCount += 1;
+            }
+            else if (e.KeyCode == Keys.Right)
+            {
+                rayCount -= 1;
+            }
+
+            if (e.KeyCode == Keys.M)
+            {
+                rayLength += 0.1f;
+            }
+            else if (e.KeyCode == Keys.N)
+            {
+                rayLength -= 0.1f;
+            }
+
+
+            if (e.KeyCode == Keys.B)
+            {
+                min_ray_length += 0.1f;
+            }
+            else if (e.KeyCode == Keys.V)
+            {
+                min_ray_length -= 0.1f;
+            }
+
         }
 
         static void RT_RenderFrame()
@@ -147,14 +214,38 @@ namespace XFDemo
           //  basicShader.SetValue("cameraRot", transformMatrix);
           //  basicShader.SetValue("cameraPos", inputManager.cameraPosition);
 
+            ssrBuffer.Clear();
+            ssrBuffer2.Clear();
+
             teapotShader.SetValue("cameraRot", transformMatrix);
             teapotShader.SetValue("cameraPos", inputManager.cameraPosition);
             teapotShader.SetValue("camera_Pos", inputManager.cameraPosition);
+           
 
-            Vector3 pos = projMatrix.WorldToScreenPoint(new Vector3(0, 0, 0), new Size(viewportWidth, viewportHeight), delegate(Vector3 input) 
-            {
-                return transformMatrix * (input - inputManager.cameraPosition);
-            });
+            
+            ssrShaderReal.SetValue("ray_max_length", (float)rayLength);
+            ssrShaderReal.SetValue("ray_min_distance", min_ray_length);
+
+
+            ssrShaderReal.SetValue("ray_count", rayCount);
+            ssrShaderReal.SetValue("ray_count_inverse", (float)(rayLength / (float)rayCount));
+            ssrShaderReal.SetValue("depthBuffer", depthBuffer);
+            ssrShaderReal.SetValue("colorBuffer", colorBuffer);
+
+            ssrShaderReal.SetValue("projection", projMatrix);
+            ssrShaderReal.SetValue("bias", ray_bias);
+
+            ssrShaderReal.AssignBuffer("FragColor", colorBuffer);
+            ssrShaderReal.AssignBuffer("norm_data", ssrBuffer);
+            ssrShaderReal.AssignBuffer("frag_pos", ssrBuffer2);
+
+
+
+            ssrShader.SetValue("cameraRot", transformMatrix);
+            ssrShader.SetValue("cameraPos", inputManager.cameraPosition);
+
+
+            ignoreBuffer.Clear();
 
             ComputeColor();
 
@@ -163,14 +254,19 @@ namespace XFDemo
 
             sw.Start();
 
-          //  GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+            GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+          //  GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
+     
+            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
+            GL.Draw(ssrPlane, ssrShader, depthBuffer, projMatrix, GLMode.Triangle);
+
+            ssrShaderReal.Pass();
+
+       //     GLDebug.DrawDepth(ssrPlane, depthBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
+
+         //   GLDebug.DepthToColor(colorBuffer, depthBuffer, 1f);
 
             GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
-            GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
-
-         //   GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
-
-
 
             sw.Stop();
 
@@ -189,7 +285,9 @@ namespace XFDemo
             colorShift = CompileShader("simpleShader.cpp", "colorShifter");
             basicShader = CompileShader("basicShaderVS.cpp", "basicShaderFS.cpp", "basicShader");
             teapotShader = CompileShader("teapotVS.cpp", "teapotFS.cpp", "teapotShader");
-           // ssrShader = CompileShader("teapotVS.cpp", "ssr_shader.cpp");
+            ssrShader = CompileShader("ssr_shaderVS.cpp", "ssr_shader.cpp", "ssrshader");
+            ssrShaderReal = CompileShader("ssr_pass.cpp", "srrpass");
+
 
         }
 
@@ -214,8 +312,10 @@ namespace XFDemo
         {   
             Console.Write("Parsing Shader: " + shaderName + " -> ");
 
-            ShaderCompile sModule = ShaderParser.Parse(shaderName, outputName);
+            ShaderCompile sModule = ShaderParser.Parse(shaderName, outputName, CompileOption.None);
             Console.WriteLine("Success!");
+
+         //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
 
             Shader outputShader;
 
@@ -238,8 +338,9 @@ namespace XFDemo
             ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName, CompileOption.None);
             Console.WriteLine("Success!");
 
-          //  ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
+         //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
         //    ShaderCompile.COMMAND_LINE = "";
+
 
             Shader outputShader;
 
@@ -299,15 +400,20 @@ namespace XFDemo
 
         static void DrawText()
         {
-            GLExtra.BlitIntoBitmap(colorBuffer, frameData, new Point(0, 0), new Rectangle(0, colorBuffer.Height - 100, 400, 100));
+            GLExtra.BlitIntoBitmap(colorBuffer, frameData, new Point(0, 0), new Rectangle(0, colorBuffer.Height - 200, 400, 200));
 
             using (Graphics g = Graphics.FromImage(frameData))
             {
                 g.DrawString("XFDraw v0.4.3", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 0, 200, 200));
                 g.DrawString("XF2  : " + LastFPS + " FPS", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 20, 200, 200));
+                g.DrawString("RayCount: " + rayCount, new Font("Consolas", 12), Brushes.White, new Rectangle(0, 40, 200, 200));
+                g.DrawString("Ray Bias: " + ray_bias, new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
+                g.DrawString("Ray Length: " + rayLength, new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+                g.DrawString("RayMin Dist: " + min_ray_length, new Font("Consolas", 12), Brushes.White, new Rectangle(0, 100, 200, 200));
+
             }
 
-            GLExtra.BlitFromBitmap(frameData, colorBuffer, new Point(0, colorBuffer.Height - 100), new Rectangle(0, 0, 400, 100));  
+            GLExtra.BlitFromBitmap(frameData, colorBuffer, new Point(0, colorBuffer.Height - 200), new Rectangle(0, 0, 400, 200));  
         }
     }
 

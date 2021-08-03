@@ -458,6 +458,57 @@ inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = fals
 	}
 }
 
+struct GLMatrix
+{
+	float nearZ;
+	float farZ;
+
+	float rw;
+	float rh;
+
+	float fw;
+	float fh;
+
+	float ox;
+	float oy;
+
+	float iox;
+	float ioy;
+
+	float oValue;
+	float matrixlerpv;
+
+	float fwi;
+	float fhi;
+
+	vec3 operator*(const vec3& coordinate) const
+	{
+		if (matrixlerpv == 0)
+		{
+			if (coordinate.z == 0)
+				return vec3(0, 0, 0);
+
+			float x = roundf(rw + coordinate.x / coordinate.z * fw);
+			float y = roundf(rh + coordinate.y / coordinate.z * fh);
+			
+			return vec3(x, y, coordinate.z);
+		}
+		else if (matrixlerpv == 1)
+		{
+			float x = roundf(rw + coordinate.x * iox);
+			float y = roundf(rh + coordinate.y * ioy);
+			return vec3(x, y, coordinate.z);
+		}
+		else
+		{
+			float x = roundf(rw + coordinate.x / ((coordinate.z * fwi - ox) * (1.0f - matrixlerpv) + ox));
+			float y = roundf(rh + coordinate.y / ((coordinate.z * fhi - oy) * (1.0f - matrixlerpv) + oy));
+			return vec3(x, y, coordinate.z);
+		}
+	}
+};
+
+
 inline vec3 abs(vec3 val)
 {
 	return vec3(val.x >= 0 ? val.x : -val.x, val.y >= 0 ? val.y : -val.y, val.z >= 0 ? val.z : -val.z);

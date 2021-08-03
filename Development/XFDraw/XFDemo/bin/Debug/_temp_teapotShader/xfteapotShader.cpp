@@ -686,7 +686,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0000001f;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)

@@ -12,3 +12,6 @@ C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basi
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\basicShaderVS.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\simpleShader.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\vignetteShader.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\ssr_shader.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\ssr_shaderVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\XFDemo\bin\Debug\ssr_pass.cpp

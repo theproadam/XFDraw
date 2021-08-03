@@ -915,6 +915,100 @@ namespace xfcore.Extras
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct GLMat
+    {
+        float nearZ;
+        float farZ;
+
+        float rw;
+        float rh;
+
+        float fw;
+        float fh;
+
+        float ox;
+        float oy;
+
+        float iox;
+        float ioy;
+
+        float oValue;
+        float matrixlerpv;
+
+        float fwi;
+        float fhi;
+
+        public GLMat(GLMatrix proj)
+        {
+            if (proj.ZNear <= 0) throw new Exception("Invalid ZNear!");
+            if (proj.ZFar <= 0) throw new Exception("Invalid ZFar");
+            if (proj.ZNear >= proj.ZFar) throw new Exception("Invalid ZNear ZFar");
+
+            const float deg2rad = (float)(Math.PI / 180d);
+
+            matrixlerpv = proj.iValue;
+
+            nearZ = proj.ZNear;
+            farZ = proj.ZFar;
+
+            fw = 1.0f / (float)Math.Tan(deg2rad * proj.vFOV / 2.0f);
+            fh = 1.0f / (float)Math.Tan(deg2rad * proj.hFOV / 2.0f);
+
+            float ow = 0.5f * proj.iValue;
+            float oh = 0.5f * proj.iValue;
+
+            ox = 1.0f / (proj.vSize == 0 ? 1 : proj.vSize);
+            oy = 1.0f / (proj.hSize == 0 ? 1 : proj.hSize);
+
+            iox = 1f / ox;
+            ioy = 1f / oy;
+
+            oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
+
+            fwi = 1f / fw;
+            fhi = 1f / fh;
+            rw = 1;
+            rh = 1;
+        }
+
+        public GLMat(GLMatrix proj, int rWidth, int rHeight)
+        {
+            if (proj.ZNear <= 0) throw new Exception("Invalid ZNear!");
+            if (proj.ZFar <= 0) throw new Exception("Invalid ZFar");
+            if (proj.ZNear >= proj.ZFar) throw new Exception("Invalid ZNear ZFar");
+
+            const float deg2rad = (float)(Math.PI / 180d);
+
+            matrixlerpv = proj.iValue;
+
+            nearZ = proj.ZNear;
+            farZ = proj.ZFar;
+
+            rw = ((float)rWidth - 1f) / 2f;
+            rh = ((float)rHeight - 1f) / 2f;
+
+            fw = rw / (float)Math.Tan(deg2rad * proj.vFOV / 2.0f);
+            fh = rh / (float)Math.Tan(deg2rad * proj.hFOV / 2.0f);
+
+            float ow = proj.vSize * proj.iValue;
+            float oh = proj.hSize * proj.iValue;
+
+            ox = rw / (proj.vSize == 0 ? 1 : proj.vSize);
+            oy = rh / (proj.hSize == 0 ? 1 : proj.hSize);
+
+            iox = 1f / ox;
+            ioy = 1f / oy;
+
+            oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
+
+            fwi = 1f / fw;
+            fhi = 1f / fh;
+        }
+
+    }
+
+
+    [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct samplerCube
     {
         int width;

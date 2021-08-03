@@ -13,4 +13,5 @@ void main()
 	vec3 R = reflect(I, norm_data);
 	
 	FragColor = textureNEAREST(skybox, R);
+	//FragColor = byte4(norm_data.x * 127.5f + 127.5f, norm_data.y * 127.5f + 127.5f, norm_data.z * 127.5f + 127.5f);
 }

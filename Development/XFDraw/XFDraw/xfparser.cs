@@ -346,6 +346,7 @@ namespace xfcore.Shaders.Builder
             bool forceC = cOps.Contains(CompileOption.ForceRecompile);
             bool hasSerial = !cOps.Contains(CompileOption.DoNotSerialize);
             bool allowMSAA = cOps.Contains(CompileOption.EnableMSAA);
+            
 
             string foldername = "_temp_" + ext;
             //realPath = foldername;
@@ -391,6 +392,10 @@ namespace xfcore.Shaders.Builder
             if (!ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_Position"))
                 throw new Exception("The vertex shader needs the gl_Position vector3 set!");
 
+            bool XYReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragCoord");
+            bool XYZReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragPos");
+
+
             if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
             if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
             if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
@@ -400,7 +405,7 @@ namespace xfcore.Shaders.Builder
             WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
 
             string sign1, exec1, ptrs1;
-            WriteFSSign(fs, fsIn, fsOut, allowMSAA, out sign1, out exec1, out ptrs1);
+            WriteFSSign(fs, fsIn, fsOut, allowMSAA, XYReq, XYZReq, out sign1, out exec1, out ptrs1);
 
             string shaderCode = "", entryCode = "";
 
@@ -842,6 +847,8 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.vec3) return 12;
             else if (dataType == DataType.sampler2D) return 24;
             else if (dataType == DataType.samplerCube) return 44;
+            else if (dataType == DataType.mat3) return Marshal.SizeOf(typeof(xfcore.Extras.Matrix3x3));
+            else if (dataType == DataType.GLMatrix) return Marshal.SizeOf(typeof (xfcore.Extras.GLMat));
             else throw new Exception("not implemented yet!");
         }
 
@@ -857,6 +864,8 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.mat3) return "mat3";
             else if (dataType == DataType.sampler2D) return "sampler2D";
             else if (dataType == DataType.samplerCube) return "samplerCube";
+            else if (dataType == DataType.GLMatrix) return "GLMatrix";
+
             else throw new Exception("not implemented yet!");
         }
 
@@ -1390,6 +1399,65 @@ inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = fals
 		return textureBILINEAR(inputTexture, coord, sampleAlpha);
 	}
 }
+
+struct GLMatrix
+{
+	float nearZ;
+	float farZ;
+
+	float rw;
+	float rh;
+
+	float fw;
+	float fh;
+
+	float ox;
+	float oy;
+
+	float iox;
+	float ioy;
+
+	float oValue;
+	float matrixlerpv;
+
+	float fwi;
+	float fhi;
+
+	vec3 operator*(const vec3& coordinate) const
+	{
+		if (matrixlerpv == 0)
+		{
+			if (coordinate.z == 0)
+				return vec3(0, 0, 0);
+
+			float x = roundf(rw + coordinate.x / coordinate.z * fw);
+			float y = roundf(rh + coordinate.y / coordinate.z * fh);
+			
+			return vec3(x, y, coordinate.z);
+		}
+		else if (matrixlerpv == 1)
+		{
+			float x = roundf(rw + coordinate.x * iox);
+			float y = roundf(rh + coordinate.y * ioy);
+			return vec3(x, y, coordinate.z);
+		}
+		else
+		{
+			float x = roundf(rw + coordinate.x / ((coordinate.z * fwi - ox) * (1.0f - matrixlerpv) + ox));
+			float y = roundf(rh + coordinate.y / ((coordinate.z * fhi - oy) * (1.0f - matrixlerpv) + oy));
+			return vec3(x, y, coordinate.z);
+		}
+	}
+
+    vec3 ScreenToCameraSpace(float posX, float posY, float depth)
+	{
+		float X = ((depth * fwi - ox) * (1.0f - matrixlerpv) + ox) * (posX - rw);
+		float Y = ((depth * fhi - oy) * (1.0f - matrixlerpv) + oy) * (posY - rh);
+
+		return vec3(X, Y, depth);
+	}
+};
+
 
 inline vec3 abs(vec3 val)
 {
@@ -2290,7 +2358,7 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
+			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0000001f;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -2957,7 +3025,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             fsOut = fsO.ToArray();
         }
 
-        static string WriteExecMethod(ShaderParser data, bool wrapGLPos = false)
+        static string WriteExecMethod(ShaderParser data, bool isVertex = false)
         {
             string mainCode = Regex.Replace(data.shaderMethods[data.shaderMethods.Length - 1].contents, ";", ";\n\t");
             mainCode = Regex.Replace(mainCode, "{", "{\n\t");
@@ -2970,10 +3038,10 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
                 mainCode = WrapVariablePointer(mainCode, data.shaderFieldOuts[i].name);
 
 
-
-
-            if (wrapGLPos)
+            if (isVertex)
                 mainCode = WrapVariablePointer(mainCode, "gl_Position");
+
+
 
             return mainCode;
         }
@@ -3013,7 +3081,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             sign = methodSign.Substring(0, methodSign.Length - 2) + ")";
         }
 
-        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, out string sign, out string exec, out string ptrs)
+        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, bool XY, bool XYZ, out string sign, out string exec, out string ptrs)
         {
             string methodSign = "inline void FSExec(";
             string methodExec = "FSExec(";
@@ -3055,6 +3123,16 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
                 methodExec += "*(" + type + "*)(uData2 + " + data.shaderUniforms[i].layoutPosition + "), ";
                 methodSign += type + " " + data.shaderUniforms[i].name + ", ";
             }
+
+            //if (pos)
+           //     methodExec += "gl_FragCoord, ";
+
+            if (XYZ)
+            {
+                methodExec += "vec3 gl_FragCoord, ";
+                methodExec += "vec3(0, 0, 0)";
+            }
+
 
             if (methodExec.Length > 2)
                 methodExec = methodExec.Substring(0, methodExec.Length - 2) + ");";
@@ -3123,6 +3201,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             else if (input == "mat4") return DataType.mat4;
             else if (input == "sampler2D") return DataType.sampler2D;
             else if (input == "samplerCube") return DataType.samplerCube;
+            else if (input == "GLMatrix") return DataType.GLMatrix;
             else return DataType.Other;
         }
 
@@ -3147,6 +3226,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             else if (dataType == DataType.mat3) return 36;
             else if (dataType == DataType.sampler2D) return 24;
             else if (dataType == DataType.samplerCube) return 44;
+            else if (dataType == DataType.GLMatrix) return Marshal.SizeOf(typeof(xfcore.Extras.GLMat));
             else if (dataType == DataType.Other && FieldSize != -1) return FieldSize;
             else throw new Exception("An unknown error occured (00245)");
         }
@@ -3297,6 +3377,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         mat3,
         sampler2D,
         samplerCube,
+        GLMatrix,
         Other
     }
 

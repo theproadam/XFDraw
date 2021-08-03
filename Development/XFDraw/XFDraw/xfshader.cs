@@ -340,6 +340,11 @@ namespace xfcore.Shaders
             bool isTexture = value.GetType() == typeof(GLTexture);
             bool isCubemap = value.GetType() == typeof(GLCubemap);
 
+            if (value.GetType() == typeof(GLMatrix))
+            {
+                value = new GLMat((GLMatrix)value, 1600, 900);
+            }
+
             if (!isTexture && !isCubemap)
                 if (!value.GetType().IsValueType || value.GetType().IsEnum)
                     throw new Exception("Value must be a struct!");
@@ -530,7 +535,15 @@ namespace xfcore.Shaders
             {
                 for (int i = 0; i < textureSlots.Length; i++)
                     if (textureSlots[i] == null)
+                        throw new Exception("One of the assigned framebuffers is null!");
+
+                for (int i = 0; i < samplerTextures.Length; i++)
+                    if (samplerTextures[i] == null || samplerTextures[i].IsNull())
                         throw new Exception("One of the assigned textures is null!");
+
+                for (int i = 0; i < samplerTextures.Length; i++)
+                    if (!samplerTextures[i].isValid())
+                        throw new Exception("One of the assigned GLCubemap is invalid!");
 
                 if (textureSlots.Length == 0)
                     throw new Exception("Atleast one Buffer must be assigned!");
@@ -538,11 +551,22 @@ namespace xfcore.Shaders
                 for (int i = 0; i < textureSlots.Length; i++)
                     textureSlots[i].RequestLock();
 
+                for (int i = 0; i < samplerTextures.Length; i++)
+                    samplerTextures[i].RequestLock();
+
                 int width = textureSlots[0].Width, height = textureSlots[0].Height;
 
                 for (int i = 1; i < textureSlots.Length; i++){
                     if (textureSlots[i].Height != height) throw new Exception("Height must be the same on all buffers!");
                     if (textureSlots[i].Width != width) throw new Exception("Width must be the same on all buffers!");
+                }
+
+                for (int i = 0; i < samplerTextures.Length; i++)
+                {
+                    if (samplerTextures[i].isTexture)
+                        SetValue(samplerTextures[i].name, new sampler2D(samplerTextures[i]));
+                    else
+                        SetValue(samplerTextures[i].name, new samplerCube(samplerTextures[i]));
                 }
 
                 IntPtr ptrPtrs = Marshal.AllocHGlobal(textureSlots.Length * 4);
