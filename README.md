@@ -34,34 +34,65 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Vignette Shader. ~0.6ms (in 1080p, not shown)
 ![Screenspace Shaders Example](https://i.imgur.com/gBNrAQr.png)
 
-### Example Screen Space Shader Code (Used for vignette buffer building)
-C++ side `myVignetteShader.cpp`:
-```c++
-//Vignette Shader Buffer Builder v1.0
-out float outMultiplier;
-uniform vec2 viewportMod;
+### Example Shader Code
+Vertex shader: `teapotVS.cpp`:
+```glsl
+//version 330 Core
+layout(location = 0) in vec3 pos;
+layout(location = 1) in vec3 norm;
 
-void main(){
-	float X = (gl_FragCoord.x * viewportMod.x) - 1.0f;
-	float Y = (gl_FragCoord.y * viewportMod.y) - 1.0f;
-	X = 1.0f - 0.5f * X * X;
-	Y = X * (1.0f - 0.5f * Y * Y);
-	outMultiplier = Y;
+out vec3 norm_data;
+out vec3 frag_pos;
+
+uniform vec3 cameraPos;
+uniform mat3 cameraRot;
+
+void main()
+{
+	gl_Position = cameraRot * (pos - cameraPos); //projection is handled internally
+	norm_data = norm;
+	frag_pos = pos;
 }
 ```
+Fragment shader: `teapotFS.cpp`:
+```glsl
+out byte4 FragColor;
+
+in vec3 norm_data;
+in vec3 frag_pos;
+
+uniform samplerCube skybox;
+uniform vec3 camera_Pos;
+
+void main()
+{
+	vec3 I = (frag_pos - camera_Pos);
+	vec3 R = reflect(I, norm_data);
+	
+	FragColor = texture(skybox, R);
+}
+
+```
+
 C# Side:
 ```c#
 //Parse and compile the shader ->
-ShaderCompile sModule;
-ShaderParser.Parse("myVignetteShader.cpp", out sModule);
-Shader vignetteShader;
-sModule.Compile(out vignetteShader)
+ShaderCompile sModule = ShaderParser.Parse("teapotVS.cpp", "teapotFS.cpp", "teapot");
+Shader teapotShader; sModule.Compile(out teapotShader);
+
+//Prepare framebuffers, vertex buffers and projection->
+GLTexture colorBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
+GLTexture depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
+GLBuffer teapotObject = new GLBuffer(floatArrayThatHasXYZ_IJK_Normals, 6); //6=stride
+GLMatrix projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
 //Assign uniforms and link buffers ->
-vignetteShader.SetValue("viewportMod", new Vector2(2f / viewportWidth, 2f / viewportHeight));
-vignetteShader.AssignBuffer("outMultiplier", vignetteBuffer);
+teapotShader.AssignBuffer("FragColor", colorBuffer);
+teapotShader.SetValue("skybox", skybox);
+teapotShader.SetValue("cameraRot", rotationalMatrix);
+teapotShader.SetValue("cameraPos", cameraPosition);
 
-//When done, perform the pass:
-vignetteShader.Pass();
+//When done, draw the object
+GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
 ```
-
+Compiling is done via `cl.exe`, however you can always compile your code manually. Expect a wiki section on how to do this soon.
