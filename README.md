@@ -28,6 +28,8 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Shadow mapping example. (Not Optimized Yet)
 ![Shadow Mapping](https://cdn.discordapp.com/attachments/545669301164703754/863470567185055784/unknown.png)
 
+#### Parallax mapping example. (Not Optimized Yet)
+![Parallax](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/ParallaxBeta.png)
 
 
 
