@@ -228,8 +228,9 @@ namespace xfcore
                 byte* uVS = (byte*)uniformDataVS.AddrOfPinnedObject();
                 byte* uFS = (byte*)uniformDataFS.AddrOfPinnedObject();
 
+                int bF_Mode = (int)shader.faceCullMode;
 
-                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, 1, 0, (MSAAConfig*)msaaPtr);
+                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, bF_Mode, 0, (MSAAConfig*)msaaPtr);
 
                 Marshal.FreeHGlobal(ptrPtrs);
                 uniformDataVS.Free();
@@ -261,7 +262,16 @@ namespace xfcore
     {
         Triangle,
         Wireframe,
+        TriangleWire,
         Line
+    }
+
+    public enum GLCull
+    {
+        GL_NONE = 0,
+        GL_FRONT = 1,
+        GL_BACK = 2
+      
     }
 
     public class BlitData : IDisposable
@@ -440,6 +450,38 @@ namespace xfcore
             GLData projData = new GLData(viewportSize.Width, viewportSize.Height, this);
 
             Vector3 coordinate = vertexShader(coord);
+
+            if (projData.matrixlerpv == 0)
+            {
+                if (coordinate.z == 0)
+                    throw new Exception("Coordinate Cannot be In Camera!");
+
+                float x = (float)Math.Round(projData.rw + coordinate.x / coordinate.z * projData.fw);
+                float y = (float)Math.Round(projData.rh + coordinate.y / coordinate.z * projData.fh);
+                return new Vector3(x, y, coordinate.z);
+            }
+            else if (projData.matrixlerpv == 1)
+            {
+                float x = (float)Math.Round(projData.rw + coordinate.x * projData.iox);
+                float y = (float)Math.Round(projData.rh + coordinate.y * projData.ioy);
+                return new Vector3(x, y, coordinate.z);
+            }
+            else
+            {
+                float fwi = 1.0f / projData.fw;
+                float fhi = 1.0f / projData.fh;
+                float ox = projData.ox, oy = projData.oy;
+                float mMinOne = (1.0f - projData.matrixlerpv);
+
+                float x = (float)Math.Round(projData.rw + coordinate.x / ((coordinate.z * fwi - ox) * mMinOne + ox));
+                float y = (float)Math.Round(projData.rh + coordinate.y / ((coordinate.z * fhi - oy) * mMinOne + oy));
+                return new Vector3(x, y, coordinate.z);
+            }
+        }
+
+        public Vector3 CameraToScreenPoint(Vector3 coordinate, int viewportWidth, int viewportHeight)
+        { 
+            GLData projData = new GLData(viewportWidth, viewportHeight, this);
 
             if (projData.matrixlerpv == 0)
             {

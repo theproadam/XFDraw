@@ -1026,6 +1026,12 @@ struct vec2
 		y = 0;
 	}
 
+    vec2(vec3 in)
+    {
+        x = in.x;
+        y = in.y;
+    }
+
 	vec2 operator+(const vec2& a) const
 	{
 		return vec2(a.x + x, a.y + y);
@@ -1050,6 +1056,8 @@ struct vec2
 	{
 		return vec2(a.x * x, a.y * y);
 	}
+
+    
 };
 
 
@@ -2358,7 +2366,10 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0000001f;
+			//if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
+
+            usingZ = fabsf(1.0f / FROM[1] - 1.0f / TO[1]) >= 0.2f;
+
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)

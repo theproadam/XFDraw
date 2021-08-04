@@ -1007,7 +1007,6 @@ namespace xfcore.Extras
 
     }
 
-
     [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct samplerCube
     {
@@ -1134,6 +1133,16 @@ namespace xfcore.Extras
                     -0.5f, 0, 0.5f, 0, 1
                 }, 5);
             }
+        }
+    }
+
+    public static class ShadowBaker
+    {
+        public delegate Vector3 VertexShaderDelegate(Vector3 input);
+
+        public static void BakeShadows(VertexShaderDelegate vDel, GLMatrix projection, params GLBuffer[] buffers)
+        {
+            throw new NotImplementedException();
         }
     }
 }

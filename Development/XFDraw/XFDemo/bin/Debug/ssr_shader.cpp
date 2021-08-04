@@ -13,5 +13,4 @@ void main()
 	nor_data = norm_data;
 	pos_data = frag_pos;
 
-
 }

@@ -4,7 +4,7 @@ layout (location = 1) in vec2 uv;
 
 //uniform mat3 transform; //projection is done internally
 out vec2 uv_data;
-out vec3 some_data;
+out vec3 frag_pos;
 
 uniform vec3 cameraPos;
 uniform mat3 cameraRot;
@@ -13,7 +13,7 @@ void main()
 {
 	gl_Position = cameraRot * (pos * 50.0f - cameraPos);
 	uv_data = uv;
-	some_data = vec3(0, 0, 0);
+	frag_pos = pos * 50.0f;
 }
 //todo add inverse and transpose!
 

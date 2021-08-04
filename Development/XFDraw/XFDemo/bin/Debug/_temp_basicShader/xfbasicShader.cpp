@@ -13,15 +13,30 @@ using namespace Concurrency;
 
 
 
-inline void VSExec(vec3* pos, vec2* uv, vec3* gl_Position, vec2* uv_data, vec3* some_data, vec3 cameraPos, mat3 cameraRot){
+
+
+
+inline void VSExec(vec3* pos, vec2* uv, vec3* gl_Position, vec2* uv_data, vec3* frag_pos, vec3 cameraPos, mat3 cameraRot){
 	(*gl_Position) = cameraRot * ((*pos) * 50.0f - cameraPos);
 	(*uv_data) = (*uv);
-	(*some_data) = vec3(0, 0, 0);
+	(*frag_pos) = (*pos) * 50.0f;
 	
 }
 
-inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* some_data, sampler2D myTexture, vec2 textureSize){
-	(*FragColor) = texture(myTexture, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
+inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* frag_pos, sampler2D myTexture, vec2 textureSize, vec3 camera_Pos, float heightScale, sampler2D depthMap){
+	vec3 viewDir = normalize(camera_Pos - (*frag_pos));
+	byte4 reslt = texture(depthMap, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
+	float height = 1.0f - (float)reslt.R * 0.00392156862745f;
+	vec2 texCoords = (*uv_data) - vec2(viewDir) * (height * heightScale);
+	if (texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0){
+	return;
+	}
+	(*FragColor) = texture(myTexture, vec2(texCoords.x * textureSize.x, texCoords.y * textureSize.y));
+	
+}
+
+void DrawWireFrame(float* VERTEX_DATA, int BUFFER_SIZE, int VW, int VH)
+{
 	
 }
 
@@ -619,7 +634,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 	if (isWire)
 	{
-		//DrawWireFrame(&data);
+		
 		return RETURN_VALUE;
 	}
 
@@ -681,7 +696,10 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
+			//if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
+
+            usingZ = fabsf(1.0f / FROM[1] - 1.0f / TO[1]) >= 0.2f;
+
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -719,7 +737,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24));
+				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48));
 			}
 		}
 	}

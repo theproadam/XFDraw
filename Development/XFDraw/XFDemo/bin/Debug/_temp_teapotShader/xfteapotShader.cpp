@@ -26,7 +26,7 @@ inline void VSExec(vec3* pos, vec3* norm, vec3* gl_Position, vec3* norm_data, ve
 inline void FSExec(byte4* FragColor, vec3* norm_data, vec3* frag_pos, samplerCube skybox, vec3 camera_Pos){
 	vec3 I = ((*frag_pos) - camera_Pos);
 	vec3 R = reflect(I, (*norm_data));
-	(*FragColor) = textureNEAREST(skybox, R);
+	(*FragColor) = byte4((*norm_data).x * 127.5f + 127.5f, (*norm_data).y * 127.5f + 127.5f, (*norm_data).z * 127.5f + 127.5f);
 	
 }
 
@@ -687,6 +687,8 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
 			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0000001f;
+
+            usingZ = false;            
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)

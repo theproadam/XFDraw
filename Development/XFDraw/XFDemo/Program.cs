@@ -52,6 +52,7 @@ namespace XFDemo
         static GLMatrix projMatrix;
 
         static GLTexture cubeTexture;
+        static GLTexture cubeTextureDepth;
         static MSAAData MSAA;
 
         //reflections demo
@@ -71,7 +72,10 @@ namespace XFDemo
 
         static float rayLength = 10f;
         static int rayCount = 10;
-        static float ray_bias = 0.05f;
+        //static float ray_bias = 0.05f;
+        static float ray_bias = 0.00005f;
+
+
         static float min_ray_length = 0.5f;
 
         static void Main(string[] args)
@@ -95,7 +99,31 @@ namespace XFDemo
             ssrBuffer2 = new GLTexture(viewportWidth, viewportHeight, typeof(Vector3));
             ignoreBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
-          //  cubeBuffer = GLPrimitives.Cube;         
+            cubeBuffer = GLPrimitives.Cube;    
+     
+            if (false)
+            cubeBuffer =  new GLBuffer(new float[] {   
+                    //Back
+
+
+         //bottom
+        -0.5f, -0.5f, -0.5f,   0.0f,  1.0f,
+         0.5f, -0.5f,  0.5f,   1.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,   1.0f,  1.0f,
+         0.5f, -0.5f,  0.5f,    1.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f,    0.0f,  1.0f,
+        -0.5f, -0.5f,  0.5f,    0.0f,  0.0f,
+
+        //top
+         -0.5f,  0.5f, -0.5f,  0.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,   1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,   1.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,   1.0f,  1.0f,
+        -0.5f,  0.5f,  0.5f,   0.0f,  1.0f,
+        -0.5f,  0.5f, -0.5f,   0.0f,  0.0f
+                }, 5);
+
+
             STLImporter sImport = new STLImporter("Teapot Fixed.stl");
             float[] cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(sImport.AllTriangles, 89);
             teapotObject = new GLBuffer(cNorm, 6);
@@ -125,14 +153,22 @@ namespace XFDemo
 
             basicShader.AssignBuffer("FragColor", colorBuffer);
 
-            cubeTexture = new GLTexture(512, 512, typeof(Color4));
-            GL.Clear(cubeTexture, 255, 127, 0);
+            cubeTexture = ObjectLoader.LoadTexture(@"mats/Cobblestone [Albedo].png");
+            cubeTextureDepth = ObjectLoader.LoadTexture(@"mats/Cobblestone [Occlusion].png");
+
+           // cubeTextureDepth = ObjectLoader.LoadTexture(@"mats/Cobblestone [Occlusion].png");
 
             basicShader.SetValue("myTexture", cubeTexture);
-            basicShader.SetValue("textureSize", new Vector2(512, 512));
-            basicShader.ConfigureTexture("myTexture", TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_EDGE);
+            basicShader.SetValue("depthMap", cubeTextureDepth);
+            basicShader.ConfigureFaceCulling(GLCull.GL_BACK);
 
-            skybox = CubemapLoader.Load(@"skybox_data\");
+            basicShader.SetValue("textureSize", new Vector2(cubeTexture.Width / 4f, cubeTexture.Height / 4f));
+           // basicShader.ConfigureTexture("myTexture", TextureFiltering.GL_LINEAR, TextureWarp.GL_CLAMP_TO_EDGE);
+           // basicShader.ConfigureTexture("depthMap", TextureFiltering.GL_LINEAR, TextureWarp.GL_CLAMP_TO_EDGE);
+
+
+
+            skybox = ObjectLoader.LoadCubemap(@"skybox_data\");
 
             teapotShader.AssignBuffer("FragColor", colorBuffer);
             teapotShader.SetValue("skybox", skybox);
@@ -161,11 +197,11 @@ namespace XFDemo
         {
             if (e.KeyCode == Keys.Up)
             {
-                ray_bias += 0.05f;
+                ray_bias += 0.005f;
             }
             else if (e.KeyCode == Keys.Down)
             {
-                ray_bias -= 0.05f;
+                ray_bias -= 0.005f;
             }
 
 
@@ -211,8 +247,11 @@ namespace XFDemo
 
             transformMatrix = inputManager.CreateCameraRotationMatrix();
 
-          //  basicShader.SetValue("cameraRot", transformMatrix);
-          //  basicShader.SetValue("cameraPos", inputManager.cameraPosition);
+            basicShader.SetValue("cameraRot", transformMatrix);
+            basicShader.SetValue("cameraPos", inputManager.cameraPosition);
+            basicShader.SetValue("camera_Pos", inputManager.cameraPosition);
+            basicShader.SetValue("heightScale", (float)ray_bias);
+
 
             ssrBuffer.Clear();
             ssrBuffer2.Clear();
@@ -254,22 +293,27 @@ namespace XFDemo
 
             sw.Start();
 
-            GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
-          //  GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
+         //   GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+            GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
      
-            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
-            GL.Draw(ssrPlane, ssrShader, depthBuffer, projMatrix, GLMode.Triangle);
+         //   GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
+         //   GL.Draw(ssrPlane, ssrShader, depthBuffer, projMatrix, GLMode.Triangle);
 
-            ssrShaderReal.Pass();
+            int ray_increment = (int)4;
+        //    ssrShaderReal.Pass();
 
        //     GLDebug.DrawDepth(ssrPlane, depthBuffer, inputManager.cameraPosition, inputManager.cameraRotation);
 
          //   GLDebug.DepthToColor(colorBuffer, depthBuffer, 1f);
 
+            
+
+           
+
             GLFast.VignetteMultiply(colorBuffer, vignetteBuffer);
 
             sw.Stop();
-
+            
             Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
             sw.Reset();
 
@@ -339,8 +383,8 @@ namespace XFDemo
             Console.WriteLine("Success!");
 
          //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
-        //    ShaderCompile.COMMAND_LINE = "";
-
+          //  ShaderCompile.COMMAND_LINE = "";
+            
 
             Shader outputShader;
 
@@ -617,9 +661,9 @@ namespace XFDemo
         }
     }
 
-    public static class CubemapLoader
+    public static class ObjectLoader
     {
-        public static GLCubemap Load(string folderPath)
+        public static GLCubemap LoadCubemap(string folderPath)
         {
             Bitmap front = new Bitmap(folderPath + @"\FRONT.jpg");
             Bitmap back = new Bitmap(folderPath + @"\BACK.jpg");
@@ -649,10 +693,6 @@ namespace XFDemo
             BitmapConvert(left, gleft);
             BitmapConvert(right, gright);
 
-
-
-           
-
             return new GLCubemap(gfront, gback, gleft, gright, gtop, gbottom);
         }
 
@@ -664,5 +704,14 @@ namespace XFDemo
             GLExtra.BlitFromBitmap(bmp, dest, new Point(0, 0), new Rectangle(0, 0, dest.Width, dest.Height));
         }
 
+        public static GLTexture LoadTexture(string fileName)
+        {
+            Bitmap src = new Bitmap(fileName);
+            GLTexture texture = new GLTexture(src.Width, src.Height, typeof(Color4));
+            
+            BitmapConvert(src, texture);
+            return texture;
+
+        }
     }
 }

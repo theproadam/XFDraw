@@ -506,6 +506,14 @@ struct GLMatrix
 			return vec3(x, y, coordinate.z);
 		}
 	}
+
+    vec3 ScreenToCameraSpace(float posX, float posY, float depth)
+	{
+		float X = ((depth * fwi - ox) * (1.0f - matrixlerpv) + ox) * (posX - rw);
+		float Y = ((depth * fhi - oy) * (1.0f - matrixlerpv) + oy) * (posY - rh);
+
+		return vec3(X, Y, depth);
+	}
 };
 
 

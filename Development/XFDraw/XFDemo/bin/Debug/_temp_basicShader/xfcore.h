@@ -84,6 +84,12 @@ struct vec2
 		y = 0;
 	}
 
+    vec2(vec3 in)
+    {
+        x = in.x;
+        y = in.y;
+    }
+
 	vec2 operator+(const vec2& a) const
 	{
 		return vec2(a.x + x, a.y + y);
@@ -108,6 +114,8 @@ struct vec2
 	{
 		return vec2(a.x * x, a.y * y);
 	}
+
+    
 };
 
 
@@ -188,10 +196,27 @@ struct sampler2D
 {
 	int width;
 	int height;
-	long* TEXTURE_ADDR;
+	byte4* TEXTURE_ADDR;
     int wrap_mode;
     byte4 wrap_mode_color;
     int filt_mode;
+};
+
+struct samplerCube
+{
+	int width;
+	int height;
+
+	byte4* front;
+	byte4* back;
+	byte4* left;
+	byte4* right;
+	byte4* top;
+	byte4* bottom;
+
+	int wrap_mode;
+	byte4 wrap_mode_color;
+	int filt_mode;
 };
 
 struct mat3
@@ -334,6 +359,19 @@ inline vec3 reflect(vec3 inDirection, vec3 inNormal)
 	return inNormal * -2.0f * dot(inNormal, inDirection) + inDirection;
 }
 
+inline vec3 refract(vec3 I, vec3 N, float eta)
+{
+	float k = 1.0f - eta * eta * (1.0f - dot(N, I) * dot(N, I));
+	if (k < 0.0f)
+	{
+		return vec3();
+	}
+	else
+	{
+		return I * eta - N * (eta * dot(N, I) + sqrt(k));
+	}
+}
+
 inline byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
 {
 	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
@@ -427,6 +465,219 @@ inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = fals
 		return textureBILINEAR(inputTexture, coord, sampleAlpha);
 	}
 }
+
+struct GLMatrix
+{
+	float nearZ;
+	float farZ;
+
+	float rw;
+	float rh;
+
+	float fw;
+	float fh;
+
+	float ox;
+	float oy;
+
+	float iox;
+	float ioy;
+
+	float oValue;
+	float matrixlerpv;
+
+	float fwi;
+	float fhi;
+
+	vec3 operator*(const vec3& coordinate) const
+	{
+		if (matrixlerpv == 0)
+		{
+			if (coordinate.z == 0)
+				return vec3(0, 0, 0);
+
+			float x = roundf(rw + coordinate.x / coordinate.z * fw);
+			float y = roundf(rh + coordinate.y / coordinate.z * fh);
+			
+			return vec3(x, y, coordinate.z);
+		}
+		else if (matrixlerpv == 1)
+		{
+			float x = roundf(rw + coordinate.x * iox);
+			float y = roundf(rh + coordinate.y * ioy);
+			return vec3(x, y, coordinate.z);
+		}
+		else
+		{
+			float x = roundf(rw + coordinate.x / ((coordinate.z * fwi - ox) * (1.0f - matrixlerpv) + ox));
+			float y = roundf(rh + coordinate.y / ((coordinate.z * fhi - oy) * (1.0f - matrixlerpv) + oy));
+			return vec3(x, y, coordinate.z);
+		}
+	}
+
+    vec3 ScreenToCameraSpace(float posX, float posY, float depth)
+	{
+		float X = ((depth * fwi - ox) * (1.0f - matrixlerpv) + ox) * (posX - rw);
+		float Y = ((depth * fhi - oy) * (1.0f - matrixlerpv) + oy) * (posY - rh);
+
+		return vec3(X, Y, depth);
+	}
+};
+
+
+inline vec3 abs(vec3 val)
+{
+	return vec3(val.x >= 0 ? val.x : -val.x, val.y >= 0 ? val.y : -val.y, val.z >= 0 ? val.z : -val.z);
+}
+
+inline vec2 Cubemap_UVFace(vec3 dir, int& faceIndex)
+{
+	//FACE_INDEX_VALUE
+	// RIGHT = INDEX 0
+	// LEFT = INDEX 1
+	// TOP = INDEX 2
+	// BOTTOM = INDEX 3
+	// FRONT = INDEX 4
+	// BACK = INDEX 5
+
+	vec3 vAbs = abs(dir);
+
+	float ma;
+	vec2 uv;
+	if (vAbs.z >= vAbs.x && vAbs.z >= vAbs.y)
+	{
+		faceIndex = dir.z < 0 ? 5 : 4;
+		ma = 0.5 / vAbs.z;
+		uv = vec2(dir.z < 0.0 ? -dir.x : dir.x, -dir.y);
+	}
+	else if (vAbs.y >= vAbs.x)
+	{
+		faceIndex = dir.y < 0 ? 3 : 2;
+		ma = 0.5 / vAbs.y;
+		uv = vec2(dir.x, dir.y < 0 ? -dir.z : dir.z);
+	}
+	else
+	{
+		faceIndex = dir.x < 0 ? 1 : 0;
+		ma = 0.5 / vAbs.x;
+		uv = vec2(dir.x < 0 ? dir.z : -dir.z, -dir.y);
+	}
+
+
+	return uv * ma + vec2(0.5, 0.5);
+}
+
+inline byte4 textureNEAREST(samplerCube inputCubemap, vec3 dir)
+{
+	//FACE_INDEX_VALUE
+	// RIGHT = INDEX 0
+	// LEFT = INDEX 1
+	// TOP = INDEX 2
+	// BOTTOM = INDEX 3
+	// FRONT = INDEX 4
+	// BACK = INDEX 5
+
+	int face;
+	vec2 uv = Cubemap_UVFace(dir, face);
+
+	if (uv.x > 1) uv.x = 1;
+	else if (uv.x < 0) uv.x = 0;
+
+	if (uv.y > 1) uv.y = 1;
+	else if (uv.y < 0) uv.y = 0;
+
+
+	int X = uv.x * (inputCubemap.width - 1);
+	int Y = uv.y * (inputCubemap.height - 1);
+
+
+	if (face == 0)
+	{
+		return inputCubemap.right[X + Y * inputCubemap.width];
+	}
+	else if (face == 1)
+	{
+		return inputCubemap.left[X + Y * inputCubemap.width];
+	}
+	else if (face == 2)
+	{
+		return inputCubemap.top[X + Y * inputCubemap.width];
+	}
+	else if (face == 3)
+	{
+		return inputCubemap.bottom[X + Y * inputCubemap.width];
+	}
+	else if (face == 4)
+	{
+		return inputCubemap.front[X + Y * inputCubemap.width];
+	}
+	else if (face == 5)
+	{
+		return inputCubemap.back[X + Y * inputCubemap.width];
+	}
+
+}
+
+inline byte4 texture(samplerCube inputCubemap, vec3 dir)
+{
+	//FACE_INDEX_VALUE
+	// RIGHT = INDEX 0
+	// LEFT = INDEX 1
+	// TOP = INDEX 2
+	// BOTTOM = INDEX 3
+	// FRONT = INDEX 4
+	// BACK = INDEX 5
+
+	int face;
+	vec2 uv = Cubemap_UVFace(dir, face);
+
+	if (uv.x > 1) uv.x = 1;
+	else if (uv.x < 0) uv.x = 0;
+
+	if (uv.y > 1) uv.y = 1;
+	else if (uv.y < 0) uv.y = 0;
+
+
+	int X = uv.x * (inputCubemap.width - 1);
+	int Y = uv.y * (inputCubemap.height - 1);
+
+	sampler2D t = sampler2D();
+	t.filt_mode = inputCubemap.filt_mode;
+	t.wrap_mode = inputCubemap.wrap_mode;
+	t.wrap_mode_color = inputCubemap.wrap_mode_color;
+	t.width = inputCubemap.width;
+	t.height = inputCubemap.height;
+
+	if (face == 0)
+	{
+		t.TEXTURE_ADDR = inputCubemap.right;
+	}
+	else if (face == 1)
+	{
+		t.TEXTURE_ADDR = inputCubemap.left;
+	}
+	else if (face == 2)
+	{
+		t.TEXTURE_ADDR = inputCubemap.top;
+	}
+	else if (face == 3)
+	{
+		t.TEXTURE_ADDR = inputCubemap.bottom;
+	}
+	else if (face == 4)
+	{
+		t.TEXTURE_ADDR = inputCubemap.front;
+	}
+	else if (face == 5)
+	{
+		t.TEXTURE_ADDR = inputCubemap.back;
+	}
+
+	return texture(t, vec2(X, Y));
+}
+
+
+
 
 struct MSAAConfig
 {

@@ -336,8 +336,6 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 	else return false;
 }
 
-
-
 struct GLData
 {
 	float nearZ;

@@ -72,6 +72,8 @@ namespace xfcore.Shaders
         internal int readStride;
         internal int intStride;
 
+        internal GLCull faceCullMode;
+
         internal bool isScreenSpace = false;
         internal object ThreadLock = new object();
 
@@ -514,6 +516,10 @@ namespace xfcore.Shaders
                 throw new Exception("Uniform \"" + uniformName + "\" was found multiple times in the shader!");
         }
 
+        public void ConfigureFaceCulling(GLCull cullMode)
+        {
+            faceCullMode = cullMode;
+        }
 
         public void LinkMSAAConfig(MSAAData MSAA)
         {
