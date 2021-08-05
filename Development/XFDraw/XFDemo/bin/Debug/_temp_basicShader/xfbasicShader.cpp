@@ -14,43 +14,77 @@ using namespace Concurrency;
 
 
 
+float semiRandom1(float x);
+float semiRandom(float x);
+float semiRandom2(float x);
 
 
-inline void VSExec(vec3* pos, vec2* uv, vec3* gl_Position, vec2* uv_data, vec3* frag_pos, vec3 cameraPos, mat3 cameraRot){
+float semiRandom1(float x){
+	return 200.0f * x * (x - 0.2f) * (x - 0.5f) * (x - 0.8f) * (x - 1.0f);
+	
+}
+float semiRandom(float x){
+	return 200.0f * x * (x - 0.33f) * (x - 0.66f) * (x - 1.0f);
+	
+}
+float semiRandom2(float x){
+	return 1000.0f * x * (x - 0.16f) * (x - 0.33f) * (x - 0.66f) * (x - 0.83f) * (x - 1.0f);
+	
+}
+inline void VSExec(vec3* pos, vec3* norm, vec2* uv, vec3* tangent, vec3* Bitangent, vec3* gl_Position, vec2* uv_data, vec3* normal, vec3* frag_pos, vec3* TangentViewPos, vec3* TangentFragPos, vec3 cameraPos, mat3 cameraRot){
 	(*gl_Position) = cameraRot * ((*pos) * 50.0f - cameraPos);
 	(*uv_data) = (*uv);
-	(*frag_pos) = (*pos) * 50.0f;
+	vec3 FragPos = (*pos) * 50.0f;
+	vec3 T = (*tangent);
+	vec3 B = (*Bitangent);
+	vec3 N = (*norm);
+	mat3 TBN = transpose(mat3(T, B, N));
+	(*TangentViewPos) = TBN * cameraPos;
+	(*TangentFragPos) = TBN * FragPos;
+	(*normal) = (*norm);
+	(*frag_pos) = ((*pos) * 50.0f);
 	
 }
 
-inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* frag_pos, sampler2D myTexture, vec2 textureSize, vec3 camera_Pos, float heightScale, sampler2D depthMap){
-	vec3 viewDir = normalize(camera_Pos - (*frag_pos));
+inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* normal, vec3* frag_pos, vec3* TangentViewPos, vec3* TangentFragPos, sampler2D myTexture, vec2 textureSize, vec3 camera_Pos, float heightScale, sampler2D depthMap, float waterLevel, samplerCube skybox){
+	vec3 viewDir = normalize((*TangentViewPos) - (*TangentFragPos));
 	byte4 reslt = texture(depthMap, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
 	float height = 1.0f - (float)reslt.R * 0.00392156862745f;
 	vec2 texCoords = (*uv_data) - vec2(viewDir) * (height * heightScale);
 	if (texCoords.x > 1.0 || texCoords.y > 1.0 || texCoords.x < 0.0 || texCoords.y < 0.0){
 	return;
 	}
+	byte4 coord_sample = texture(depthMap, vec2(texCoords.x * textureSize.x, texCoords.y * textureSize.y));
+	float waterCount = 1.0f - (float)coord_sample.R * 0.00392156862745f;
+	if (waterCount >= waterLevel){
+	byte4 waterCol = byte4(51, 135, 255);
+	vec3 I = ((*frag_pos) - camera_Pos);
+	vec3 R = reflect(I, (*normal));
+	const float mult = 6.94444E-7;
+	R.x += 8.0f * semiRandom(texCoords.x);
+	R.y += 8.0f * semiRandom(texCoords.y);
+	byte4 sky_col = textureNEAREST(skybox, R);
+	sky_col.R = sky_col.R * 0.25f + waterCol.R * 0.75f;
+	sky_col.G = sky_col.G * 0.25f + waterCol.G * 0.75f;
+	sky_col.B = sky_col.B * 0.25f + waterCol.B * 0.75f;
+	(*FragColor) = sky_col;
+	return;
+	}
 	(*FragColor) = texture(myTexture, vec2(texCoords.x * textureSize.x, texCoords.y * textureSize.y));
 	
 }
 
-void DrawWireFrame(float* VERTEX_DATA, int BUFFER_SIZE, int VW, int VH)
-{
-	
-}
-
 void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){
-	const int stride = 8;
-	const int readStride = 5;
-	const int faceStride = 15;
+	const int stride = 17;
+	const int readStride = 14;
+	const int faceStride = 42;
 	
 	float* VERTEX_DATA = (float*)alloca(stride * 3 * 4);
 	int BUFFER_SIZE = 3;
 	for (int b = 0; b < 3; ++b){
 		float* input = p + (index * faceStride + b * readStride);
 		float* output = VERTEX_DATA + b * stride;
-		VSExec((vec3*)(input + 0), (vec2*)(input + 3), (vec3*)(output + 0), (vec2*)(output + 3), (vec3*)(output + 5), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12));
+		VSExec((vec3*)(input + 0), (vec3*)(input + 3), (vec2*)(input + 6), (vec3*)(input + 8), (vec3*)(input + 11), (vec3*)(output + 0), (vec2*)(output + 3), (vec3*)(output + 5), (vec3*)(output + 8), (vec3*)(output + 11), (vec3*)(output + 14), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12));
 	}
 	
 	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
@@ -634,7 +668,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 	if (isWire)
 	{
-		
+		//DrawWireFrame(&data);
 		return RETURN_VALUE;
 	}
 
@@ -737,7 +771,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48));
+				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48), *(float*)(uData2 + 72), *(samplerCube*)(uData2 + 76));
 			}
 		}
 	}

@@ -76,7 +76,9 @@ namespace XFDemo
         static float ray_bias = 0.00005f;
 
 
-        static float min_ray_length = 0.5f;
+        static float min_ray_length = 0.00001f;
+        //static float min_ray_length = 0.5f;
+        
 
         static void Main(string[] args)
         {
@@ -99,8 +101,10 @@ namespace XFDemo
             ssrBuffer2 = new GLTexture(viewportWidth, viewportHeight, typeof(Vector3));
             ignoreBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
-            cubeBuffer = GLPrimitives.Cube;    
-     
+            cubeBuffer = GLPrimitives.Cube;
+
+            cubeBuffer = GLAssistant.BuildTanBitangentsFromXYZUV(cubeBuffer);
+
             if (false)
             cubeBuffer =  new GLBuffer(new float[] {   
                     //Back
@@ -160,15 +164,17 @@ namespace XFDemo
 
             basicShader.SetValue("myTexture", cubeTexture);
             basicShader.SetValue("depthMap", cubeTextureDepth);
-            basicShader.ConfigureFaceCulling(GLCull.GL_BACK);
+            basicShader.ConfigureFaceCulling(GLCull.GL_FRONT);
 
-            basicShader.SetValue("textureSize", new Vector2(cubeTexture.Width / 4f, cubeTexture.Height / 4f));
+            basicShader.SetValue("textureSize", new Vector2(cubeTexture.Width / 1f, cubeTexture.Height / 1f));
            // basicShader.ConfigureTexture("myTexture", TextureFiltering.GL_LINEAR, TextureWarp.GL_CLAMP_TO_EDGE);
-           // basicShader.ConfigureTexture("depthMap", TextureFiltering.GL_LINEAR, TextureWarp.GL_CLAMP_TO_EDGE);
+          //  basicShader.ConfigureTexture("depthMap", TextureFiltering.GL_LINEAR, TextureWarp.GL_CLAMP_TO_EDGE);
 
 
 
             skybox = ObjectLoader.LoadCubemap(@"skybox_data\");
+
+            basicShader.SetValue("skybox", skybox);
 
             teapotShader.AssignBuffer("FragColor", colorBuffer);
             teapotShader.SetValue("skybox", skybox);
@@ -226,11 +232,11 @@ namespace XFDemo
 
             if (e.KeyCode == Keys.B)
             {
-                min_ray_length += 0.1f;
+                min_ray_length += 0.01f;
             }
             else if (e.KeyCode == Keys.V)
             {
-                min_ray_length -= 0.1f;
+                min_ray_length -= 0.01f;
             }
 
         }
@@ -251,7 +257,7 @@ namespace XFDemo
             basicShader.SetValue("cameraPos", inputManager.cameraPosition);
             basicShader.SetValue("camera_Pos", inputManager.cameraPosition);
             basicShader.SetValue("heightScale", (float)ray_bias);
-
+            basicShader.SetValue("waterLevel", (float)(min_ray_length));
 
             ssrBuffer.Clear();
             ssrBuffer2.Clear();
@@ -259,6 +265,7 @@ namespace XFDemo
             teapotShader.SetValue("cameraRot", transformMatrix);
             teapotShader.SetValue("cameraPos", inputManager.cameraPosition);
             teapotShader.SetValue("camera_Pos", inputManager.cameraPosition);
+            basicShader.SetValue("camera_Pos", inputManager.cameraPosition);
            
 
             
@@ -293,7 +300,7 @@ namespace XFDemo
 
             sw.Start();
 
-         //   GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+            GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
             GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
      
          //   GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
@@ -383,7 +390,7 @@ namespace XFDemo
             Console.WriteLine("Success!");
 
          //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
-          //  ShaderCompile.COMMAND_LINE = "";
+            ShaderCompile.COMMAND_LINE += " /arch:SSE";
             
 
             Shader outputShader;

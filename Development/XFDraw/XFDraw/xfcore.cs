@@ -261,6 +261,7 @@ namespace xfcore
     public enum GLMode
     {
         Triangle,
+        TriangleSingle,
         Wireframe,
         TriangleWire,
         Line

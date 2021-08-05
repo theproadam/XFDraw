@@ -264,6 +264,13 @@ namespace xfcore.Extras
             return (float)Math.Sqrt(vector.x * vector.x + vector.y * vector.y + vector.z * vector.z);
         }
 
+        public static Vector3 Cross(Vector3 lhs, Vector3 rhs)
+        {
+            return new Vector3(
+                lhs.y * rhs.z - lhs.z * rhs.y,
+                lhs.z * rhs.x - lhs.x * rhs.z,
+                lhs.x * rhs.y - lhs.y * rhs.x);
+        }
 
         const float EPSILON = 10E-4f;
         public bool isApproximately(Vector3 CompareTo)
@@ -332,6 +339,16 @@ namespace xfcore.Extras
         {
             x = oldVector2.x;
             y = oldVector2.y;
+        }
+
+        public static Vector2 operator +(Vector2 A, Vector2 B)
+        {
+            return new Vector2(A.x + B.x, A.y + B.y);
+        }
+
+        public static Vector2 operator -(Vector2 A, Vector2 B)
+        {
+            return new Vector2(A.x - B.x, A.y - B.y);
         }
 
         public static float Distance(Vector2 From, Vector2 To)
@@ -1136,7 +1153,7 @@ namespace xfcore.Extras
         }
     }
 
-    public static class ShadowBaker
+    public unsafe static class GLAssistant
     {
         public delegate Vector3 VertexShaderDelegate(Vector3 input);
 
@@ -1144,6 +1161,201 @@ namespace xfcore.Extras
         {
             throw new NotImplementedException();
         }
+
+        static void WriteTanData(GLBufferData vecs, int offset, Vector3 pos1, Vector3 norm1, Vector2 uv1, Vector3 tangent, Vector3 bitangent)
+        {
+            vecs[offset + 0] = pos1.x;
+            vecs[offset + 1] = pos1.y;
+            vecs[offset + 2] = pos1.z;
+
+            vecs[offset + 3] = norm1.x;
+            vecs[offset + 4] = norm1.y;
+            vecs[offset + 5] = norm1.z;
+
+            vecs[offset + 6] = uv1.x;
+            vecs[offset + 7] = uv1.y;
+
+            vecs[offset + 8] = tangent.x;
+            vecs[offset + 9] = tangent.y;
+            vecs[offset + 10] = tangent.z;
+
+            vecs[offset + 11] = bitangent.x;
+            vecs[offset + 12] = bitangent.y;
+            vecs[offset + 13] = bitangent.z;
+        }
+
+        static Vector3 GetNormal(Vector3 a, Vector3 b, Vector3 c)
+        {
+            // Find vectors corresponding to two of the sides of the triangle.
+            Vector3 side1 = b - a;
+            Vector3 side2 = c - a;
+
+            // Cross the vectors to get a perpendicular vector, then normalize it.
+            return Vector3.Normalize(Vector3.Cross(side1, side2));
+        }
+
+        public static GLBuffer BuildTanBitangents(GLBuffer buffer)
+        {
+            throw new NotImplementedException();
+
+            if (buffer.Size % buffer.Stride != 0)
+                throw new Exception("Invalid Buffer! (Size and stride don't align!)");
+
+         //   if (buffer.Stride != 8)
+         //       throw new Exception("Buffer stride must be 8 = XYZ IJK UV");
+
+            if (buffer.Stride != 5)
+                throw new Exception("Buffer stride must be 8 = XYZ IJK UV");
+
+
+            int vertex_count = buffer.Size / buffer.Stride;
+
+            if (vertex_count % 3 != 0)
+                throw new Exception("Invalid Buffer! (Vertex count is not dividable by three!)");
+
+            int stride = buffer.Stride;
+            int tris_count = vertex_count / 3;
+
+
+           // float[] return_data = new float[tris_count * (buffer.Stride + 3)];
+            GLBuffer returnBuffer = new GLBuffer(vertex_count * 14);
+
+            int modStride = (buffer.Stride + 6);
+            float* addr = (float*)returnBuffer.GetAddress();
+
+
+            buffer.LockBuffer(delegate(GLBufferData data) { 
+                for (int i = 0; i < tris_count; i++)
+                {
+                    int pos = i * stride * 3;
+                    Vector3 pos1 = new Vector3(data[pos + stride * 0 + 0], data[pos + stride * 0 + 1], data[pos + stride * 0 + 2]);
+                    Vector3 pos2 = new Vector3(data[pos + stride * 1 + 0], data[pos + stride * 1 + 1], data[pos + stride * 1 + 2]);
+                    Vector3 pos3 = new Vector3(data[pos + stride * 2 + 0], data[pos + stride * 2 + 1], data[pos + stride * 2 + 2]);
+
+                    Vector3 norm = GetNormal(pos1, pos2, pos3);
+
+                    Vector3 norm1 = norm;
+                    Vector3 norm2 = norm;
+                    Vector3 norm3 = norm;
+
+
+                    /*
+                    Vector3 norm1 = new Vector3(data[pos + stride * 0 + 3], data[pos + stride * 0 + 4], data[pos + stride * 0 + 5]);
+                    Vector3 norm2 = new Vector3(data[pos + stride * 1 + 3], data[pos + stride * 1 + 4], data[pos + stride * 1 + 5]);
+                    Vector3 norm3 = new Vector3(data[pos + stride * 2 + 3], data[pos + stride * 2 + 4], data[pos + stride * 2 + 5]);
+
+                    Vector3 norm = (norm1 + norm2 + norm3) / 3f;
+                    */
+
+                    Vector2 uv1 = new Vector2(data[pos + stride * 0 + 6], data[pos + stride * 0 + 7]);
+                    Vector2 uv2 = new Vector2(data[pos + stride * 1 + 6], data[pos + stride * 1 + 7]);
+                    Vector2 uv3 = new Vector2(data[pos + stride * 2 + 6], data[pos + stride * 2 + 7]);
+
+                    Vector3 edge1 = pos2 - pos1;
+                    Vector3 edge2 = pos3 - pos1;
+                    Vector2 deltaUV1 = uv2 - uv1;
+                    Vector2 deltaUV2 = uv3 - uv1;
+
+                    float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+                    Vector3 tangent = new Vector3(), bitangent = new Vector3();
+                    tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+                    tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+                    tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+                    bitangent.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+                    bitangent.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+                    bitangent.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+                  //  WriteTanData(addr + (i * modStride * 3) + modStride * 0, pos1, norm1, uv1, tangent, bitangent);
+                  //  WriteTanData(addr + (i * modStride * 3) + modStride * 1, pos2, norm2, uv2, tangent, bitangent);
+                   // WriteTanData(addr + (i * modStride * 3) + modStride * 2, pos3, norm3, uv3, tangent, bitangent);
+                }
+            });
+
+            return returnBuffer;
+        }
+
+        public static GLBuffer BuildTanBitangentsFromXYZUV(GLBuffer buffer)
+        {
+            if ((buffer.Size / 4) % buffer.Stride != 0)
+                throw new Exception("Invalid Buffer! (Size and stride don't align!)");
+
+            if (buffer.Stride != 5)
+                throw new Exception("Buffer stride must be 8 = XYZ IJK UV");
+
+            int vertex_count = (buffer.Size / 4) / buffer.Stride;
+
+            if (vertex_count % 3 != 0)
+                throw new Exception("Invalid Buffer! (Vertex count is not dividable by three!)");
+
+            int stride = buffer.Stride;
+            int tris_count = vertex_count / 3;
+
+            // float[] return_data = new float[tris_count * (buffer.Stride + 3)];
+            GLBuffer returnBuffer = new GLBuffer(vertex_count * (buffer.Stride + 9) * 4, buffer.Stride + 9);
+
+            int modStride = (buffer.Stride + 9);
+
+            returnBuffer.LockBuffer(delegate(GLBufferData addr) 
+            {
+                buffer.LockBuffer(delegate(GLBufferData data)
+                {
+                    for (int i = 0; i < tris_count; i++)
+                    {
+                        int pos = i * stride * 3;
+                        Vector3 pos1 = new Vector3(data[pos + stride * 0 + 0], data[pos + stride * 0 + 1], data[pos + stride * 0 + 2]);
+                        Vector3 pos2 = new Vector3(data[pos + stride * 1 + 0], data[pos + stride * 1 + 1], data[pos + stride * 1 + 2]);
+                        Vector3 pos3 = new Vector3(data[pos + stride * 2 + 0], data[pos + stride * 2 + 1], data[pos + stride * 2 + 2]);
+
+                        Vector3 norm = GetNormal(pos1, pos2, pos3);
+
+                        Vector3 norm1 = norm;
+                        Vector3 norm2 = norm;
+                        Vector3 norm3 = norm;
+
+
+                        /*
+                        Vector3 norm1 = new Vector3(data[pos + stride * 0 + 3], data[pos + stride * 0 + 4], data[pos + stride * 0 + 5]);
+                        Vector3 norm2 = new Vector3(data[pos + stride * 1 + 3], data[pos + stride * 1 + 4], data[pos + stride * 1 + 5]);
+                        Vector3 norm3 = new Vector3(data[pos + stride * 2 + 3], data[pos + stride * 2 + 4], data[pos + stride * 2 + 5]);
+
+                        Vector3 norm = (norm1 + norm2 + norm3) / 3f;
+                        */
+
+                        Vector2 uv1 = new Vector2(data[pos + stride * 0 + 3], data[pos + stride * 0 + 4]);
+                        Vector2 uv2 = new Vector2(data[pos + stride * 1 + 3], data[pos + stride * 1 + 4]);
+                        Vector2 uv3 = new Vector2(data[pos + stride * 2 + 3], data[pos + stride * 2 + 4]);
+
+                        Vector3 edge1 = pos2 - pos1;
+                        Vector3 edge2 = pos3 - pos1;
+                        Vector2 deltaUV1 = uv2 - uv1;
+                        Vector2 deltaUV2 = uv3 - uv1;
+
+                        float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+
+                        Vector3 tangent = new Vector3(), bitangent = new Vector3();
+                        tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+                        tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+                        tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+                        bitangent.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+                        bitangent.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+                        bitangent.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+
+                        WriteTanData(addr, (i * modStride * 3) + modStride * 0, pos1, norm1, uv1, tangent, bitangent);
+                        WriteTanData(addr, (i * modStride * 3) + modStride * 1, pos2, norm2, uv2, tangent, bitangent);
+                        WriteTanData(addr, (i * modStride * 3) + modStride * 2, pos3, norm3, uv3, tangent, bitangent);
+                    }
+                });
+            });
+
+            return returnBuffer;
+        }
+
+
+
+
     }
 }
 

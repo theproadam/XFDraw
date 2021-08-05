@@ -279,6 +279,44 @@ namespace xfcore.Buffers
         }
     }
 
+    public unsafe class GLBufferData
+    { 
+        bool disposed = false;
+        float* fptr;
+        int _size;
+
+        public GLBufferData(int size, float* ptr)
+        {
+            fptr = ptr;
+            _size = size / 4;
+        }
+
+        public float this[int i]
+        {
+            get
+            {
+                if (disposed)
+                    throw new Exception("buffer already disposed!");
+
+                if (i >= 0 && i < _size) return fptr[i];
+                else throw new IndexOutOfRangeException();
+            }
+            set
+            {
+                if (disposed)
+                    throw new Exception("buffer already disposed!");
+
+                if (i >= 0 && i < _size) fptr[i] = value;
+                else throw new IndexOutOfRangeException();
+            }
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
+        }
+    }
+
     public unsafe class GLBuffer : IDisposable
     {
         internal IntPtr HEAP_ptr;
@@ -290,8 +328,10 @@ namespace xfcore.Buffers
         private int CriticalLock = 0; //0 - free, 1 - taken
 
         public int Size { get { return _size; } }
+        public int Stride { get { return stride; } }
 
         static int Buffer_RAM_Usage = 0;
+        public delegate void ReadDataDelegate(GLBufferData data);
 
         bool disposed = false;
         internal object ThreadLock = new object();
@@ -347,7 +387,7 @@ namespace xfcore.Buffers
             {
                 RequestLock();
 
-                if (i >= 0 || i < _size)
+                if (i >= 0 && i < _size)
                 {
                     float d = fptr[i];
                     ReleaseLock();
@@ -358,7 +398,7 @@ namespace xfcore.Buffers
             set
             {
                 RequestLock();
-                if (i >= 0 || i < _size)
+                if (i >= 0 && i < _size)
                     fptr[i] = value;
                 else throw new IndexOutOfRangeException();
 
@@ -390,6 +430,17 @@ namespace xfcore.Buffers
                 Interlocked.Decrement(ref LocalLock);
             }
             else Interlocked.Decrement(ref LocalLockCount);
+        }
+
+        public unsafe void LockBuffer(ReadDataDelegate del)
+        {
+            RequestLock();
+
+            GLBufferData bytes = new GLBufferData(_size, (float*)GetAddress());
+            del(bytes);
+            bytes.Dispose();
+
+            ReleaseLock();
         }
 
         public GLBuffer(int size, int Stride = 3)
