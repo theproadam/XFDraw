@@ -4,7 +4,7 @@ XFDraw is a realtime, high performance, software renderer written in C++ control
 
 Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a Wiki available to help with a quick start.
 
-### Currently XFDraw is still WIP. Expect semi-regular updates.
+#### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
 
 ### Demo Screenshots
 #### Phong Example. 926 Triangles ~1.2ms (>20ms if the viewport is filled due to forward rendering)
