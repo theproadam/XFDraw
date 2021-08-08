@@ -73,6 +73,7 @@ namespace xfcore.Shaders
         internal int intStride;
 
         internal GLCull faceCullMode;
+        internal int lateWireColor = 0;
 
         internal bool isScreenSpace = false;
         internal object ThreadLock = new object();
@@ -519,6 +520,16 @@ namespace xfcore.Shaders
         public void ConfigureFaceCulling(GLCull cullMode)
         {
             faceCullMode = cullMode;
+        }
+
+        public void ConfigureLateWireframe(Color4 Color, float zOffset)
+        { 
+            
+        }
+
+        public void ConfigureDepthTest(bool depthTestEnabled, float Offset)
+        {
+
         }
 
         public void LinkMSAAConfig(MSAAData MSAA)

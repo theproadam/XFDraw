@@ -1,7 +1,7 @@
-﻿Build started 2021-07-31 12:43:08 AM.
+﻿Build started 2021-08-07 7:37:18 PM.
      1>Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /Qpar- /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Release\XFCore.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot /GL XFPerf.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /sdl /O2 /Oi /Oy- /GL /D WIN32 /D NDEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /Gy /Qpar- /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Release\XFCore.pch" /Fo"Release\\" /Fd"Release\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt -ffast-math /O2 /fp:fast -Ofast /Oy /Og /Ox /Ot /GL XF2D.cpp XF3D.cpp XFCore.cpp XFDebug.cpp XFPerf.cpp
      1>cl : Command line warning D9025: overriding '/fp:precise' with '/fp:fast'
      1>cl : Command line warning D9025: overriding '/Os' with '/Ot'
      1>cl : Command line warning D9025: overriding '/Oy-' with '/Oy'
@@ -9,6 +9,81 @@
      1>cl : Command line warning D9002: ignoring unknown option '-ffast-math'
      1>cl : Command line warning D9002: ignoring unknown option '-Of'
      1>cl : Command line warning D9002: ignoring unknown option '-Oa'
+         XF2D.cpp
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(272): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(280): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(294): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(302): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(367): warning C4554: '&' : check operator precedence for possible error; use parentheses to clarify precedence
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(419): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(420): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(421): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(471): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(472): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(473): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+         XF3D.cpp
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(272): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(280): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(294): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(302): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(367): warning C4554: '&' : check operator precedence for possible error; use parentheses to clarify precedence
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(419): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(420): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(421): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(471): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(472): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(473): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+         XFCore.cpp
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(272): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(280): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(294): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(302): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(367): warning C4554: '&' : check operator precedence for possible error; use parentheses to clarify precedence
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(419): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(420): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(421): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(471): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(472): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(473): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+         XFDebug.cpp
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(272): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(280): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(294): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(302): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(367): warning C4554: '&' : check operator precedence for possible error; use parentheses to clarify precedence
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(419): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(420): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(421): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(471): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(472): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(473): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFDebug.cpp(66): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(66): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>XFDebug.cpp(67): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(67): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>XFDebug.cpp(69): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(69): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>XFDebug.cpp(70): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(70): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
+     1>XFDebug.cpp(617): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(619): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(632): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(634): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>XFDebug.cpp(1179): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(1208): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(1749): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(1811): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>XFDebug.cpp(1818): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>XFDebug.cpp(1823): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
+     1>XFDebug.cpp(1824): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
+     1>XFDebug.cpp(1825): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
+     1>XFDebug.cpp(1827): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(2471): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>XFDebug.cpp(2667): warning C4244: 'argument' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFDebug.cpp(2682): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>XFDebug.cpp(2692): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
+     1>XFDebug.cpp(2706): warning C4244: 'argument' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFDebug.cpp(3232): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
          XFPerf.cpp
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(272): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\XFCore.h(280): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
@@ -25,15 +100,15 @@
      1>XFPerf.cpp(590): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
      1>XFPerf.cpp(591): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
      1>XFPerf.cpp(665): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>XFPerf.cpp(768): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>XFPerf.cpp(769): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
      1>XFPerf.cpp(770): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>XFPerf.cpp(785): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>XFPerf.cpp(786): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFPerf.cpp(771): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFPerf.cpp(772): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
      1>XFPerf.cpp(787): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>XFPerf.cpp(887): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
-     1>XFPerf.cpp(888): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
-     1>XFPerf.cpp(889): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>XFPerf.cpp(788): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFPerf.cpp(789): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>XFPerf.cpp(893): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>XFPerf.cpp(894): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>XFPerf.cpp(895): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.dll" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.pdb" /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF /LTCG /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Release\XFCore.lib" /MACHINE:X86 /SAFESEH /DLL Release\stdafx.obj
          Release\XF2D.obj
@@ -49,4 +124,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:03.87
+Time Elapsed 00:00:04.69

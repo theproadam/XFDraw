@@ -48,7 +48,6 @@ void main()
 
 	// WaterLevel->
 
-
 	byte4 coord_sample = texture(depthMap, vec2(texCoords.x * textureSize.x, texCoords.y * textureSize.y));
 	float waterCount = 1.0f - (float)coord_sample.R * 0.00392156862745f;
 

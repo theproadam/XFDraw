@@ -434,11 +434,13 @@ namespace xfcore.Shaders.Builder
             entryCode += WriteMethods(vs.shaderMethods, vsOut, vsIn, vs.shaderUniforms);
 
             entryCode += "\n" + WriteMethods(fs.shaderMethods, fsOut, fsIn, fs.shaderUniforms);
+
             
 
             entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
             entryCode += sign1 + "{\n" + WriteExecMethod(fs, false) + "\n}\n\n";
 
+            entryCode += WriteWireframe(fs, fsIn, fsOut) + "\n" + DrawWireFrame + "\n";
 
             shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){\n";
             shaderCode += "const int stride = " + intS + ";\n";
@@ -2334,7 +2336,7 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 
 	if (isWire)
 	{
-		//DrawWireFrame(&data);
+		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData);
 		return RETURN_VALUE;
 	}
 
@@ -2841,7 +2843,176 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             }
         }
 
+        static string DrawLineCode
+        {
+            get
+            {
+                return @"void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, int FaceIndex, int VW, int VH, float farZ)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+
+	//Scratch Space Layout
+	float* y_Mxb = attrib;
+	float* y_mxB = attrib + (Stride - 3);
+	float* attribs = attrib + (Stride - 3) * 2;
+
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+	float zz;
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		for (int s = 3; s < Stride; s++)
+		{
+			y_Mxb[s - 3] = (FromDATA[s] - ToDATA[s]) / (1.0f / FromDATA[2] - 1.0f / ToDATA[2]);
+			y_mxB[s - 3] = -y_Mxb[s - 3] / FromDATA[2] + FromDATA[s];
+		}
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+            int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			for (int z = 0; z < Stride - 3; z++)
+				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
+            
+            ";
+            }
+        }
+
+        static string DrawLineCodeCont
+        {
+            get
+            {
+                return @"}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		for (int s = 3; s < Stride; s++)
+		{
+			y_Mxb[s - 3] = (FromDATA[s] - ToDATA[s]) / (1.0f / FromDATA[2] - 1.0f / ToDATA[2]);
+			y_mxB[s - 3] = -y_Mxb[s - 3] / FromDATA[2] + FromDATA[s];
+		}
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			for (int z = 0; z < Stride - 3; z++)
+				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
+            
+            ";
+            }
+        }
+
+        static string DrawWireFrame
+        { 
+            get { return @"inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData)
+{
+	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
+
+	for (int i = 0; i < BUFFER_SIZE - 1; i++)
+	{
+		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+	}
+
+	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+}";}
+        }
+
         //->
+
+
+        static string WriteWireframe(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut)
+        {
+            string entry = DrawLineCode;
+
+            string methodExec = "FSExec(";
+            string ptrsDecl = "";
+
+
+            for (int i = 0; i < fsOut.Length; i++)
+            {
+                string type = TypeToString(fsOut[i].dataType);
+                methodExec += "ptr_" + i + ", ";
+
+                ptrsDecl += type + "* " + "ptr_" + i + " = (" + type + "*)ptrPtrs[" + i + "] + mem_addr;\n";
+            }
+
+            for (int i = 0; i < fsIn.Length; i++)
+            {
+                string type = TypeToString(fsIn[i].dataType);
+                methodExec += "(" + type + "*)(attribs + " + (fsIn[i].layoutPosition / 4) + "), ";
+            }
+
+
+            for (int i = 0; i < data.shaderUniforms.Length; i++)
+            {
+                string type = data.shaderUniforms[i].dataType != DataType.Other ? TypeToString(data.shaderUniforms[i].dataType) : data.shaderUniforms[i].typeName;
+
+                methodExec += "*(" + type + "*)(uData2 + " + data.shaderUniforms[i].layoutPosition + "), ";
+            }
+
+            if (false) // XYZ
+            {
+               // methodExec += "vec3 gl_FragCoord, ";
+                //methodExec += "vec3(0, 0, 0)";
+            }
+
+
+            if (methodExec.Length > 2)
+                methodExec = methodExec.Substring(0, methodExec.Length - 2) + ");";
+
+            entry += ptrsDecl + "\n\t\t\t" + methodExec;
+            entry += DrawLineCodeCont + ptrsDecl + "\n\t\t\t" + methodExec;
+            entry += "\n\t\t}\t\n}\n}\n";
+
+            return entry;
+        }
 
         static string WriteMethods(ShaderMethod[] methods, ShaderField[] outFields, ShaderField[] inFields, ShaderField[] uniforms)
         {

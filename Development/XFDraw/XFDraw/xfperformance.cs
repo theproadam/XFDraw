@@ -90,7 +90,7 @@ namespace xfcore.Performance
             Marshal.FreeHGlobal(SkyboxFaceCountData);
             Marshal.FreeHGlobal(SkyboxData);
             Marshal.FreeHGlobal(SkyboxPointerBuffer);
-
+            Marshal.FreeHGlobal(SkyboxTexturePointers);
 
             for (int i = 0; i < skybox.cubemap.Length; i++)
                 skybox.cubemap[i].ReleaseLock();

@@ -136,7 +136,7 @@ namespace XFDemo
             cNorm = STLImporter.AverageUpFaceNormalsAndOutputVertexBuffer(planeImport.AllTriangles, 89);
             ssrPlane = new GLBuffer(cNorm, 6);
 
-
+            
             RT = new RenderThread(144);
             RT.RenderFrame += RT_RenderFrame;
 
@@ -247,7 +247,7 @@ namespace XFDemo
 
             deltaTime.Stop();
             inputManager.CalculateMouseInput();
-            inputManager.CalcualteKeyboardInput((float)deltaTime.Elapsed.TotalMilliseconds * 0.144f * 0.2f);
+            inputManager.CalcualteKeyboardInput((float)deltaTime.Elapsed.TotalMilliseconds / 16.66f);
             deltaT = (float)deltaTime.Elapsed.TotalMilliseconds;
             deltaTime.Restart();
 
@@ -300,10 +300,10 @@ namespace XFDemo
 
             sw.Start();
 
-            GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
+        //    GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
             GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
      
-         //   GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
+            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Wireframe);
          //   GL.Draw(ssrPlane, ssrShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             int ray_increment = (int)4;
@@ -321,7 +321,8 @@ namespace XFDemo
 
             sw.Stop();
             
-            Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
+       //     Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
+            Console.Title = "DeltaTime: " + deltaT;
             sw.Reset();
 
             DrawText();
@@ -390,7 +391,7 @@ namespace XFDemo
             Console.WriteLine("Success!");
 
          //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
-            ShaderCompile.COMMAND_LINE += " /arch:SSE";
+        //    ShaderCompile.COMMAND_LINE += " /arch:SSE";
             
 
             Shader outputShader;

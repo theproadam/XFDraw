@@ -824,11 +824,15 @@ extern "C"
 	//		SkyPass(i, iptr, projData.renderWidth, bsptr, skyBoxWidth, sptr, txptr);
 	//	});
 
-#pragma omp parallel for
-		for (int i = 0; i < projData.renderHeight; i++)
+//#pragma omp parallel for
+	//	for (int i = 0; i < projData.renderHeight; i++)
+
+
+		parallel_for(0, projData.renderHeight, [&](int i)
 		{
 			SkyPass(i, iptr, projData.renderWidth, bsptr, skyBoxWidth, sptr, txptr);
-		}
+		});
+
 	}
 
 	__declspec(dllexport) void MSAA_Merge(long* TargetBuffer, long** ptrPtrs, long count, long Width, long Height)
@@ -917,4 +921,10 @@ extern "C"
 			}
 		}
 	}
+
+	__declspec(dllexport) void SSR_PASS(int* TargetBuffer, vec3* norm_data, vec3* pos_data, long count, long Width, long Height)
+	{
+		
+	}
+
 }

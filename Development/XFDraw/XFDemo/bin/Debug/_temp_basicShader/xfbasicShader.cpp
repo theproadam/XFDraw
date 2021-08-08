@@ -74,6 +74,116 @@ inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* normal, vec3* frag_pos
 	
 }
 
+void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, int FaceIndex, int VW, int VH, float farZ)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+
+	//Scratch Space Layout
+	float* y_Mxb = attrib;
+	float* y_mxB = attrib + (Stride - 3);
+	float* attribs = attrib + (Stride - 3) * 2;
+
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+	float zz;
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		for (int s = 3; s < Stride; s++)
+		{
+			y_Mxb[s - 3] = (FromDATA[s] - ToDATA[s]) / (1.0f / FromDATA[2] - 1.0f / ToDATA[2]);
+			y_mxB[s - 3] = -y_Mxb[s - 3] / FromDATA[2] + FromDATA[s];
+		}
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+            int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			for (int z = 0; z < Stride - 3; z++)
+				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
+            
+            byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
+
+			FSExec(ptr_0, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48), *(float*)(uData2 + 72), *(samplerCube*)(uData2 + 76));}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		for (int s = 3; s < Stride; s++)
+		{
+			y_Mxb[s - 3] = (FromDATA[s] - ToDATA[s]) / (1.0f / FromDATA[2] - 1.0f / ToDATA[2]);
+			y_mxB[s - 3] = -y_Mxb[s - 3] / FromDATA[2] + FromDATA[s];
+		}
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			for (int z = 0; z < Stride - 3; z++)
+				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
+            
+            byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
+
+			FSExec(ptr_0, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48), *(float*)(uData2 + 72), *(samplerCube*)(uData2 + 76));
+		}	
+}
+}
+
+inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData)
+{
+	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
+
+	for (int i = 0; i < BUFFER_SIZE - 1; i++)
+	{
+		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+	}
+
+	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+}
 void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){
 	const int stride = 17;
 	const int readStride = 14;
@@ -668,7 +778,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 	if (isWire)
 	{
-		//DrawWireFrame(&data);
+		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData);
 		return RETURN_VALUE;
 	}
 

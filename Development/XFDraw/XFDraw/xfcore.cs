@@ -229,8 +229,9 @@ namespace xfcore
                 byte* uFS = (byte*)uniformDataFS.AddrOfPinnedObject();
 
                 int bF_Mode = (int)shader.faceCullMode;
+                int Mode = (int)drawMode;
 
-                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, bF_Mode, 0, (MSAAConfig*)msaaPtr);
+                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, bF_Mode, Mode, (MSAAConfig*)msaaPtr);
 
                 Marshal.FreeHGlobal(ptrPtrs);
                 uniformDataVS.Free();
@@ -260,10 +261,10 @@ namespace xfcore
 
     public enum GLMode
     {
-        Triangle,
+        Triangle = 0,
         TriangleSingle,
-        Wireframe,
-        TriangleWire,
+        Wireframe = 1,
+        TriangleWireLate = 2,
         Line
     }
 
@@ -271,8 +272,7 @@ namespace xfcore
     {
         GL_NONE = 0,
         GL_FRONT = 1,
-        GL_BACK = 2
-      
+        GL_BACK = 2   
     }
 
     public class BlitData : IDisposable
