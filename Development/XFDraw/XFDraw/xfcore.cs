@@ -128,8 +128,6 @@ namespace xfcore
                 ptr[i] = 0;
         }
 
-
-
         public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
         {
             buffer.RequestLock();
@@ -202,6 +200,24 @@ namespace xfcore
                         shader.SetValue(shader.samplerTextures[i].name, new samplerCube(shader.samplerTextures[i]));
                 }
 
+                if (shader.lateWireTexture != null)
+                {
+                    shader.lateWireTexture.RequestLock();
+                    if (shader.lateWireTexture.Width != width || shader.lateWireTexture.Height != height || shader.lateWireTexture.Stride != 4)
+                    {
+                        shader.lateWireTexture.ReleaseLock();
+                        throw new Exception("Late wireframe texture is not 32bpp OR is not the same width/height as all of the attached framebuffers!");
+                    }
+                }
+
+                if (drawMode == GLMode.TriangleWireLate && shader.lateWireTexture == null)
+                    throw new Exception("Late wireframe need a attached late wireframe texture!");
+
+                int* latePtr = (int*)IntPtr.Zero;
+
+                if (shader.lateWireTexture != null)
+                    latePtr = (int*)shader.lateWireTexture.GetAddress();
+
                 MSAAConfig msaaData;
                 IntPtr msaaPtr = IntPtr.Zero;
                 GCHandle msaaHandle = new GCHandle();
@@ -228,10 +244,9 @@ namespace xfcore
                 byte* uVS = (byte*)uniformDataVS.AddrOfPinnedObject();
                 byte* uFS = (byte*)uniformDataFS.AddrOfPinnedObject();
 
-                int bF_Mode = (int)shader.faceCullMode;
-                int Mode = (int)drawMode;
+                GLExtras conf = new GLExtras(shader, drawMode, latePtr);      
 
-                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, bF_Mode, Mode, (MSAAConfig*)msaaPtr);
+                shader.ShaderCall(startIndex, stopIndex, (float*)buffer.GetAddress(), (float*)depth.GetAddress(), uVS, uFS, PTRS, drawConfig, conf, (MSAAConfig*)msaaPtr);
 
                 Marshal.FreeHGlobal(ptrPtrs);
                 uniformDataVS.Free();
@@ -248,6 +263,9 @@ namespace xfcore
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                     shader.samplerTextures[i].ReleaseLock();
+
+                if (shader.lateWireTexture != null)
+                    shader.lateWireTexture.ReleaseLock();
             }
 
             buffer.ReleaseLock();
@@ -376,6 +394,11 @@ namespace xfcore
 
         public float ZNear;
         public float ZFar;
+
+        public bool isPerspective()
+        {
+            return iValue == 0;
+        }
 
         public delegate Vector3 VertexTransform(Vector3 inputVertex);
 

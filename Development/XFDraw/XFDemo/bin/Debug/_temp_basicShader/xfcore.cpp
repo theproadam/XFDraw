@@ -208,7 +208,7 @@ void SIPHA(float* TA, int INDEX, float* VD, int A, int B, float TanSlope, float 
 	TA[INDEX + 2] = Z;
 }
 
-void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride)
+void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride, bool persMat)
 {
 	float X;
 	float Z;
@@ -257,7 +257,9 @@ void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int S
 	bool usingZ = ZDIFF != 0;
 
 	if (ZDIFF != 0)
-		usingZ = ZDIFF * ZDIFF >= 0.00001f;
+		usingZ = ZDIFF * ZDIFF >= 0.0001f;
+
+    if (!persMat) usingZ = false;
 
 	if (usingZ)
 	for (int a = 3; a < Stride; a++)
@@ -281,7 +283,7 @@ void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int S
 	XR[I * (Stride - 1) + 1] = Z;
 }
 
-bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride)
+bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride, bool pMat)
 {
 	int IC = 0;
 	for (int i = 0; i < TRIS_SIZE - 1; i++)
@@ -290,8 +292,8 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		float y2 = TRIS_DATA[(i + 1) * Stride + 1];
 
 		if (y2 == y1 && Line == y2){
-			LIPA_PLUS(Intersects, 0, TRIS_DATA, i, i + 1, Line, Stride);
-			LIPA_PLUS(Intersects, 1, TRIS_DATA, i + 1, i, Line, Stride);
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, i, i + 1, Line, Stride, pMat);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, i + 1, i, Line, Stride, pMat);
 			return true;
 		}
 
@@ -302,7 +304,7 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		}
 
 		if (Line <= y2 && Line > y1){
-			LIPA_PLUS(Intersects, IC, TRIS_DATA, i, i + 1, Line, Stride);
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, i, i + 1, Line, Stride, pMat);
 			IC++;
 		}
 
@@ -315,8 +317,8 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		float y2 = TRIS_DATA[(TRIS_SIZE - 1) * Stride + 1];
 
 		if (y2 == y1 && Line == y2){
-			LIPA_PLUS(Intersects, 0, TRIS_DATA, 0, (TRIS_SIZE - 1), Line, Stride);
-			LIPA_PLUS(Intersects, 1, TRIS_DATA, (TRIS_SIZE - 1), 0, Line, Stride);
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, 0, (TRIS_SIZE - 1), Line, Stride, pMat);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, (TRIS_SIZE - 1), 0, Line, Stride, pMat);
 			return true;
 		}
 
@@ -327,7 +329,7 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		}
 
 		if (Line <= y2 && Line > y1){
-			LIPA_PLUS(Intersects, IC, TRIS_DATA, 0, TRIS_SIZE - 1, Line, Stride);
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, 0, TRIS_SIZE - 1, Line, Stride, pMat);
 			IC++;
 		}
 	}
@@ -367,6 +369,17 @@ struct GLData
 	float matrixlerpv;
 };
 
+struct GLExtra
+{
+	int FACE_CULL;
+	int WIRE_MODE;
+	int wireColor;
+	int* wire_ptr;
+	float offset_wire;
+	int depth_mode;
+	float depth_offset;
+};
+
 inline void frtlzeromem(bool* dest, int count)
 {
 	for (int i = 0; i < count; ++i)
@@ -377,3 +390,77 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
 {
 	return ((VERTEX_DATA[Stride]) - (VERTEX_DATA[0])) * ((VERTEX_DATA[Stride * 2 + 1]) - (VERTEX_DATA[1])) - ((VERTEX_DATA[Stride * 2]) - (VERTEX_DATA[0])) * ((VERTEX_DATA[Stride + 1]) - (VERTEX_DATA[1]));
 }
+
+void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+			int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			iptr[mem_addr] = color;
+		}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			iptr[mem_addr] = color;
+		}
+	}
+}
+
+

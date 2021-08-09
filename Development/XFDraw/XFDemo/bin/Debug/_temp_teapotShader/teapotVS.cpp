@@ -13,6 +13,4 @@ void main()
 	gl_Position = cameraRot * (pos - cameraPos);
 	norm_data = norm;
 	frag_pos = pos;
-
-
 }

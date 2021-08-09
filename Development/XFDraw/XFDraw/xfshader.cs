@@ -32,7 +32,7 @@ namespace xfcore.Shaders
         delegate void ShdrScrnCallDel(int Width, int Height, byte** ptrPtrs, void* UniformPointer);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, byte* uData1, byte* uData2, byte** ptrPtrs, GLData pData, int FACE, int mode, MSAAConfig* msaa);
+        internal delegate void ShdrCallDel(int start, int stop, float* tris, float* dptr, byte* uData1, byte* uData2, byte** ptrPtrs, GLData pData, GLExtras conf, MSAAConfig* msaa);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         delegate int SafetyChkDel();
@@ -74,6 +74,8 @@ namespace xfcore.Shaders
 
         internal GLCull faceCullMode;
         internal int lateWireColor = 0;
+        internal float wireOffset = 0;
+        internal GLTexture lateWireTexture;
 
         internal bool isScreenSpace = false;
         internal object ThreadLock = new object();
@@ -522,14 +524,26 @@ namespace xfcore.Shaders
             faceCullMode = cullMode;
         }
 
-        public void ConfigureLateWireframe(Color4 Color, float zOffset)
-        { 
-            
+        public void ConfigureWireframeOffset(float zOffset)
+        {
+            wireOffset = zOffset;
         }
 
-        public void ConfigureDepthTest(bool depthTestEnabled, float Offset)
+        public void ConfigureLateWireframe(bool isEnabled, Color4 lateColor, GLTexture targetTexture)
         {
+            if (targetTexture.Stride != 4)
+                throw new Exception("Only 32bpp supported for late wireframe!");
 
+            if (!isEnabled)
+                lateWireTexture = null;
+
+            lateWireColor = (int)lateColor;
+            lateWireTexture = targetTexture;
+        }
+
+        public void ConfigureDepthTest(bool depthTestEnabled, float ZOffset)
+        {
+            
         }
 
         public void LinkMSAAConfig(MSAAData MSAA)
@@ -669,11 +683,35 @@ namespace xfcore.Shaders
             ox = rw / (proj.vSize == 0 ? 1 : proj.vSize);
             oy = rh / (proj.hSize == 0 ? 1 : proj.hSize);
 
-            iox = 1f / ox;
-            ioy = 1f / oy;
+            iox = ox; //???? renderXF seems to have this issue
+            ioy = oy;
 
             oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
-            
+
+          //  if (proj.vFOV == 0)
+         //       oValue = 0;
+        }
+    }
+
+    unsafe struct GLExtras
+    {
+        internal int FACE_CULL;
+        internal int WIRE_MODE;
+        internal int wireColor;
+        internal int* wire_ptr;
+        internal float offset_wire;
+        internal int depth_mode;
+        internal float depth_offset;
+
+        public GLExtras(Shader shader, GLMode drawMode, int* ptr)
+        {
+            FACE_CULL = (int)shader.faceCullMode;
+            WIRE_MODE = (int)drawMode;
+            wireColor = shader.lateWireColor;
+            wire_ptr = ptr;
+            offset_wire = shader.wireOffset;
+            depth_mode = 0;
+            depth_offset = 0;
         }
     }
 

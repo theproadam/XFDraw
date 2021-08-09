@@ -47,6 +47,8 @@ inline void VSExec(vec3* pos, vec3* norm, vec2* uv, vec3* tangent, vec3* Bitange
 }
 
 inline void FSExec(byte4* FragColor, vec2* uv_data, vec3* normal, vec3* frag_pos, vec3* TangentViewPos, vec3* TangentFragPos, sampler2D myTexture, vec2 textureSize, vec3 camera_Pos, float heightScale, sampler2D depthMap, float waterLevel, samplerCube skybox){
+	(*FragColor) = texture(myTexture, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
+	return;
 	vec3 viewDir = normalize((*TangentViewPos) - (*TangentFragPos));
 	byte4 reslt = texture(depthMap, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y));
 	float height = 1.0f - (float)reslt.R * 0.00392156862745f;
@@ -173,18 +175,18 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
 }
 }
 
-inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData)
+inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, float zoffset)
 {
 	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
 
 	for (int i = 0; i < BUFFER_SIZE - 1; i++)
 	{
-		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 	}
 
-	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 }
-void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){
+void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){
 	const int stride = 17;
 	const int readStride = 14;
 	const int faceStride = 42;
@@ -769,16 +771,16 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			if (VERTEX_DATA[im * stride + 1] < yMinValue) yMinValue = VERTEX_DATA[im * stride + 1];
 		}
 
-	if (facecull == 1 || facecull == 2)
+	if (wireData.FACE_CULL == 1 || wireData.FACE_CULL == 2)
 	{
 		float A = BACKFACECULLS(VERTEX_DATA, stride);
-		if (facecull == 2 && A > 0) return RETURN_VALUE;
-		else if (facecull == 1 && A < 0) return RETURN_VALUE;
+		if (wireData.FACE_CULL == 2 && A > 0) return RETURN_VALUE;
+		else if (wireData.FACE_CULL == 1 && A < 0) return RETURN_VALUE;
 	}
 
-	if (isWire)
+	if (wireData.WIRE_MODE == 1)
 	{
-		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData);
+		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, wireData.offset_wire);
 		return RETURN_VALUE;
 	}
 
@@ -800,10 +802,13 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	float* Z_fptr;
 
 	float zBegin;
+    bool perspMat = projData.matrixlerpv != 1;
+	float oValue = projData.oValue;
+	float zOffset = wireData.depth_offset;
 
 	for (int i = yMin; i <= yMax; ++i)
 	{
-		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride))
+		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride, perspMat))
 		{
 			if (Intersects[0] > Intersects[stride - 1])
 			{
@@ -843,7 +848,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			//if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
 
             usingZ = fabsf(1.0f / FROM[1] - 1.0f / TO[1]) >= 0.2f;
-
+            if (!perspMat) usingZ = false;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -871,11 +876,11 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			zBegin = slopeZ * (float)FromX + bZ;
 
 			for (int o = FromX; o <= ToX; ++o ){
-				float depth = (1.0f / zBegin);
+				float depth = perspMat ? (1.0f / zBegin - oValue) : zBegin;
 				s = projData.farZ - depth;
 				zBegin += slopeZ;
 
-				if (Z_fptr[o] > s) continue;
+				if (Z_fptr[o] > s - zOffset) continue;
 				Z_fptr[o] = s;
 
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
@@ -885,11 +890,19 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			}
 		}
 	}
+
+if (wireData.WIRE_MODE == 2)
+	{
+		for (int i = 0; i < BUFFER_SIZE - 1; ++i)
+			DrawLineNoDATA(VERTEX_DATA + i * stride, VERTEX_DATA + (i + 1) * stride, dptr, wireData.wire_ptr, wireData.wireColor, wireData.offset_wire, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
+
+		DrawLineNoDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * stride, VERTEX_DATA, dptr, wireData.wire_ptr, wireData.wireColor, wireData.offset_wire, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
+	}
 }
 
-extern "C" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
+extern "C" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, GLExtra conf, MSAAConfig* msaa)
 {
 	parallel_for(start, stop, [&](int index){
-		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
+		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, conf, msaa);
 	});
 }

@@ -15,7 +15,7 @@ namespace xfcore.Shaders.Builder
     {
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
-        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot"; //GL hang?
+        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot /arch:SSE /arch:AVX"; //GL hang?
 
         internal ShaderField[] sFieldsInVS;
         internal ShaderField[] sFieldsOutVS;
@@ -394,6 +394,10 @@ namespace xfcore.Shaders.Builder
 
             bool XYReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragCoord");
             bool XYZReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragPos");
+            bool ZReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragDepth");
+            
+            bool FSIReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_InstanceID");
+            bool VSIReq = ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_InstanceID");
 
 
             if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
@@ -405,7 +409,7 @@ namespace xfcore.Shaders.Builder
             WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
 
             string sign1, exec1, ptrs1;
-            WriteFSSign(fs, fsIn, fsOut, allowMSAA, XYReq, XYZReq, out sign1, out exec1, out ptrs1);
+            WriteFSSign(fs, fsIn, fsOut, allowMSAA, XYReq, XYZReq, ZReq, FSIReq, out sign1, out exec1, out ptrs1);
 
             string shaderCode = "", entryCode = "";
 
@@ -440,9 +444,9 @@ namespace xfcore.Shaders.Builder
             entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
             entryCode += sign1 + "{\n" + WriteExecMethod(fs, false) + "\n}\n\n";
 
-            entryCode += WriteWireframe(fs, fsIn, fsOut) + "\n" + DrawWireFrame + "\n";
+            entryCode += WriteWireframe(fs, fsIn, fsOut, XYReq, XYZReq, ZReq, FSIReq) + "\n" + DrawWireFrame + "\n";
 
-            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){\n";
+            shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){\n";
             shaderCode += "const int stride = " + intS + ";\n";
             shaderCode += "const int readStride = " + readS + ";\n";
             shaderCode += "const int faceStride = " + (readS * 3) + ";\n\n";
@@ -475,16 +479,23 @@ namespace xfcore.Shaders.Builder
             //DrawScanline
             shaderCode += "\t\t\t" + "for (int o = FromX; o <= ToX; ++o " + "" + "){\n"; //ptrsIncrWarn
 
-            shaderCode += "\t\t\t\t" + @"float depth = (1.0f / zBegin);
+            shaderCode += "\t\t\t\t" + @"float depth = perspMat ? (1.0f / zBegin - oValue) : zBegin;
 				s = projData.farZ - depth;
 				zBegin += slopeZ;
 
-				if (Z_fptr[o] > s) continue;
+				if (Z_fptr[o] > s - zOffset) continue;
 				Z_fptr[o] = s;
 
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
 
+
+            if (XYZReq)
+            {
+                shaderCode += "\t\t\t\tfloat X = ((depth * fwi - ox) * (1.0f - projData.matrixlerpv) + ox) * (o - projData.rw);";
+				shaderCode += "\t\t\t\tfloat Y = ((depth * fhi - oy) * (1.0f - projData.matrixlerpv) + oy) * (i - projData.rh);";
+            }
+            
             if (allowMSAA)
                 shaderCode += "\n\t\t\t\tbyte4 defr;\n";
 
@@ -499,7 +510,9 @@ namespace xfcore.Shaders.Builder
 					*(ptr_0 + o) = defr;";
             }
 
-            shaderCode += "\t\t\t}\n\t\t}\n\t}\n}";
+            shaderCode += "\t\t\t}\n\t\t}\n\t}\n\n";
+
+            shaderCode += LateWireCode + "\n}";
 
             shaderCode = entryCode + shaderCode;
             shaderCode += "\n\n" + (cOps.Contains(CompileOption.UseFor) ? NotParallelCode : ParallelCode);
@@ -2327,16 +2340,16 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
         {
             get
             {
-                return @"if (facecull == 1 || facecull == 2)
+                return @"if (wireData.FACE_CULL == 1 || wireData.FACE_CULL == 2)
 	{
 		float A = BACKFACECULLS(VERTEX_DATA, stride);
-		if (facecull == 2 && A > 0) return RETURN_VALUE;
-		else if (facecull == 1 && A < 0) return RETURN_VALUE;
+		if (wireData.FACE_CULL == 2 && A > 0) return RETURN_VALUE;
+		else if (wireData.FACE_CULL == 1 && A < 0) return RETURN_VALUE;
 	}
 
-	if (isWire)
+	if (wireData.WIRE_MODE == 1)
 	{
-		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData);
+		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, wireData.offset_wire);
 		return RETURN_VALUE;
 	}
 
@@ -2365,10 +2378,13 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 	float* Z_fptr;
 
 	float zBegin;
+    bool perspMat = projData.matrixlerpv != 1;
+	float oValue = projData.oValue;
+	float zOffset = wireData.depth_offset;
 
 	for (int i = yMin; i <= yMax; ++i)
 	{
-		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride))
+		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride, perspMat))
 		{
 			if (Intersects[0] > Intersects[stride - 1])
 			{
@@ -2408,7 +2424,7 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 			//if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
 
             usingZ = fabsf(1.0f / FROM[1] - 1.0f / TO[1]) >= 0.2f;
-
+            if (!perspMat) usingZ = false;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -2435,10 +2451,10 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
         {
             get
             {
-                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, GLExtra conf, MSAAConfig* msaa)
 {
 	parallel_for(start, stop, [&](int index){
-		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
+		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, conf, msaa);
 	});
 }";
             }
@@ -2448,12 +2464,27 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
         {
             get
             {
-                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, GLExtra conf, MSAAConfig* msaa)
 {
-	for (int i = start; i < stop; i++){
-		MethodExec(i,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
+	for (int i = start; i < stop; i++)
+	{
+		MethodExec(i, tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, conf, msaa);
 	}
 }";
+            }
+        }
+
+        static string LateWireCode
+        {
+            get
+            {
+                return @"if (wireData.WIRE_MODE == 2)
+	{
+		for (int i = 0; i < BUFFER_SIZE - 1; ++i)
+			DrawLineNoDATA(VERTEX_DATA + i * stride, VERTEX_DATA + (i + 1) * stride, dptr, wireData.wire_ptr, wireData.wireColor, wireData.offset_wire, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
+
+		DrawLineNoDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * stride, VERTEX_DATA, dptr, wireData.wire_ptr, wireData.wireColor, wireData.offset_wire, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
+	}";
             }
         }
 
@@ -2671,7 +2702,7 @@ void SIPHA(float* TA, int INDEX, float* VD, int A, int B, float TanSlope, float 
 	TA[INDEX + 2] = Z;
 }
 
-void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride)
+void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int Stride, bool persMat)
 {
 	float X;
 	float Z;
@@ -2720,7 +2751,9 @@ void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int S
 	bool usingZ = ZDIFF != 0;
 
 	if (ZDIFF != 0)
-		usingZ = ZDIFF * ZDIFF >= 0.00001f;
+		usingZ = ZDIFF * ZDIFF >= 0.0001f;
+
+    if (!persMat) usingZ = false;
 
 	if (usingZ)
 	for (int a = 3; a < Stride; a++)
@@ -2744,7 +2777,7 @@ void LIPA_PLUS(float* XR, int I, float* V_DATA, int A, int B, int LinePos, int S
 	XR[I * (Stride - 1) + 1] = Z;
 }
 
-bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride)
+bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, int Stride, bool pMat)
 {
 	int IC = 0;
 	for (int i = 0; i < TRIS_SIZE - 1; i++)
@@ -2753,8 +2786,8 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		float y2 = TRIS_DATA[(i + 1) * Stride + 1];
 
 		if (y2 == y1 && Line == y2){
-			LIPA_PLUS(Intersects, 0, TRIS_DATA, i, i + 1, Line, Stride);
-			LIPA_PLUS(Intersects, 1, TRIS_DATA, i + 1, i, Line, Stride);
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, i, i + 1, Line, Stride, pMat);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, i + 1, i, Line, Stride, pMat);
 			return true;
 		}
 
@@ -2765,7 +2798,7 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		}
 
 		if (Line <= y2 && Line > y1){
-			LIPA_PLUS(Intersects, IC, TRIS_DATA, i, i + 1, Line, Stride);
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, i, i + 1, Line, Stride, pMat);
 			IC++;
 		}
 
@@ -2778,8 +2811,8 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		float y2 = TRIS_DATA[(TRIS_SIZE - 1) * Stride + 1];
 
 		if (y2 == y1 && Line == y2){
-			LIPA_PLUS(Intersects, 0, TRIS_DATA, 0, (TRIS_SIZE - 1), Line, Stride);
-			LIPA_PLUS(Intersects, 1, TRIS_DATA, (TRIS_SIZE - 1), 0, Line, Stride);
+			LIPA_PLUS(Intersects, 0, TRIS_DATA, 0, (TRIS_SIZE - 1), Line, Stride, pMat);
+			LIPA_PLUS(Intersects, 1, TRIS_DATA, (TRIS_SIZE - 1), 0, Line, Stride, pMat);
 			return true;
 		}
 
@@ -2790,7 +2823,7 @@ bool ScanLinePLUS(int Line, float* TRIS_DATA, int TRIS_SIZE, float* Intersects, 
 		}
 
 		if (Line <= y2 && Line > y1){
-			LIPA_PLUS(Intersects, IC, TRIS_DATA, 0, TRIS_SIZE - 1, Line, Stride);
+			LIPA_PLUS(Intersects, IC, TRIS_DATA, 0, TRIS_SIZE - 1, Line, Stride, pMat);
 			IC++;
 		}
 	}
@@ -2830,6 +2863,17 @@ struct GLData
 	float matrixlerpv;
 };
 
+struct GLExtra
+{
+	int FACE_CULL;
+	int WIRE_MODE;
+	int wireColor;
+	int* wire_ptr;
+	float offset_wire;
+	int depth_mode;
+	float depth_offset;
+};
+
 inline void frtlzeromem(bool* dest, int count)
 {
 	for (int i = 0; i < count; ++i)
@@ -2839,7 +2883,82 @@ inline void frtlzeromem(bool* dest, int count)
 inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
 {
 	return ((VERTEX_DATA[Stride]) - (VERTEX_DATA[0])) * ((VERTEX_DATA[Stride * 2 + 1]) - (VERTEX_DATA[1])) - ((VERTEX_DATA[Stride * 2]) - (VERTEX_DATA[0])) * ((VERTEX_DATA[Stride + 1]) - (VERTEX_DATA[1]));
-}";
+}
+
+void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+			int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			iptr[mem_addr] = color;
+		}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			iptr[mem_addr] = color;
+		}
+	}
+}
+
+
+";
             }
         }
 
@@ -2950,24 +3069,26 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
         }
 
         static string DrawWireFrame
-        { 
-            get { return @"inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData)
+        {
+            get
+            {
+                return @"inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, float zoffset)
 {
 	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
 
 	for (int i = 0; i < BUFFER_SIZE - 1; i++)
 	{
-		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 	}
 
-	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, 0.0f, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 }";}
         }
 
         //->
 
 
-        static string WriteWireframe(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut)
+        static string WriteWireframe(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool XY, bool XYZ, bool Z, bool I)
         {
             string entry = DrawLineCode;
 
@@ -2997,18 +3118,38 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
                 methodExec += "*(" + type + "*)(uData2 + " + data.shaderUniforms[i].layoutPosition + "), ";
             }
 
-            if (false) // XYZ
+            string ExtraX = "";
+            string ExtraY = "";
+
+            if (XY)
             {
-               // methodExec += "vec3 gl_FragCoord, ";
-                //methodExec += "vec3(0, 0, 0)";
+                methodExec += "vec3(coordX, coordY, s), ";
+                ExtraX += "int coordX = i;\nint coordY = tY;";
+                ExtraY += "int coordX = tY;\nint coordY = i;";
+            }
+
+            if (XYZ)
+            {
+                methodExec += "vec3(0, 0, 0), ";
+               // ExtraX += "int coordX = i;\nint coordY = tY;";
+            }
+
+            if (Z)
+            {
+                methodExec += "dptr + mem_addr, ";
+            }
+
+            if (I)
+            {
+                methodExec += "FaceIndex, ";
             }
 
 
             if (methodExec.Length > 2)
                 methodExec = methodExec.Substring(0, methodExec.Length - 2) + ");";
 
-            entry += ptrsDecl + "\n\t\t\t" + methodExec;
-            entry += DrawLineCodeCont + ptrsDecl + "\n\t\t\t" + methodExec;
+            entry += ExtraX + ptrsDecl + "\n\t\t\t" + methodExec;
+            entry += DrawLineCodeCont + ExtraY + ptrsDecl + "\n\t\t\t" + methodExec;
             entry += "\n\t\t}\t\n}\n}\n";
 
             return entry;
@@ -3300,7 +3441,7 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             sign = methodSign.Substring(0, methodSign.Length - 2) + ")";
         }
 
-        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, bool XY, bool XYZ, out string sign, out string exec, out string ptrs)
+        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, bool XY, bool XYZ, bool Z, bool I, out string sign, out string exec, out string ptrs)
         {
             string methodSign = "inline void FSExec(";
             string methodExec = "FSExec(";
@@ -3346,12 +3487,29 @@ inline float BACKFACECULLS(float* VERTEX_DATA, int Stride)
             //if (pos)
            //     methodExec += "gl_FragCoord, ";
 
-            if (XYZ)
+            if (XY)
             {
-                methodExec += "vec3 gl_FragCoord, ";
-                methodExec += "vec3(0, 0, 0)";
+                methodExec += "vec3(o, i, s), ";
+                methodSign += "vec3 gl_FragCoord, ";
             }
 
+            if (XYZ)
+            {
+                methodExec += "vec3(frag_X, frag_Y, depth), ";
+                methodSign += "vec3 gl_FragPos, ";
+            }
+
+            if (Z)
+            {
+                methodExec += "Z_fptr + o, ";
+                methodSign += "float* gl_FragDepth, ";
+            }
+
+            if (I)
+            {
+                methodExec += "index, ";
+                methodSign += "int gl_InstanceID, ";
+            }
 
             if (methodExec.Length > 2)
                 methodExec = methodExec.Substring(0, methodExec.Length - 2) + ");";

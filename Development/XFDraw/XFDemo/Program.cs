@@ -179,10 +179,16 @@ namespace XFDemo
             teapotShader.AssignBuffer("FragColor", colorBuffer);
             teapotShader.SetValue("skybox", skybox);
             teapotShader.ConfigureTexture("skybox", TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_EDGE);
+            teapotShader.ConfigureFaceCulling(GLCull.GL_FRONT);
          //   skybox.Clear(255, 0, 0);
 
-            projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
+          //  projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);
 
+            projMatrix = GLMatrix.Orthographic(160f, viewportWidth, viewportHeight);
+
+
+          //  teapotShader.ConfigureLateWireframe(true, new Color4(255, 255, 255), colorBuffer);
+           // teapotShader.ConfigureWireframeOffset(-100.5f);
 
             ssrShader.AssignBuffer("FragColor", colorBuffer);
             ssrShader.AssignBuffer("nor_data", ssrBuffer);
@@ -239,6 +245,13 @@ namespace XFDemo
                 min_ray_length -= 0.01f;
             }
 
+            if (e.KeyCode == Keys.Z)
+            {
+                if (projMatrix.isPerspective())
+                    projMatrix = GLMatrix.Orthographic(50f, viewportWidth, viewportHeight);
+                else projMatrix = GLMatrix.Perspective(90, viewportWidth, viewportHeight);
+            }
+
         }
 
         static void RT_RenderFrame()
@@ -247,7 +260,7 @@ namespace XFDemo
 
             deltaTime.Stop();
             inputManager.CalculateMouseInput();
-            inputManager.CalcualteKeyboardInput((float)deltaTime.Elapsed.TotalMilliseconds / 16.66f);
+            inputManager.CalcualteKeyboardInput((float)deltaTime.Elapsed.TotalMilliseconds / 33.33f);
             deltaT = (float)deltaTime.Elapsed.TotalMilliseconds;
             deltaTime.Restart();
 
@@ -301,9 +314,9 @@ namespace XFDemo
             sw.Start();
 
         //    GLFast.DrawSkybox(colorBuffer, skybox, transformMatrix);
-            GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
+         //   GL.Draw(cubeBuffer, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
      
-            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Wireframe);
+            GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
          //   GL.Draw(ssrPlane, ssrShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             int ray_increment = (int)4;
@@ -321,8 +334,8 @@ namespace XFDemo
 
             sw.Stop();
             
-       //     Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
-            Console.Title = "DeltaTime: " + deltaT;
+            Console.Title = "DeltaTime: " + sw.Elapsed.TotalMilliseconds.ToString(".0##") + "ms, FPS: " + LastFPS;
+      //      Console.Title = "DeltaTime: " + deltaT;
             sw.Reset();
 
             DrawText();
@@ -391,7 +404,7 @@ namespace XFDemo
             Console.WriteLine("Success!");
 
          //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
-        //    ShaderCompile.COMMAND_LINE += " /arch:SSE";
+            ShaderCompile.COMMAND_LINE = "";
             
 
             Shader outputShader;

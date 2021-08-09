@@ -29,7 +29,121 @@ inline void FSExec(byte4* FragColor, vec3* nor_data, vec3* pos_data, vec3* norm_
 	
 }
 
-void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, int facecull, int isWire, MSAAConfig* msaa){
+void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, int FaceIndex, int VW, int VH, float farZ)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+
+	//Scratch Space Layout
+	float* y_Mxb = attrib;
+	float* y_mxB = attrib + (Stride - 3);
+	float* attribs = attrib + (Stride - 3) * 2;
+
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+	float zz;
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		for (int s = 3; s < Stride; s++)
+		{
+			y_Mxb[s - 3] = (FromDATA[s] - ToDATA[s]) / (1.0f / FromDATA[2] - 1.0f / ToDATA[2]);
+			y_mxB[s - 3] = -y_Mxb[s - 3] / FromDATA[2] + FromDATA[s];
+		}
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+            int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			for (int z = 0; z < Stride - 3; z++)
+				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
+            
+            byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
+vec3* ptr_1 = (vec3*)ptrPtrs[1] + mem_addr;
+vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
+
+			FSExec(ptr_0, ptr_1, ptr_2, (vec3*)(attribs + 0), (vec3*)(attribs + 3));}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		for (int s = 3; s < Stride; s++)
+		{
+			y_Mxb[s - 3] = (FromDATA[s] - ToDATA[s]) / (1.0f / FromDATA[2] - 1.0f / ToDATA[2]);
+			y_mxB[s - 3] = -y_Mxb[s - 3] / FromDATA[2] + FromDATA[s];
+		}
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			for (int z = 0; z < Stride - 3; z++)
+				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
+            
+            byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
+vec3* ptr_1 = (vec3*)ptrPtrs[1] + mem_addr;
+vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
+
+			FSExec(ptr_0, ptr_1, ptr_2, (vec3*)(attribs + 0), (vec3*)(attribs + 3));
+		}	
+}
+}
+
+inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, float zoffset)
+{
+	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
+
+	for (int i = 0; i < BUFFER_SIZE - 1; i++)
+	{
+		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+	}
+
+	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+}
+void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){
 	const int stride = 9;
 	const int readStride = 6;
 	const int faceStride = 18;
@@ -614,16 +728,16 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			if (VERTEX_DATA[im * stride + 1] < yMinValue) yMinValue = VERTEX_DATA[im * stride + 1];
 		}
 
-	if (facecull == 1 || facecull == 2)
+	if (wireData.FACE_CULL == 1 || wireData.FACE_CULL == 2)
 	{
 		float A = BACKFACECULLS(VERTEX_DATA, stride);
-		if (facecull == 2 && A > 0) return RETURN_VALUE;
-		else if (facecull == 1 && A < 0) return RETURN_VALUE;
+		if (wireData.FACE_CULL == 2 && A > 0) return RETURN_VALUE;
+		else if (wireData.FACE_CULL == 1 && A < 0) return RETURN_VALUE;
 	}
 
-	if (isWire)
+	if (wireData.WIRE_MODE == 1)
 	{
-		//DrawWireFrame(&data);
+		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, wireData.offset_wire);
 		return RETURN_VALUE;
 	}
 
@@ -685,9 +799,10 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 			float ZDIFF = 1.0f / FROM[1] - 1.0f / TO[1];
 			bool usingZ = ZDIFF != 0;
-			if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0000001f;
+			//if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
 
-            usingZ = false;            
+            usingZ = fabsf(1.0f / FROM[1] - 1.0f / TO[1]) >= 0.2f;
+
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -731,11 +846,19 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			}
 		}
 	}
+
+if (wireData.WIRE_MODE == 2)
+	{
+		for (int i = 0; i < BUFFER_SIZE - 1; ++i)
+			DrawLineNoDATA(VERTEX_DATA + i * stride, VERTEX_DATA + (i + 1) * stride, dptr, wireData.wire_ptr, wireData.wireColor, wireData.offset_wire, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
+
+		DrawLineNoDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * stride, VERTEX_DATA, dptr, wireData.wire_ptr, wireData.wireColor, wireData.offset_wire, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
+	}
 }
 
-extern "C" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, long FACE, long mode, MSAAConfig* msaa)
+extern "C" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, GLExtra conf, MSAAConfig* msaa)
 {
 	parallel_for(start, stop, [&](int index){
-		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, FACE, mode, msaa);
+		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, conf, msaa);
 	});
 }

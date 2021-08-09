@@ -32,6 +32,8 @@ float semiRandom2(float x)
 
 void main()
 {
+	FragColor = texture(myTexture, vec2(uv_data.x * textureSize.x, uv_data.y * textureSize.y));
+	return;
 
 	vec3 viewDir = normalize(TangentViewPos - TangentFragPos);
 	//vec3 viewDir = normalize(frag_pos - camera_Pos);

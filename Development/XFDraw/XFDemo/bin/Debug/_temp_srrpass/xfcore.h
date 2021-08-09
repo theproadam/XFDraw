@@ -84,6 +84,12 @@ struct vec2
 		y = 0;
 	}
 
+    vec2(vec3 in)
+    {
+        x = in.x;
+        y = in.y;
+    }
+
 	vec2 operator+(const vec2& a) const
 	{
 		return vec2(a.x + x, a.y + y);
@@ -108,6 +114,8 @@ struct vec2
 	{
 		return vec2(a.x * x, a.y * y);
 	}
+
+    
 };
 
 
@@ -225,6 +233,27 @@ struct mat3
 	float X1Y2;
 	float X2Y2;
 
+    mat3()
+	{
+		
+	}
+
+    mat3(vec3 col1, vec3 col2, vec3 col3)
+    {
+        X0Y0 = col1.x;
+        X0Y1 = col1.y;
+        X0Y2 = col1.z;
+        
+        X1Y0 = col2.x;
+        X1Y1 = col2.y;
+        X1Y2 = col2.z;
+        
+        X2Y0 = col3.x;
+        X2Y1 = col3.y;
+        X2Y2 = col3.z;
+       
+    }
+
     vec3 operator*(const vec3& B) const
 	{
 		vec3 result;
@@ -318,6 +347,22 @@ struct mat4
 
 };
 
+mat3 transpose(mat3 input)
+{
+	mat3 result;
+	result.X0Y0 = input.X0Y0;
+	result.X1Y0 = input.X0Y1;
+	result.X2Y0 = input.X0Y2;
+	
+	result.X0Y1 = input.X1Y0;
+	result.X1Y1 = input.X1Y1;
+	result.X2Y1 = input.X1Y2;
+
+	result.X0Y2 = input.X2Y0;
+	result.X1Y2 = input.X2Y1;
+	result.X2Y2 = input.X2Y2;
+	return result;
+}
 
 void fcpy(char* dest, char* src, int count)
 {
