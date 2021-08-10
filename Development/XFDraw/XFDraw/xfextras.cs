@@ -899,11 +899,12 @@ namespace xfcore.Extras
         int wrap_mode;
         int wrap_mode_color;
         int filt_mode;
+        int stride;
 
         public sampler2D(GLTexture source, int s2DMode, int s2DColor, int s2DFilter)
         {
-            if (source.Stride != 4)
-                throw new Exception("sampler2D only works with 32bpp textures!");
+        //    if (source.Stride != 4)
+        //        throw new Exception("sampler2D only works with 32bpp textures!");
 
             w = source.Width;
             h = source.Height;
@@ -912,6 +913,7 @@ namespace xfcore.Extras
             wrap_mode = 0;
             wrap_mode_color = 0;
             filt_mode = 0;
+            stride = source.Stride;
         }
 
         public sampler2D(xfcore.Shaders.TextureSlot tSlot)
@@ -928,6 +930,27 @@ namespace xfcore.Extras
             wrap_mode = tSlot.s2DMode;
             wrap_mode_color = tSlot.s2DColor;
             filt_mode = tSlot.s2DFilter;
+            stride = source.Stride;
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct sampler1D
+    {
+        int size;
+	    float* mem_addr;
+	    int stride;
+
+        public sampler1D(xfcore.Shaders.TextureSlot tSlot)
+        {
+            GLBuffer source = tSlot.dataBuffer;
+
+            if (source.Size % 4 != 0) throw new Exception("XFDraw error: source.size != mod 4");
+            if (source.Size == 0) throw new Exception("XFDraw error: GLBuffer must be bigger than zero!");
+
+            size = source.Size / 4;
+            mem_addr = (float*)source.GetAddress();
+            stride = source.Stride;
         }
     }
 

@@ -84,6 +84,12 @@ struct vec2
 		y = 0;
 	}
 
+    vec2(vec3 in)
+    {
+        x = in.x;
+        y = in.y;
+    }
+
 	vec2 operator+(const vec2& a) const
 	{
 		return vec2(a.x + x, a.y + y);
@@ -108,6 +114,8 @@ struct vec2
 	{
 		return vec2(a.x * x, a.y * y);
 	}
+
+    
 };
 
 
@@ -192,6 +200,14 @@ struct sampler2D
     int wrap_mode;
     byte4 wrap_mode_color;
     int filt_mode;
+    int stride;
+};
+
+struct sampler1D
+{
+	int size;
+	float* mem_addr;
+	int stride;
 };
 
 struct samplerCube
@@ -224,6 +240,27 @@ struct mat3
 	float X0Y2;
 	float X1Y2;
 	float X2Y2;
+
+    mat3()
+	{
+		
+	}
+
+    mat3(vec3 col1, vec3 col2, vec3 col3)
+    {
+        X0Y0 = col1.x;
+        X0Y1 = col1.y;
+        X0Y2 = col1.z;
+        
+        X1Y0 = col2.x;
+        X1Y1 = col2.y;
+        X1Y2 = col2.z;
+        
+        X2Y0 = col3.x;
+        X2Y1 = col3.y;
+        X2Y2 = col3.z;
+       
+    }
 
     vec3 operator*(const vec3& B) const
 	{
@@ -318,6 +355,22 @@ struct mat4
 
 };
 
+mat3 transpose(mat3 input)
+{
+	mat3 result;
+	result.X0Y0 = input.X0Y0;
+	result.X1Y0 = input.X0Y1;
+	result.X2Y0 = input.X0Y2;
+	
+	result.X0Y1 = input.X1Y0;
+	result.X1Y1 = input.X1Y1;
+	result.X2Y1 = input.X1Y2;
+
+	result.X0Y2 = input.X2Y0;
+	result.X1Y2 = input.X2Y1;
+	result.X2Y2 = input.X2Y2;
+	return result;
+}
 
 void fcpy(char* dest, char* src, int count)
 {
@@ -458,6 +511,128 @@ inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = fals
 	}
 }
 
+template<typename T>
+inline T textureNEAREST(sampler2D inputTexture, int2 coord)
+{
+	
+
+	if (inputTexture.stride != sizeof(T))
+		return T();
+
+	if (inputTexture.wrap_mode == 0)
+	{
+		if (coord.X < 0) coord.X = 0;
+		if (coord.Y < 0) coord.Y = 0;
+		if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
+		if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
+	}
+	else if (inputTexture.wrap_mode == 1)
+	{
+		if (coord.X < 0) coord.X = coord.X % inputTexture.width + inputTexture.width;
+		if (coord.Y < 0) coord.Y = coord.Y % inputTexture.height + inputTexture.height;
+
+		if (coord.X >= inputTexture.width) coord.X = coord.X % inputTexture.width;
+		if (coord.Y >= inputTexture.height) coord.Y = coord.Y % inputTexture.height;
+	}
+	else
+	{
+		if (coord.X < 0 || coord.Y < 0 || coord.X >= inputTexture.width || coord.Y >= inputTexture.height) return T();
+	}
+
+	//void* ptr = (inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X);
+
+	return *((T*)(inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X));
+}
+
+template<typename T>
+inline T textureBILINEAR(sampler2D inputTexture, vec2 coord)
+{
+	
+
+	if (inputTexture.stride != sizeof(T))
+		return T();
+
+	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
+	float x0 = 1.0f - x1;
+
+	float y1 = coord.y + 0.5f - (int)(coord.y + 0.5f);
+	float y0 = 1.0f - y1;
+
+	int2 X0Y0 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+	int2 X1Y0 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+
+	int2 X0Y1 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+	int2 X1Y1 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+
+	// -> if statement checking for bounds <-
+	if (true) //TEXTURE_WRAP_MODE == 0
+	{
+		if (X0Y0.X < 0) X0Y0.X = 0;
+		if (X0Y0.Y < 0) X0Y0.Y = 0;
+		if (X0Y0.X >= inputTexture.width) X0Y0.X = inputTexture.width - 1;
+		if (X0Y0.Y >= inputTexture.height) X0Y0.Y = inputTexture.height - 1;
+
+		if (X1Y0.X < 0) X1Y0.X = 0;
+		if (X1Y0.Y < 0) X1Y0.Y = 0;
+		if (X1Y0.X >= inputTexture.width) X1Y0.X = inputTexture.width - 1;
+		if (X1Y0.Y >= inputTexture.height) X1Y0.Y = inputTexture.height - 1;
+
+		if (X0Y1.X < 0) X0Y1.X = 0;
+		if (X0Y1.Y < 0) X0Y1.Y = 0;
+		if (X0Y1.X >= inputTexture.width) X0Y1.X = inputTexture.width - 1;
+		if (X0Y1.Y >= inputTexture.height) X0Y1.Y = inputTexture.height - 1;
+
+		if (X1Y1.X < 0) X1Y1.X = 0;
+		if (X1Y1.Y < 0) X1Y1.Y = 0;
+		if (X1Y1.X >= inputTexture.width) X1Y1.X = inputTexture.width - 1;
+		if (X1Y1.Y >= inputTexture.height) X1Y1.Y = inputTexture.height - 1;
+	}
+
+	T bptrL = *(inputTexture.TEXTURE_ADDR + X0Y0.Y * inputTexture.width + X0Y0.X);
+	T bptrLN = *(inputTexture.TEXTURE_ADDR + X1Y0.Y * inputTexture.width + X1Y0.X);
+
+	T bptrU = *(inputTexture.TEXTURE_ADDR + X0Y1.Y * inputTexture.width + X0Y1.X);
+	T bptrUN = *(inputTexture.TEXTURE_ADDR + X1Y1.Y * inputTexture.width + X1Y1.X);
+
+	return bptrL * (x0 * y0) + bptrLN * (x1 * y0) + bptrU * (x0 * y1) + bptrUN * (x1 * y1);
+}
+
+template<typename T>
+inline T texture(sampler2D inputTexture, int2 coord)
+{
+	if (inputTexture.filt_mode == 0)
+	{
+		return textureNEAREST<T>(inputTexture, int2((int)coord.x, (int)coord.y));
+	}
+	else
+	{
+		return textureBILINEAR<T>(inputTexture, coord);
+	}
+}
+
+template<typename T>
+inline void textureWrite(sampler2D inputTexture, int2 coord, T value)
+{
+	if (inputTexture.stride != sizeof(T))
+		return;
+
+	if (coord.X < 0) coord.X = 0;
+	if (coord.Y < 0) coord.Y = 0;
+	if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
+	if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
+
+	*(((T*)inputTexture.TEXTURE_ADDR) + inputTexture.width * coord.Y + coord.X) = value;
+}
+
+inline float texture(sampler1D inputBuffer, int index)
+{
+	if (index < 0) index = 0;
+	if (index >= inputBuffer.size) index = inputBuffer.size - 1;
+
+	return inputBuffer.mem_addr[index];
+}
+
+
 struct GLMatrix
 {
 	float nearZ;
@@ -505,6 +680,14 @@ struct GLMatrix
 			float y = roundf(rh + coordinate.y / ((coordinate.z * fhi - oy) * (1.0f - matrixlerpv) + oy));
 			return vec3(x, y, coordinate.z);
 		}
+	}
+
+    vec3 ScreenToCameraSpace(float posX, float posY, float depth)
+	{
+		float X = ((depth * fwi - ox) * (1.0f - matrixlerpv) + ox) * (posX - rw);
+		float Y = ((depth * fhi - oy) * (1.0f - matrixlerpv) + oy) * (posY - rh);
+
+		return vec3(X, Y, depth);
 	}
 };
 

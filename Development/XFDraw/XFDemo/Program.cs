@@ -404,7 +404,7 @@ namespace XFDemo
             Console.WriteLine("Success!");
 
          //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
-            ShaderCompile.COMMAND_LINE = "";
+       //     ShaderCompile.COMMAND_LINE = "";
             
 
             Shader outputShader;

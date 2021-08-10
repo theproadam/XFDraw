@@ -834,7 +834,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				s = projData.farZ - depth;
 				zBegin += slopeZ;
 
-				if (Z_fptr[o] > s - zOffset) continue;
+				if (Z_fptr[o] > s) continue;
 				Z_fptr[o] = s;
 
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);

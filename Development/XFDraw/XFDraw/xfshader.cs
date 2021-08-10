@@ -344,6 +344,7 @@ namespace xfcore.Shaders
 
             bool isTexture = value.GetType() == typeof(GLTexture);
             bool isCubemap = value.GetType() == typeof(GLCubemap);
+            bool isBuffer = value.GetType() == typeof(GLBuffer);
 
             if (value.GetType() == typeof(GLMatrix))
             {
@@ -410,6 +411,13 @@ namespace xfcore.Shaders
                                 throw new Exception("\"" + uniformName + "\" is not a 2D texture!");
 
                             samplerTextures[uniformFS[i].texturePos] = new TextureSlot(uniformName, (GLTexture)value);
+                        }
+                        else if (isBuffer)
+                        {
+                            if (uniformFS[i].dataType != DataType.sampler1D)
+                                throw new Exception("\"" + uniformName + "\" is not a buffer!");
+
+                            samplerTextures[uniformFS[i].texturePos] = new TextureSlot(uniformName, (GLBuffer)value);
                         }
                         else
                         {
@@ -594,10 +602,12 @@ namespace xfcore.Shaders
 
                 for (int i = 0; i < samplerTextures.Length; i++)
                 {
-                    if (samplerTextures[i].isTexture)
+                    if (samplerTextures[i].slotType == SlotType.Texture)
                         SetValue(samplerTextures[i].name, new sampler2D(samplerTextures[i]));
-                    else
+                    else if (samplerTextures[i].slotType == SlotType.Cubemap)
                         SetValue(samplerTextures[i].name, new samplerCube(samplerTextures[i]));
+                    else
+                        SetValue(samplerTextures[i].name, new sampler1D(samplerTextures[i]));
                 }
 
                 IntPtr ptrPtrs = Marshal.AllocHGlobal(textureSlots.Length * 4);
@@ -720,12 +730,13 @@ namespace xfcore.Shaders
         internal string name;
         internal GLTexture dataTexture;
         internal GLCubemap dataCubemap;
+        internal GLBuffer dataBuffer;
 
         internal int s2DMode;
         internal int s2DColor;
         internal int s2DFilter;
 
-        internal bool isTexture;
+        internal SlotType slotType;
 
         internal void SetS2Data(TextureFiltering filterMode, TextureWarp wrapMode, int borderColor = 0)
         {
@@ -739,7 +750,7 @@ namespace xfcore.Shaders
             this.name = name;
             this.dataTexture = data;
             dataCubemap = null;
-            isTexture = true;
+            slotType = SlotType.Texture;
         }
 
         internal TextureSlot(string name, GLCubemap data)
@@ -747,12 +758,20 @@ namespace xfcore.Shaders
             this.name = name;
             dataTexture = null;
             this.dataCubemap = data;
-            isTexture = false;
+            slotType = SlotType.Cubemap;
+        }
+
+        internal TextureSlot(string name, GLBuffer data)
+        {
+            this.name = name;
+            dataTexture = null;
+            this.dataBuffer = data;
+            slotType = SlotType.Buffer;
         }
 
         internal bool IsNull()
         {
-            return dataTexture == null && dataCubemap == null;
+            return dataTexture == null && dataCubemap == null && dataBuffer == null;
         }
 
         internal bool isValid()
@@ -761,10 +780,16 @@ namespace xfcore.Shaders
             {
                 return dataCubemap.isValid();
             }
-            else
+            else if (dataTexture != null)
             {
                 return true;
             }
+            else if (dataBuffer != null)
+            {
+                return true;
+            }
+
+            else return false;
         }
 
         internal void RequestLock()
@@ -773,9 +798,13 @@ namespace xfcore.Shaders
             {
                 dataCubemap.RequestLock();
             }
-            else
+            else if (dataTexture != null)
             {
                 dataTexture.RequestLock();
+            }
+            else
+            {
+                dataBuffer.RequestLock();
             }
         }
 
@@ -785,12 +814,23 @@ namespace xfcore.Shaders
             {
                 dataCubemap.ReleaseLock();
             }
-            else
+            else if (dataTexture != null)
             {
                 dataTexture.ReleaseLock();
             }
+            else
+            {
+                dataBuffer.ReleaseLock();
+            }
         }
 
+    }
+
+    enum SlotType
+    {
+        Texture = 0,
+        Cubemap = 1,
+        Buffer = 2
     }
 }
 

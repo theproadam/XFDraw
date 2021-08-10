@@ -129,7 +129,7 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 
-			FSExec(ptr_0, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48), *(float*)(uData2 + 72), *(samplerCube*)(uData2 + 76));}
+			FSExec(ptr_0, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 28), *(vec3*)(uData2 + 36), *(float*)(uData2 + 48), *(sampler2D*)(uData2 + 52), *(float*)(uData2 + 80), *(samplerCube*)(uData2 + 84));}
 	}
 	else
 	{
@@ -170,7 +170,7 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 
-			FSExec(ptr_0, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48), *(float*)(uData2 + 72), *(samplerCube*)(uData2 + 76));
+			FSExec(ptr_0, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 28), *(vec3*)(uData2 + 36), *(float*)(uData2 + 48), *(sampler2D*)(uData2 + 52), *(float*)(uData2 + 80), *(samplerCube*)(uData2 + 84));
 		}	
 }
 }
@@ -880,13 +880,13 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				s = projData.farZ - depth;
 				zBegin += slopeZ;
 
-				if (Z_fptr[o] > s - zOffset) continue;
+				if (Z_fptr[o] > s) continue;
 				Z_fptr[o] = s;
 
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 24), *(vec3*)(uData2 + 32), *(float*)(uData2 + 44), *(sampler2D*)(uData2 + 48), *(float*)(uData2 + 72), *(samplerCube*)(uData2 + 76));
+				FSExec(ptr_0 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), (vec3*)(attribs + 5), (vec3*)(attribs + 8), (vec3*)(attribs + 11), *(sampler2D*)(uData2 + 0), *(vec2*)(uData2 + 28), *(vec3*)(uData2 + 36), *(float*)(uData2 + 48), *(sampler2D*)(uData2 + 52), *(float*)(uData2 + 80), *(samplerCube*)(uData2 + 84));
 			}
 		}
 	}

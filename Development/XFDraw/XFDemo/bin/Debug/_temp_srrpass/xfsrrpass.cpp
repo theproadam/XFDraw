@@ -113,23 +113,23 @@ inline void shaderMethod(vec3* norm_data, vec3* frag_pos, byte4* FragColor, samp
 }
 extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){
 	sampler2D uniform_0;
-	fcpy((char*)(&uniform_0), (char*)UniformPointer + 0, 24);
+	fcpy((char*)(&uniform_0), (char*)UniformPointer + 0, 28);
 	sampler2D uniform_1;
-	fcpy((char*)(&uniform_1), (char*)UniformPointer + 24, 24);
+	fcpy((char*)(&uniform_1), (char*)UniformPointer + 28, 28);
 	samplerCube uniform_2;
-	fcpy((char*)(&uniform_2), (char*)UniformPointer + 48, 44);
+	fcpy((char*)(&uniform_2), (char*)UniformPointer + 56, 44);
 	float uniform_3;
-	fcpy((char*)(&uniform_3), (char*)UniformPointer + 92, 4);
+	fcpy((char*)(&uniform_3), (char*)UniformPointer + 100, 4);
 	int uniform_4;
-	fcpy((char*)(&uniform_4), (char*)UniformPointer + 96, 4);
+	fcpy((char*)(&uniform_4), (char*)UniformPointer + 104, 4);
 	float uniform_5;
-	fcpy((char*)(&uniform_5), (char*)UniformPointer + 100, 4);
+	fcpy((char*)(&uniform_5), (char*)UniformPointer + 108, 4);
 	float uniform_6;
-	fcpy((char*)(&uniform_6), (char*)UniformPointer + 104, 4);
+	fcpy((char*)(&uniform_6), (char*)UniformPointer + 112, 4);
 	GLMatrix uniform_7;
-	fcpy((char*)(&uniform_7), (char*)UniformPointer + 108, 56);
+	fcpy((char*)(&uniform_7), (char*)UniformPointer + 116, 56);
 	float uniform_8;
-	fcpy((char*)(&uniform_8), (char*)UniformPointer + 164, 4);
+	fcpy((char*)(&uniform_8), (char*)UniformPointer + 172, 4);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){

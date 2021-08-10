@@ -15,7 +15,7 @@ namespace xfcore.Shaders.Builder
     {
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
-        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot /arch:SSE /arch:AVX"; //GL hang?
+        public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot"; //GL hang?
 
         internal ShaderField[] sFieldsInVS;
         internal ShaderField[] sFieldsOutVS;
@@ -483,7 +483,7 @@ namespace xfcore.Shaders.Builder
 				s = projData.farZ - depth;
 				zBegin += slopeZ;
 
-				if (Z_fptr[o] > s - zOffset) continue;
+				if (Z_fptr[o] > s) continue;
 				Z_fptr[o] = s;
 
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
@@ -860,8 +860,9 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.int32) return 4;
             else if (dataType == DataType.vec2) return 8;
             else if (dataType == DataType.vec3) return 12;
-            else if (dataType == DataType.sampler2D) return 24;
-            else if (dataType == DataType.samplerCube) return 44;
+            else if (dataType == DataType.sampler2D) return Marshal.SizeOf(typeof(xfcore.Extras.sampler2D));
+            else if (dataType == DataType.sampler1D) return Marshal.SizeOf(typeof(xfcore.Extras.sampler1D));
+            else if (dataType == DataType.samplerCube) return Marshal.SizeOf(typeof(xfcore.Extras.samplerCube));
             else if (dataType == DataType.mat3) return Marshal.SizeOf(typeof(xfcore.Extras.Matrix3x3));
             else if (dataType == DataType.GLMatrix) return Marshal.SizeOf(typeof (xfcore.Extras.GLMat));
             else throw new Exception("not implemented yet!");
@@ -878,6 +879,7 @@ namespace xfcore.Shaders.Builder
             else if (dataType == DataType.mat4) return "mat4";
             else if (dataType == DataType.mat3) return "mat3";
             else if (dataType == DataType.sampler2D) return "sampler2D";
+            else if (dataType == DataType.sampler1D) return "sampler1D";
             else if (dataType == DataType.samplerCube) return "samplerCube";
             else if (dataType == DataType.GLMatrix) return "GLMatrix";
 
@@ -1157,6 +1159,14 @@ struct sampler2D
     int wrap_mode;
     byte4 wrap_mode_color;
     int filt_mode;
+    int stride;
+};
+
+struct sampler1D
+{
+	int size;
+	float* mem_addr;
+	int stride;
 };
 
 struct samplerCube
@@ -1368,6 +1378,9 @@ inline vec3 refract(vec3 I, vec3 N, float eta)
 
 inline byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlpha = false)
 {
+	if (inputTexture.stride != 4)
+		return byte4(255, 0, 255);
+
 	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
 	float x0 = 1.0f - x1;
 
@@ -1425,6 +1438,9 @@ inline byte4 textureBILINEAR(sampler2D inputTexture, vec2 coord, bool sampleAlph
 
 inline byte4 textureNEAREST(sampler2D inputTexture, int2 coord)
 {
+	if (inputTexture.stride != 4)
+		return byte4(255, 0, 255);
+
 	if (inputTexture.wrap_mode == 0)
 	{
 		if (coord.X < 0) coord.X = 0;
@@ -1459,6 +1475,124 @@ inline byte4 texture(sampler2D inputTexture, vec2 coord, bool sampleAlpha = fals
 		return textureBILINEAR(inputTexture, coord, sampleAlpha);
 	}
 }
+
+template<typename T>
+inline T textureNEAREST(sampler2D inputTexture, int2 coord)
+{
+	if (inputTexture.stride != sizeof(T))
+		return T();
+
+	if (inputTexture.wrap_mode == 0)
+	{
+		if (coord.X < 0) coord.X = 0;
+		if (coord.Y < 0) coord.Y = 0;
+		if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
+		if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
+	}
+	else if (inputTexture.wrap_mode == 1)
+	{
+		if (coord.X < 0) coord.X = coord.X % inputTexture.width + inputTexture.width;
+		if (coord.Y < 0) coord.Y = coord.Y % inputTexture.height + inputTexture.height;
+
+		if (coord.X >= inputTexture.width) coord.X = coord.X % inputTexture.width;
+		if (coord.Y >= inputTexture.height) coord.Y = coord.Y % inputTexture.height;
+	}
+	else
+	{
+		if (coord.X < 0 || coord.Y < 0 || coord.X >= inputTexture.width || coord.Y >= inputTexture.height) return T();
+	}
+
+	//void* ptr = (inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X);
+
+	return *((T*)(inputTexture.TEXTURE_ADDR + inputTexture.width * coord.Y + coord.X));
+}
+
+template<typename T>
+inline T textureBILINEAR(sampler2D inputTexture, vec2 coord)
+{
+	if (inputTexture.stride != sizeof(T))
+		return T();
+
+	float x1 = coord.x + 0.5f - (int)(coord.x + 0.5f);
+	float x0 = 1.0f - x1;
+
+	float y1 = coord.y + 0.5f - (int)(coord.y + 0.5f);
+	float y0 = 1.0f - y1;
+
+	int2 X0Y0 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+	int2 X1Y0 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y - 0.5f) + 0.5f);
+
+	int2 X0Y1 = int2((int)(coord.x - 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+	int2 X1Y1 = int2((int)(coord.x + 0.5) + 0.5, (int)(coord.y + 0.5f) + 0.5f);
+
+	// -> if statement checking for bounds <-
+	if (true) //TEXTURE_WRAP_MODE == 0
+	{
+		if (X0Y0.X < 0) X0Y0.X = 0;
+		if (X0Y0.Y < 0) X0Y0.Y = 0;
+		if (X0Y0.X >= inputTexture.width) X0Y0.X = inputTexture.width - 1;
+		if (X0Y0.Y >= inputTexture.height) X0Y0.Y = inputTexture.height - 1;
+
+		if (X1Y0.X < 0) X1Y0.X = 0;
+		if (X1Y0.Y < 0) X1Y0.Y = 0;
+		if (X1Y0.X >= inputTexture.width) X1Y0.X = inputTexture.width - 1;
+		if (X1Y0.Y >= inputTexture.height) X1Y0.Y = inputTexture.height - 1;
+
+		if (X0Y1.X < 0) X0Y1.X = 0;
+		if (X0Y1.Y < 0) X0Y1.Y = 0;
+		if (X0Y1.X >= inputTexture.width) X0Y1.X = inputTexture.width - 1;
+		if (X0Y1.Y >= inputTexture.height) X0Y1.Y = inputTexture.height - 1;
+
+		if (X1Y1.X < 0) X1Y1.X = 0;
+		if (X1Y1.Y < 0) X1Y1.Y = 0;
+		if (X1Y1.X >= inputTexture.width) X1Y1.X = inputTexture.width - 1;
+		if (X1Y1.Y >= inputTexture.height) X1Y1.Y = inputTexture.height - 1;
+	}
+
+	T bptrL = *(inputTexture.TEXTURE_ADDR + X0Y0.Y * inputTexture.width + X0Y0.X);
+	T bptrLN = *(inputTexture.TEXTURE_ADDR + X1Y0.Y * inputTexture.width + X1Y0.X);
+
+	T bptrU = *(inputTexture.TEXTURE_ADDR + X0Y1.Y * inputTexture.width + X0Y1.X);
+	T bptrUN = *(inputTexture.TEXTURE_ADDR + X1Y1.Y * inputTexture.width + X1Y1.X);
+
+	return bptrL * (x0 * y0) + bptrLN * (x1 * y0) + bptrU * (x0 * y1) + bptrUN * (x1 * y1);
+}
+
+template<typename T>
+inline T texture(sampler2D inputTexture, int2 coord)
+{
+	if (inputTexture.filt_mode == 0)
+	{
+		return textureNEAREST<T>(inputTexture, int2((int)coord.x, (int)coord.y));
+	}
+	else
+	{
+		return textureBILINEAR<T>(inputTexture, coord);
+	}
+}
+
+template<typename T>
+inline void textureWrite(sampler2D inputTexture, int2 coord, T value)
+{
+	if (inputTexture.stride != sizeof(T))
+		return;
+
+	if (coord.X < 0) coord.X = 0;
+	if (coord.Y < 0) coord.Y = 0;
+	if (coord.X >= inputTexture.width) coord.X = inputTexture.width - 1;
+	if (coord.Y >= inputTexture.height) coord.Y = inputTexture.height - 1;
+
+	*(((T*)inputTexture.TEXTURE_ADDR) + inputTexture.width * coord.Y + coord.X) = value;
+}
+
+inline float texture(sampler1D inputBuffer, int index)
+{
+	if (index < 0) index = 0;
+	if (index >= inputBuffer.size) index = inputBuffer.size - 1;
+
+	return inputBuffer.mem_addr[index];
+}
+
 
 struct GLMatrix
 {
@@ -3577,6 +3711,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
             else if (input == "mat3") return DataType.mat3;
             else if (input == "mat4") return DataType.mat4;
             else if (input == "sampler2D") return DataType.sampler2D;
+            else if (input == "sampler1D") return DataType.sampler1D;
             else if (input == "samplerCube") return DataType.samplerCube;
             else if (input == "GLMatrix") return DataType.GLMatrix;
             else return DataType.Other;
@@ -3601,7 +3736,8 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
             else if (dataType == DataType.vec3) return 12;
             else if (dataType == DataType.mat4) return 64;
             else if (dataType == DataType.mat3) return 36;
-            else if (dataType == DataType.sampler2D) return 24;
+            else if (dataType == DataType.sampler2D) return Marshal.SizeOf(typeof(xfcore.Extras.sampler2D));
+            else if (dataType == DataType.sampler1D) return Marshal.SizeOf(typeof(xfcore.Extras.sampler1D));
             else if (dataType == DataType.samplerCube) return 44;
             else if (dataType == DataType.GLMatrix) return Marshal.SizeOf(typeof(xfcore.Extras.GLMat));
             else if (dataType == DataType.Other && FieldSize != -1) return FieldSize;
@@ -3753,6 +3889,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
         mat4,
         mat3,
         sampler2D,
+        sampler1D,
         samplerCube,
         GLMatrix,
         Other

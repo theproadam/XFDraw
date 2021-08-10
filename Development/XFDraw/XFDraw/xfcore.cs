@@ -194,10 +194,12 @@ namespace xfcore
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                 {
-                    if (shader.samplerTextures[i].isTexture)
+                    if (shader.samplerTextures[i].slotType == SlotType.Texture)
                         shader.SetValue(shader.samplerTextures[i].name, new sampler2D(shader.samplerTextures[i]));
-                    else
+                    else if (shader.samplerTextures[i].slotType == SlotType.Cubemap)
                         shader.SetValue(shader.samplerTextures[i].name, new samplerCube(shader.samplerTextures[i]));
+                    else
+                        shader.SetValue(shader.samplerTextures[i].name, new sampler1D(shader.samplerTextures[i]));
                 }
 
                 if (shader.lateWireTexture != null)
@@ -538,6 +540,7 @@ namespace xfcore
         public Vector3 ScreenToCameraPoint(Vector2 coord, GLTexture depthBuffer)
         {
             GLData projData = new GLData(depthBuffer.Width, depthBuffer.Height, this);
+            
             throw new NotImplementedException();
            
         }

@@ -759,10 +759,13 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	float* Z_fptr;
 
 	float zBegin;
+    bool perspMat = projData.matrixlerpv != 1;
+	float oValue = projData.oValue;
+	float zOffset = wireData.depth_offset;
 
 	for (int i = yMin; i <= yMax; ++i)
 	{
-		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride))
+		if (ScanLinePLUS(i, VERTEX_DATA, BUFFER_SIZE, Intersects, stride, perspMat))
 		{
 			if (Intersects[0] > Intersects[stride - 1])
 			{
@@ -802,7 +805,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			//if (ZDIFF != 0) usingZ = ZDIFF * ZDIFF >= 0.0001f;
 
             usingZ = fabsf(1.0f / FROM[1] - 1.0f / TO[1]) >= 0.2f;
-
+            if (!perspMat) usingZ = false;
 
 			if (usingZ)
 			for (int b = 0; b < stride - 3; b++)
@@ -832,7 +835,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			zBegin = slopeZ * (float)FromX + bZ;
 
 			for (int o = FromX; o <= ToX; ++o ){
-				float depth = (1.0f / zBegin);
+				float depth = perspMat ? (1.0f / zBegin - oValue) : zBegin;
 				s = projData.farZ - depth;
 				zBegin += slopeZ;
 
