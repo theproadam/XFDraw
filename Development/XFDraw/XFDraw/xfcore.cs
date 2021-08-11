@@ -131,6 +131,7 @@ namespace xfcore
         public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
         {
             buffer.RequestLock();
+            depth.RequestLock();
 
             lock (shader.ThreadLock)
             {
@@ -182,11 +183,11 @@ namespace xfcore
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                     shader.samplerTextures[i].RequestLock();
 
-                int width = textureSlots[0].Width, height = textureSlots[0].Height;
+                int width = depth.Width, height = depth.Height;
 
                 GLData drawConfig = new GLData(width, height, projectionMatrix);
 
-                for (int i = 1; i < textureSlots.Length; i++)
+                for (int i = 0; i < textureSlots.Length; i++)
                 {
                     if (textureSlots[i].Height != height) throw new Exception("Height must be the same on all buffers!");
                     if (textureSlots[i].Width != width) throw new Exception("Width must be the same on all buffers!");
@@ -271,6 +272,7 @@ namespace xfcore
             }
 
             buffer.ReleaseLock();
+            depth.ReleaseLock();
         }
 
         public static void Pass(Shader targetShader)
@@ -291,8 +293,8 @@ namespace xfcore
     public enum GLCull
     {
         GL_NONE = 0,
-        GL_FRONT = 1,
-        GL_BACK = 2   
+        GL_FRONT = 2,
+        GL_BACK = 1   
     }
 
     public class BlitData : IDisposable

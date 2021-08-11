@@ -179,7 +179,7 @@ namespace XFDemo
             teapotShader.AssignBuffer("FragColor", colorBuffer);
             teapotShader.SetValue("skybox", skybox);
             teapotShader.ConfigureTexture("skybox", TextureFiltering.GL_NEAREST, TextureWarp.GL_CLAMP_TO_EDGE);
-            teapotShader.ConfigureFaceCulling(GLCull.GL_FRONT);
+        //    teapotShader.ConfigureFaceCulling(GLCull.GL_FRONT);
          //   skybox.Clear(255, 0, 0);
 
           //  projMatrix = GLMatrix.Perspective(90f, viewportWidth, viewportHeight);

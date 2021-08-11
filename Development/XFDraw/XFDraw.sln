@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XFDraw", "XFDraw\XFDraw.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XFDemo", "XFDemo\XFDemo.csproj", "{179BFCE7-2048-4B21-80D4-B59465B54514}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowMappingDemo", "ShadowMappingDemo\ShadowMappingDemo.csproj", "{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{179BFCE7-2048-4B21-80D4-B59465B54514}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{179BFCE7-2048-4B21-80D4-B59465B54514}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{179BFCE7-2048-4B21-80D4-B59465B54514}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

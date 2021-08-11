@@ -1,0 +1,12 @@
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\obj\Debug\ShadowMappingDemo.csprojResolveAssemblyReference.cache
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\ShadowMappingDemo.exe.config
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\ShadowMappingDemo.exe
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\ShadowMappingDemo.pdb
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\XFDraw.dll
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\XFDraw.pdb
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\obj\Debug\ShadowMappingDemo.exe
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\obj\Debug\ShadowMappingDemo.pdb
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\basicFS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\basicVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\deferred_pass.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\basicFS_shadow.cpp
