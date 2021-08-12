@@ -12,12 +12,19 @@ float max(float a, float b){
 	
 }
 
-inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, byte4* FragColor, vec3 lightDir){
+inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, float shadowBias){
 	if (*((int*)&((*objectColor))) == 0)return;
 	const float ambientStrength = 0.1f;
 	vec3 lightColor = vec3(0.8f, 0.8f, 0.8f);
 	vec3 ambient = lightColor * ambientStrength;
 	float diff = max(dot((*norm), lightDir), 0.0);
+	if (diff != 0){
+	vec3 uv = shadowProj * (shadowRot * ((*pos) - shadowPos));
+	float src = shadowProj.farZ - textureNEAREST<float>(shadowMap, int2(uv.x, uv.y));
+	if (uv.z > src + shadowBias){
+	diff = 0;
+	}
+	}
 	vec3 diffuse = lightColor * diff;
 	vec3 result = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * (ambient + diffuse);
 	(*FragColor) = byte4(result.x, result.y, result.z);
@@ -26,6 +33,16 @@ inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, byte4* FragC
 extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){
 	vec3 uniform_0;
 	fcpy((char*)(&uniform_0), (char*)UniformPointer + 0, 12);
+	sampler2D uniform_1;
+	fcpy((char*)(&uniform_1), (char*)UniformPointer + 12, 28);
+	GLMatrix uniform_2;
+	fcpy((char*)(&uniform_2), (char*)UniformPointer + 40, 56);
+	mat3 uniform_3;
+	fcpy((char*)(&uniform_3), (char*)UniformPointer + 96, 36);
+	vec3 uniform_4;
+	fcpy((char*)(&uniform_4), (char*)UniformPointer + 132, 12);
+	float uniform_5;
+	fcpy((char*)(&uniform_5), (char*)UniformPointer + 144, 4);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
@@ -39,7 +56,7 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 		byte4* ptr_3 = (byte4*)(ptrPtrs[3] + wPos * 4);
 
 		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3){
-			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, uniform_0);
+			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5);
 		}
 	}
 }

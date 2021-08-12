@@ -350,6 +350,9 @@ namespace ShadowMappingDemo
 
         public static GLTexture LoadTexture(string fileName)
         {
+         //   if (!File.Exists(fileName))
+          //      throw new Exception();
+
             Bitmap src = new Bitmap(fileName);
             GLTexture texture = new GLTexture(src.Width, src.Height, typeof(Color4));
 
@@ -397,25 +400,33 @@ namespace ShadowMappingDemo
 
             float[] coords1 = new float[] {
                 0, 0, 0, 0, 0,
-                0, 1, 0, 0, 1,
-                1, 1, 0, 1, 1,
+                0, 0, 1, 0, 1,
+                1, 0, 1, 1, 1,
 
                 0, 0, 0, 0, 0,
-                1, 1, 0, 1, 1,
+                1, 0, 1, 1, 1,
                 1, 0, 0, 1, 0
                 };
 
             for (int i = 0; i < 6; i++)
             {
                 coords1[i * 5 + 0] *= mult.x;
-                coords1[i * 5 + 1] *= mult.y;
-                coords1[i * 5 + 2] = 1000;
+
+              //  coords1[i * 5 + 1] *= mult.y;
+             //   coords1[i * 5 + 2] = 0;
+                coords1[i * 5 + 1] = 0;
+                coords1[i * 5 + 2] *= mult.y;
+                
+
                 coords1[i * 5 + 3] *= m1.x;
                 coords1[i * 5 + 4] *= m1.y;
 
 
                 coords1[i * 5 + 0] += (offset.x * mult.x);
-                coords1[i * 5 + 1] += (offset.y * mult.y);
+                //coords1[i * 5 + 1] += (offset.y * mult.y);
+                coords1[i * 5 + 2] += (offset.y * mult.y);
+
+
 
                 coords1[i * 5 + 3] += (offset.x * m1.x);
                 coords1[i * 5 + 4] += (offset.y * m1.y);

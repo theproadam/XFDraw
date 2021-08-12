@@ -7,7 +7,13 @@ in byte4 objectColor;
 
 
 uniform vec3 lightDir;
+uniform sampler2D shadowMap;
 
+uniform GLMatrix shadowProj;
+uniform mat3 shadowRot;
+uniform vec3 shadowPos;
+
+uniform float shadowBias;
 
 float max(float a, float b)
 {
@@ -26,6 +32,19 @@ void main()
 	vec3 ambient = lightColor * ambientStrength;
 
 	float diff = max(dot(norm, lightDir), 0.0);
+
+	if (diff != 0)
+	{
+		//Calcualte Lightning
+		vec3 uv = shadowProj * (shadowRot * (pos - shadowPos));
+		float src = shadowProj.farZ - textureNEAREST<float>(shadowMap, int2(uv.x, uv.y));
+
+		if (uv.z > src + shadowBias)
+		{
+			diff = 0;
+		}
+	}
+
 	vec3 diffuse = lightColor * diff;
 
 	vec3 result = vec3(objectColor.R, objectColor.G, objectColor.B) * (ambient + diffuse);

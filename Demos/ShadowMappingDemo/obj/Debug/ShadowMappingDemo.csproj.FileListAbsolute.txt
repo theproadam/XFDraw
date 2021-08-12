@@ -10,3 +10,7 @@ C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\basicVS.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\deferred_pass.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\basicFS_shadow.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\planeFS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\planeVS.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\planeFS_shadow.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\volumetric_fog.cpp
