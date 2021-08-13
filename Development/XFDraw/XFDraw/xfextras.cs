@@ -784,6 +784,31 @@ namespace xfcore.Extras
             return result;
         }
 
+        public static Matrix3x3 FromDirectionVector(Vector3 direction, Vector3 up)
+        {
+            Vector3 xaxis = Vector3.Cross(up, direction);
+            xaxis = Vector3.Normalize(xaxis);
+
+            Vector3 yaxis = Vector3.Cross(direction, xaxis);
+            yaxis = Vector3.Normalize(yaxis);
+
+            Matrix3x3 result = new Matrix3x3();
+
+            result.X0Y0 = xaxis.x;
+            result.X0Y1 = xaxis.y;
+            result.X0Y2 = direction.x;
+
+            result.X1Y0 = xaxis.y;
+            result.X1Y1 = yaxis.y;
+            result.X1Y2 = direction.y;
+
+            result.X2Y0 = xaxis.z;
+            result.X2Y1 = yaxis.z;
+            result.X2Y2 = direction.z;
+
+            return result;
+        }
+
         public static Matrix3x3 operator +(Matrix3x3 A, Matrix3x3 B)
         {
             Matrix3x3 reslt = new Matrix3x3();
@@ -1036,8 +1061,8 @@ namespace xfcore.Extras
             ox = rw / (proj.vSize == 0 ? 1 : proj.vSize);
             oy = rh / (proj.hSize == 0 ? 1 : proj.hSize);
 
-            iox = 1f / ox;
-            ioy = 1f / oy;
+            iox = ox;
+            ioy = oy;
 
             oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
 

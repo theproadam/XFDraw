@@ -225,7 +225,7 @@ namespace xfcore.Shaders
 
             int samplerCount = 0;
             for (int i = 0; i < uniformFS.Length; i++)
-                if (uniformFS[i].dataType == DataType.sampler2D || uniformFS[i].dataType == DataType.samplerCube)
+                if (uniformFS[i].dataType == DataType.sampler2D || uniformFS[i].dataType == DataType.samplerCube || uniformFS[i].dataType == DataType.sampler1D)
                     uniformFS[i].texturePos = samplerCount++;
 
             samplerTextures = new TextureSlot[samplerCount];
@@ -348,10 +348,18 @@ namespace xfcore.Shaders
 
             if (value.GetType() == typeof(GLMatrix))
             {
-                value = new GLMat((GLMatrix)value, 1600, 900);
+                GLMatrix m = (GLMatrix)value;
+
+                if (m.viewportWidth == 0 && m.viewportHeight == 0)
+                    throw new Exception("In order to use shader.SetValue(GLMatrix) you will need to set a viewport size with glmatrix.SetViewportSize(int width, int height)");
+
+                if (m.viewportWidth <= 4 || m.viewportHeight <= 4)
+                    throw new Exception("Blittable viewport mod needs to be bigger than 4x4!");
+
+                value = new GLMat(m, m.viewportWidth, m.viewportHeight);
             }
 
-            if (!isTexture && !isCubemap)
+            if (!isTexture && !isCubemap && !isBuffer)
                 if (!value.GetType().IsValueType || value.GetType().IsEnum)
                     throw new Exception("Value must be a struct!");
 

@@ -70,6 +70,7 @@ namespace xfcore.Buffers
         }
 
         public delegate void ReadPixelDelegate4(GLBytes4 output);
+        public delegate void ReadPixelDelegateFloat(GLFloatBytes output);
         public delegate void ReadPixelDelegate12(GLBytes12 output);
 
         internal void RequestLock()
@@ -159,6 +160,20 @@ namespace xfcore.Buffers
             ReleaseLock();
         }
 
+        public unsafe void LockPixels(ReadPixelDelegateFloat del)
+        {
+            if (_stride != 4) throw new Exception("Stride is not 4!");
+
+            RequestLock();
+
+            GLFloatBytes bytes = new GLFloatBytes(_width, _height, (float*)HEAP_ptr);
+            del(bytes);
+            bytes.Dispose();
+
+            ReleaseLock();
+        }
+
+
         public unsafe void LockPixels(ReadPixelDelegate12 del)
         {
             if (_stride != 12) throw new Exception("Stride is not 12!");
@@ -171,7 +186,7 @@ namespace xfcore.Buffers
 
             ReleaseLock();
         }
-        
+
         public void Clear()
         {
             GL.Clear(this);
@@ -182,6 +197,55 @@ namespace xfcore.Buffers
             return (x != 0) && ((x & (x - 1)) == 0);
         }
     }
+
+    public unsafe class GLFloatBytes
+    {
+        bool disposed = false;
+        float* ptr;
+        int _width;
+        int _height;
+
+        public GLFloatBytes(int width, int height, float* ptr)
+        {
+            this.ptr = ptr;
+            _width = width;
+            _height = height;
+        }
+
+        public float GetPixel(int x, int y)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            return ptr[x + y * _width];
+        }
+
+        public void SetPixel(int x, int y, float Color)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            ptr[x + y * _width] = Color;
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
+        }
+    }
+
 
     public unsafe class GLBytes4
     {
@@ -473,6 +537,32 @@ namespace xfcore.Buffers
             for (int i = 0; i < Source.Length; i++)
             {
                 fptr[i] = Source[i];
+            }
+        }
+
+        public GLBuffer(xfcore.Extras.Vector3[] Source, int Stride = 3)
+        {
+            if (Stride % 3 != 0)
+                throw new Exception("A Vector3 stride must be a multiple of 3: XYZ, XYZ_IJK, XYZ_IJK_UVW etc");
+
+            if (Source == null) throw new ArgumentNullException();
+
+            int trueSize = Source.Length * 3;
+
+            if (trueSize <= 0) throw new Exception("Size must be bigger than zero!");
+            if (trueSize % Stride != 0) throw new Exception("Invalid Stride OR Size!");
+
+            stride = Stride;
+            _size = trueSize * 4;
+            Interlocked.Add(ref Buffer_RAM_Usage, _size);
+            HEAP_ptr = Marshal.AllocHGlobal(_size);
+            fptr = (float*)HEAP_ptr;
+
+            for (int i = 0; i < Source.Length; i++)
+            {
+                fptr[i * 3 + 0] = Source[i].x;
+                fptr[i * 3 + 1] = Source[i].y;
+                fptr[i * 3 + 2] = Source[i].z;
             }
         }
 

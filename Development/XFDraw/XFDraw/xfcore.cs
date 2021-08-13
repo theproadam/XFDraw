@@ -399,6 +399,15 @@ namespace xfcore
         public float ZNear;
         public float ZFar;
 
+        internal int viewportWidth;
+        internal int viewportHeight;
+
+        public void SetViewportSize(int width, int height)
+        {
+            viewportWidth = width;
+            viewportHeight = height;
+        }
+
         public bool isPerspective()
         {
             return iValue == 0;
@@ -424,6 +433,9 @@ namespace xfcore
 
             ZNear = 0.1f;
             ZFar = 1000f;
+
+            viewportWidth = 0;
+            viewportHeight = 0;
         }
 
         public static GLMatrix Perspective(float vFOV, float hFOV)

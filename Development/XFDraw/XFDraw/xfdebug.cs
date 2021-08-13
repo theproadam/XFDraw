@@ -197,15 +197,111 @@ namespace xfcore.Debug
             int* iptr = (int*)colorBuffer.GetAddress();
             float* dptr = (float*)depthBuffer.GetAddress();
 
+
+
             int wsd = depthBuffer.Width;
             for (int i = 0; i < depthBuffer.Height * depthBuffer.Width; i++)
             {
-                iptr[i] = (byte)(dptr[i] * VisualScale) + 256 * (byte)(dptr[i] * VisualScale) + (byte)(dptr[i] * VisualScale) * 65536;
+               // iptr[i] = (byte)(dptr[i] * VisualScale) + 256 * (byte)(dptr[i] * VisualScale) + (byte)(dptr[i] * VisualScale) * 65536;
+                iptr[i] = (((((255 << 8) | (byte)(dptr[i] * VisualScale)) << 8) | (byte)(dptr[i] * VisualScale)) << 8) | (byte)(byte)(dptr[i] * VisualScale);
             }
+
+
 
             colorBuffer.ReleaseLock();
             depthBuffer.ReleaseLock();
         }
+
+        public static void DepthToColorMod(GLTexture colorBuffer, GLTexture depthBuffer, float VisualScale)
+        {
+            colorBuffer.RequestLock();
+            depthBuffer.RequestLock();
+
+            if (colorBuffer.Stride != 4) throw new Exception("32bpp color required!");
+            if (depthBuffer.Stride != 4) throw new Exception("32bpp depth required!");
+
+            if (colorBuffer.Height != depthBuffer.Height || colorBuffer.Width != depthBuffer.Width)
+                throw new Exception("Target and Depth must be of the same dimensions!");
+
+            int* iptr = (int*)colorBuffer.GetAddress();
+            float* dptr = (float*)depthBuffer.GetAddress();
+
+            float x_mod = 1.0f / colorBuffer.Width * 255.0f;
+            float y_mod = 1.0f / colorBuffer.Height * 255.0f;
+
+            Parallel.For(0, colorBuffer.Height, h => {
+                float* depth = dptr + colorBuffer.Width * h;
+                int* color = iptr + colorBuffer.Width * h;
+
+                for (int i = 0; i < colorBuffer.Width; i++)
+                {
+                  //  color[i] = (((((255 << 8) | (byte)(depth[i] * VisualScale)) << 8) | (byte)(depth[i] * VisualScale) << 8) | (byte)(depth[i] * VisualScale));
+                  //  color[i] = 1203493209 + h * 100;
+                    color[i] = (((((255 << 8) | (byte)(i * x_mod)) << 8) | (byte)(h * y_mod)) << 8) | (byte)(depth[i] * VisualScale);
+                }
+            });
+
+
+
+            colorBuffer.ReleaseLock();
+            depthBuffer.ReleaseLock();
+        }
+
+
+        public static void NormalsToColor(GLTexture colorBuffer, GLTexture normalBuffer)
+        {
+            colorBuffer.RequestLock();
+            normalBuffer.RequestLock();
+
+            if (colorBuffer.Stride != 4) throw new Exception("32bpp color required!");
+            if (normalBuffer.Stride != 12) throw new Exception("vec3 depth required!");
+
+            if (colorBuffer.Height != normalBuffer.Height || colorBuffer.Width != normalBuffer.Width)
+                throw new Exception("Target and Depth must be of the same dimensions!");
+
+            int* iptr = (int*)colorBuffer.GetAddress();
+            Vector3* dptr = (Vector3*)normalBuffer.GetAddress();
+
+            int wsd = normalBuffer.Width;
+            for (int i = 0; i < normalBuffer.Height * normalBuffer.Width; i++)
+            {
+                // iptr[i] = (byte)(dptr[i] * VisualScale) + 256 * (byte)(dptr[i] * VisualScale) + (byte)(dptr[i] * VisualScale) * 65536;
+               // iptr[i] = (((((255 << 8) | (byte)(dptr[i] * VisualScale)) << 8) | (byte)(dptr[i] * VisualScale)) << 8) | (byte)(byte)(dptr[i] * VisualScale);
+
+                iptr[i] = (((((255 << 8) | (byte)(dptr[i].x * 127.5f + 127.5f)) << 8) | (byte)(dptr[i].y * 127.5f + 127.5f)) << 8) | (byte)(dptr[i].z * 127.5f + 127.5f);
+            }
+
+
+
+            colorBuffer.ReleaseLock();
+            normalBuffer.ReleaseLock();
+        }
+
+        public static void PositionToColor(GLTexture colorBuffer, GLTexture normalBuffer, float scale)
+        {
+            colorBuffer.RequestLock();
+            normalBuffer.RequestLock();
+
+            if (colorBuffer.Stride != 4) throw new Exception("32bpp color required!");
+            if (normalBuffer.Stride != 12) throw new Exception("vec3 depth required!");
+
+            if (colorBuffer.Height != normalBuffer.Height || colorBuffer.Width != normalBuffer.Width)
+                throw new Exception("Target and Depth must be of the same dimensions!");
+
+            int* iptr = (int*)colorBuffer.GetAddress();
+            Vector3* dptr = (Vector3*)normalBuffer.GetAddress();
+
+            for (int i = 0; i < normalBuffer.Height * normalBuffer.Width; i++)
+            {
+                iptr[i] = (((((255 << 8) | (byte)(dptr[i].x * scale)) << 8) | (byte)(dptr[i].y * scale)) << 8) | (byte)(dptr[i].z * scale);
+            }
+
+
+
+            colorBuffer.ReleaseLock();
+            normalBuffer.ReleaseLock();
+        }
+
 
 
 
