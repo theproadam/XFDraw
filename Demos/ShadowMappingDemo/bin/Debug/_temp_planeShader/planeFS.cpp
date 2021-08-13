@@ -6,15 +6,33 @@ out vec3 world_pos;
 in vec2 uv_data;
 in vec3 frag_pos;
 
-uniform sampler2D myTexture;
+uniform sampler2D albedoTexture;
+uniform sampler2D normalTexture;
+uniform sampler2D heightTexture;
 uniform vec2 textureSize;
+uniform vec3 camera_Pos;
+uniform float heightScale;
 
 void main()
 {
-	diffuse = texture(myTexture, uv_data * textureSize);
-	//diffuse = byte4(255, 255, 255);
+	vec3 viewDir = normalize(frag_pos - camera_Pos);
+
+	//compensate for lack of bitangent tangent mapping in this shader
+	float yVal = 1.0f - viewDir.y;
+	viewDir.y = viewDir.z;
+	viewDir.z = yVal;
+
+	float height = 1.0f - texture(heightTexture, vec2(uv_data.x * textureSize.x, uv_data.y * textureSize.y)).R * 0.00392156862745f;
+
+	vec2 texCoords = uv_data - vec2(viewDir) * (height * heightScale);
+
+	diffuse = texture(albedoTexture, texCoords * textureSize);
+	byte4 tR = texture(normalTexture, texCoords * textureSize);
+
+	//compensate for lack of bitangent tangent mapping in this shader
+	normal = vec3(tR.R * 0.0078431372549f - 1.0f, tR.B * 0.0078431372549f - 1.0f, (255.0f - tR.G) * 0.0078431372549f - 1.0f);
 
 
-	normal = vec3(0, 1.0f, 0);
+	
 	world_pos = frag_pos;
 }

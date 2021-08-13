@@ -12,6 +12,7 @@ uniform vec3 objectPos;
 
 void main()
 {
+
 	vec3 world_pos = pos + objectPos;
 
 	gl_Position = cameraRot * (world_pos - cameraPos);

@@ -10,7 +10,6 @@ uniform vec3 objectColor;
 
 void main()
 {
-
 	diffuse = byte4(objectColor.x * 255.0f, objectColor.y * 255.0f, objectColor.z * 255.0f);
 	//diffuse = byte4(norm_data.x * 127.5f + 127.5f, norm_data.y * 127.5f + 127.5f, norm_data.z * 127.5f + 127.5f);
 

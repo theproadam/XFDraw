@@ -590,17 +590,17 @@ inline T textureBILINEAR(sampler2D inputTexture, vec2 coord)
 		if (X1Y1.Y >= inputTexture.height) X1Y1.Y = inputTexture.height - 1;
 	}
 
-	T bptrL = *(inputTexture.TEXTURE_ADDR + X0Y0.Y * inputTexture.width + X0Y0.X);
-	T bptrLN = *(inputTexture.TEXTURE_ADDR + X1Y0.Y * inputTexture.width + X1Y0.X);
+	T bptrL = *((T*)inputTexture.TEXTURE_ADDR + X0Y0.Y * inputTexture.width + X0Y0.X);
+	T bptrLN = *((T*)inputTexture.TEXTURE_ADDR + X1Y0.Y * inputTexture.width + X1Y0.X);
 
-	T bptrU = *(inputTexture.TEXTURE_ADDR + X0Y1.Y * inputTexture.width + X0Y1.X);
-	T bptrUN = *(inputTexture.TEXTURE_ADDR + X1Y1.Y * inputTexture.width + X1Y1.X);
+	T bptrU = *((T*)inputTexture.TEXTURE_ADDR + X0Y1.Y * inputTexture.width + X0Y1.X);
+	T bptrUN = *((T*)inputTexture.TEXTURE_ADDR + X1Y1.Y * inputTexture.width + X1Y1.X);
 
 	return bptrL * (x0 * y0) + bptrLN * (x1 * y0) + bptrU * (x0 * y1) + bptrUN * (x1 * y1);
 }
 
 template<typename T>
-inline T texture(sampler2D inputTexture, int2 coord)
+inline T texture(sampler2D inputTexture, vec2 coord)
 {
 	if (inputTexture.filt_mode == 0)
 	{

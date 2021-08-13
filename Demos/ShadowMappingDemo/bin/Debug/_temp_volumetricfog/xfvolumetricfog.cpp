@@ -46,7 +46,6 @@ inline void shaderMethod(vec3* world_pos, byte4* FragColor, int NB_STEPS, float 
 	ray_pos = ray_pos + step_size;
 	}
 	f_power = f_power * (1.0f / NB_STEPS);
-	f_power *= textureNEAREST<float>(noiseMap, int2(gl_FragCoord.x + noiseX, gl_FragCoord.y + noiseY));
 	(*FragColor) = byte4((*FragColor).R + f_power * 10.0f, (*FragColor).G + f_power * 10.0f, (*FragColor).B + f_power * 10.0f);
 	
 }

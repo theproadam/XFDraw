@@ -41,14 +41,16 @@ namespace ShadowMappingDemo
         static GLCubemap reflect3;
         static GLCubemap reflect4;
 
-
         //Object Buffer
         static GLBuffer planeObject;
         static GLBuffer teapotObject;
         static GLBuffer windowObject;
 
         //Texture Buffers
-        static GLTexture cobblestone;
+        static GLTexture cobbleDiffuse;
+        static GLTexture cobbleNormal;
+        static GLTexture cobbleHeight;
+        static float heightScale = -0.2f;
 
         //Shaders
         static Shader basicShader;
@@ -57,11 +59,22 @@ namespace ShadowMappingDemo
         static Shader planeShader;
         static Shader planeShaderShadows;
 
+        //Post-FX shaders
         static Shader volumetricFog;
+        static Shader SSAO;
+        static Shader FXAA;
+
+        static float ssao_range = 15.5f;//1.0f;
+        static float ssao_bias = -3.62f;//1.0f;
+        static float ssao_power = 4.0f;
+
+        static GLTexture ssaoBuffer;
+        static GLBuffer ssaoSamples;
 
         //Form data
         static Form renderForm;
         static BlitData formData;
+        static Bitmap infoBitmap = new Bitmap(400, 400);
 
         //Threads and rendering
         static RenderThread RT;
@@ -74,6 +87,9 @@ namespace ShadowMappingDemo
         //Viewport Size
         static int viewportWidth = 1600, viewportHeight = 900;
         static int FramesRendered = 0;
+
+        static int LastFPS = 0;
+        static float lastDeltaTime = 0;
 
         static void Main(string[] args)
         {
@@ -104,7 +120,9 @@ namespace ShadowMappingDemo
             teapotObject = ObjectLoader.ImportSTL("models/teapot.stl", 57.0f);
             planeObject = ObjectLoader.CreatePlaneUV(180, 18);
             windowObject = ObjectLoader.ImportSTL("models/window.stl", 57.0f);
-            cobblestone = ObjectLoader.LoadTexture("textures/Cobblestone [Albedo].png");
+            cobbleDiffuse = ObjectLoader.LoadTexture("textures/Cobblestone [Albedo].png");
+            cobbleNormal = ObjectLoader.LoadTexture("textures/Cobblestone [Normal].png");
+            cobbleHeight = ObjectLoader.LoadTexture("textures/Cobblestone [Occlusion].png");
 
             //Parse and Compile Shaders
             basicShader = LoadShader("basicVS.cpp", "basicFS.cpp", "basicShader");
@@ -113,6 +131,7 @@ namespace ShadowMappingDemo
             planeShader = LoadShader("planeVS.cpp", "planeFS.cpp", "planeShader");
             planeShaderShadows = LoadShader("planeVS.cpp", "planeFS_shadow.cpp", "planeShaderShadow");
             volumetricFog = LoadShader("volumetric_fog.cpp", "volumetricfog");
+            SSAO = LoadShader("ssao.cpp", "ssao_pass");
             //windowShader 
 
             //Link framebuffers to shaders and configure shaders
@@ -129,8 +148,12 @@ namespace ShadowMappingDemo
             planeShader.AssignBuffer("diffuse", diffuseBuffer);
             planeShader.AssignBuffer("normal", normalBuffer);
             planeShader.AssignBuffer("world_pos", worldBuffer);
-            planeShader.SetValue("myTexture", cobblestone);
-            planeShader.SetValue("textureSize", new Vector2(cobblestone.Width, cobblestone.Height));
+            planeShader.SetValue("albedoTexture", cobbleDiffuse);
+            planeShader.SetValue("normalTexture", cobbleNormal);
+            planeShader.SetValue("heightTexture", cobbleHeight);
+
+
+            planeShader.SetValue("textureSize", new Vector2(cobbleDiffuse.Width, cobbleDiffuse.Height));
 
             //Create Shadow Map
             shadowMap = new GLTexture(2048, 2048, typeof(float));
@@ -140,20 +163,37 @@ namespace ShadowMappingDemo
             shadowProj.SetViewportSize(shadowMap.Width, shadowMap.Height);
             shadowProj.ZFar = 10000;
 
-
-
             basicShaderShadows.AssignBuffer("depth", shadowMap); //not required
             planeShaderShadows.AssignBuffer("depth", shadowMap); //not required
             shadowMap.Clear();
             GenerateShadowMap(shadowMap);
             lightShader.SetValue("shadowMap", shadowMap);
 
-            noiseMap = new GLTexture(1024, 1024, typeof(float));
             GenerateNoiseMap(1024, 1024);
 
-            //visualize shadowmap->
+            //Prepare SSAO shader->
+            ssaoSamples = GenerateSSAONoise(16);
+            ssaoBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
+            SSAO.AssignBuffer("ssao_buffer", ssaoBuffer);
+            SSAO.AssignBuffer("frag_pos", worldBuffer);
+            SSAO.AssignBuffer("normal", normalBuffer);
 
+            SSAO.SetValue("kernel_radius", 1.0f);
+            SSAO.SetValue("kernel_size", (int)16);
+            SSAO.SetValue("kernel", ssaoSamples);
+            SSAO.SetValue("depth", depthBuffer);
+
+            lightShader.AssignBuffer("ssao", ssaoBuffer);
+
+            inputManager.cameraPosition = new Vector3(-52.6f, 52.1984f, -122.77f);
+            inputManager.cameraRotation = new Vector3(0, 13.8f, 45.5f);
+
+            //Create FPS Counter->
+            Timer fpsTimer = new Timer();
+            fpsTimer.Tick += fpsTimer_Tick;
+            fpsTimer.Interval = 1000;
+            fpsTimer.Start();
 
             Console.WriteLine("\nCreating GL Window...");
             RT.Start();
@@ -162,12 +202,19 @@ namespace ShadowMappingDemo
 
             Console.WriteLine("Releasing GLTextures and GLBuffers...");
         }
+
+        static void fpsTimer_Tick(object sender, EventArgs e)
+        {
+            LastFPS = FramesRendered;
+            FramesRendered = 0;
+        }
         
         static void RT_RenderFrame()
         {
             //Compute the delta time
             deltaTime.Stop();
             float deltaT = (float)deltaTime.Elapsed.TotalMilliseconds;
+            lastDeltaTime = deltaT;
             deltaTime.Restart();
 
             //Translate mouse and keyboard inputs into a new camera position
@@ -188,8 +235,18 @@ namespace ShadowMappingDemo
             basicShader.SetValue("cameraPos", cameraPosition);
             basicShader.SetValue("cameraRot", cameraRotation);
 
+            SSAO.SetValue("cameraPos", cameraPosition);
+            SSAO.SetValue("cameraRot", cameraRotation);
+            SSAO.SetValue("bias", ssao_bias);
+            SSAO.SetValue("kernel_radius", ssao_range);
+            SSAO.SetValue("ssao_power", ssao_power);
+
             GLMatrix projMatrix = GLMatrix.Perspective(90.0f, viewportWidth, viewportHeight);
-         
+            
+            //only required for SSAO.SetValue
+            projMatrix.SetViewportSize(viewportWidth, viewportHeight);
+            SSAO.SetValue("cameraProj", projMatrix);
+
             //Draw four Teapots:
             basicShader.SetValue("objectPos", new Vector3(0, 0, 0));
             basicShader.SetValue("objectColor", new Vector3(0.2f, 0.45f, 0.125f));
@@ -214,9 +271,11 @@ namespace ShadowMappingDemo
 
             planeShader.SetValue("objectPos", new Vector3(-55.0f, 0.0f, -125.0f));
 
-
             planeShader.SetValue("cameraPos", cameraPosition);
             planeShader.SetValue("cameraRot", cameraRotation);
+            planeShader.SetValue("camera_Pos", cameraPosition);
+            planeShader.SetValue("heightScale", heightScale);
+
 
             GL.Draw(planeObject, planeShader, depthBuffer, projMatrix, GLMode.Triangle);
 
@@ -224,14 +283,19 @@ namespace ShadowMappingDemo
             //lightShader.SetValue("lightDir", Vector3.Normalize(new Vector3(0, 50.0f, 100.0f)));
             lightShader.SetValue("lightDir", Vector3.Normalize(new Vector3(0, 120.0f, 224.0f)));
             lightShader.SetValue("shadowBias", shadowBias);
-            volumetricFog.SetValue("noiseX", (float)FramesRendered);
-            volumetricFog.SetValue("noiseY", (float)FramesRendered);
-            
+            volumetricFog.SetValue("noiseX", 4.0f * (float)FramesRendered);
+            volumetricFog.SetValue("noiseY", 4.0f * (float)FramesRendered);
+//
+       //     SSAO.Pass();
+
             GL.Pass(lightShader);
 
             volumetricFog.SetValue("camera_pos", cameraPosition);   
             volumetricFog.Pass();
 
+        //    GLDebug.DepthToColor(colorBuffer, ssaoBuffer, 255.0f);
+
+            DrawText();
 
             GL.Blit(colorBuffer, formData);
           //  GL.Blit(diffuseBuffer, formData);
@@ -251,6 +315,48 @@ namespace ShadowMappingDemo
             {
                 shadowBias -= 0.05f;
             }
+
+            if (e.KeyCode == Keys.Right)
+            {
+                heightScale += 0.1f;
+            }
+            else if (e.KeyCode == Keys.Left)
+            {
+                heightScale -= 0.1f;
+            }
+
+
+            if (e.KeyCode == Keys.M)
+            {
+                ssao_bias += 0.1f;
+            }
+            else if (e.KeyCode == Keys.N)
+            {
+                ssao_bias -= 0.1f;
+            }
+
+
+            if (e.KeyCode == Keys.B)
+            {
+                ssao_range += 5f;
+            }
+            else if (e.KeyCode == Keys.V)
+            {
+                ssao_range -= 5f;
+            }
+
+            if (e.KeyCode == Keys.L)
+            {
+                ssao_power += 0.1f;
+            }
+            else if (e.KeyCode == Keys.K)
+            {
+                ssao_power -= 0.1f;
+            }
+
+            
+            Console.WriteLine("ssao_range: " + ssao_range);
+            Console.WriteLine("ssao_bias: " + ssao_bias);
         }
 
         static void renderForm_SizeChanged(object sender, EventArgs e)
@@ -264,6 +370,29 @@ namespace ShadowMappingDemo
                 colorBuffer.Resize(viewportWidth, viewportHeight);
                 depthBuffer.Resize(viewportWidth, viewportHeight);
             }
+        }
+
+        static void DrawText()
+        {
+            GLExtra.BlitIntoBitmap(colorBuffer, infoBitmap, new Point(0, 0), new Rectangle(0, colorBuffer.Height - 200, 400, 200));
+
+            using (Graphics g = Graphics.FromImage(infoBitmap))
+            {
+                g.DrawString("XFDraw v0.4.3", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 0, 200, 200));
+                g.DrawString("XF2  : " + LastFPS + " FPS", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 20, 200, 200));
+                g.DrawString("DT   : " + lastDeltaTime.ToString("#.0") + " ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 40, 200, 200));
+                g.DrawString("--------------", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 60, 200, 200));
+
+                g.DrawString("[Draw] 1ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 80, 200, 200));
+                g.DrawString("[Draw] 1ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 100, 200, 200));
+                g.DrawString("[Draw] 1ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 120, 200, 200));
+                g.DrawString("[Draw] 1ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 140, 200, 200));
+                g.DrawString("[Pass] 1ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 160, 200, 200));
+                g.DrawString("[Pass] 1ms", new Font("Consolas", 12), Brushes.White, new Rectangle(0, 180, 200, 200));
+
+            }
+
+            GLExtra.BlitFromBitmap(infoBitmap, colorBuffer, new Point(0, colorBuffer.Height - 200), new Rectangle(0, 0, 400, 200));  
         }
 
         static void GenerateShadowMap(GLTexture map)
@@ -306,25 +435,8 @@ namespace ShadowMappingDemo
             GLTexture colorBuf = new GLTexture(map.Width, map.Height, typeof(Color4));
 
             GLDebug.DepthToColor(colorBuf, map, 0.5f);
-          
-            Task.Run(delegate()
-            {
-                Form displayBuf = new Form();
-                BlitData bData = new BlitData(displayBuf);
 
-                displayBuf.Text = "XFDraw shadowmap debug";
-                displayBuf.ClientSize = new Size(512, 512);
-
-                Bitmap displymp = new Bitmap(map.Width, map.Height);
-                GLExtra.BlitIntoBitmap(colorBuf, displymp, new Point(0, 0), new Rectangle(0, 0, map.Width, map.Height));
-
-
-                displayBuf.BackgroundImageLayout = ImageLayout.Zoom;
-                displayBuf.BackgroundImage = displymp;
-
-                displayBuf.ShowDialog();
-            });
-
+            DebugWindow showDepth = new DebugWindow(colorBuf);
 
             volumetricFog.AssignBuffer("FragColor", colorBuffer);
             volumetricFog.AssignBuffer("world_pos", worldBuffer);
@@ -343,7 +455,7 @@ namespace ShadowMappingDemo
 
         }
 
-        static unsafe void GenerateNoiseMap(int width, int height)
+        static void GenerateNoiseMap(int width, int height)
         {
             GLTexture noise = new GLTexture(width / 8, height / 8, typeof(Color4));
 
@@ -369,7 +481,7 @@ namespace ShadowMappingDemo
 
             using (Graphics g = Graphics.FromImage(newBmp))
             {
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bicubic;
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                 
                 g.DrawImage(src, new Rectangle(0, 0, width * 8, height * 8));
             }
@@ -388,7 +500,8 @@ namespace ShadowMappingDemo
                     {
                         for (int w = 0; w < tempMap.Width; w++)
                         {
-                            data.SetPixel(w, h, Color.FromArgb(data1.GetPixel(w, h)).R / 255.0f);
+                            data.SetPixel(w, h, Math.Min(1.0f, Math.Max(0.0f, Color.FromArgb(data1.GetPixel(w, h)).R / 255.0f)));
+                          //  data.SetPixel(w, h, 1.0f);
                         }
                     }
                 });
@@ -420,8 +533,29 @@ namespace ShadowMappingDemo
                 displayBuf.ShowDialog();
             });
 
-            volumetricFog.SetValue("noiseMap", noise);
+            volumetricFog.SetValue("noiseMap", noiseMap);
             volumetricFog.ConfigureTexture("noiseMap", TextureFiltering.GL_NEAREST, TextureWarp.GL_REPEAT);
+        }
+
+        static GLBuffer GenerateSSAONoise(int bufferSize)
+        {
+            Func<float,float,float,float> Lerp = delegate(float a, float b, float f){
+                return a + f * (b - a);
+            };
+
+            Random rnd = new Random();
+            Vector3[] buffer = new Vector3[bufferSize];
+ 
+            for (int i = 0; i < bufferSize; i++)
+            {
+                Vector3 sample =  new Vector3((float)rnd.NextDouble() * 2f - 1f, (float)rnd.NextDouble() * 2f - 1f, (float)rnd.NextDouble());
+                float scale = (float)i / (float)bufferSize;
+                scale = Lerp(0.1f, 1.0f, scale * scale);
+                sample *= scale;
+                buffer[i] = sample;
+            }
+
+            return new GLBuffer(buffer);
         }
 
         static Shader LoadShader(string shaderName, string outputName)
@@ -449,7 +583,7 @@ namespace ShadowMappingDemo
             ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName, CompileOption.None);
             //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
             string temp = ShaderCompile.COMMAND_LINE;
-            ShaderCompile.COMMAND_LINE = "";
+          //  ShaderCompile.COMMAND_LINE = "";
 
             Shader outputShader;
 
@@ -466,9 +600,7 @@ namespace ShadowMappingDemo
 
             return outputShader;
         }
-
     }
-
 
     public class InputManager
     {

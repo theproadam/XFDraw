@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using System.Drawing;
 using System.IO;
 using xfcore.Extras;
@@ -434,6 +435,31 @@ namespace ShadowMappingDemo
             }
 
             data.AddRange(coords1);
+        }
+    }
+
+    public class DebugWindow : Form
+    {
+        public Bitmap displayBitmap;
+
+        public DebugWindow(GLTexture texture)
+        {
+            Task.Run(delegate()
+            {
+                Form displayBuf = new Form();
+                BlitData bData = new BlitData(displayBuf);
+
+                displayBuf.Text = "XFDraw shadowmap debug";
+                displayBuf.ClientSize = new Size(512, 512);
+
+                displayBitmap = new Bitmap(texture.Width, texture.Height);
+                GLExtra.BlitIntoBitmap(texture, displayBitmap, new Point(0, 0), new Rectangle(0, 0, texture.Width, texture.Height));
+
+                displayBuf.BackgroundImageLayout = ImageLayout.Zoom;
+                displayBuf.BackgroundImage = displayBitmap;
+
+                displayBuf.ShowDialog();
+            });
         }
     }
 }

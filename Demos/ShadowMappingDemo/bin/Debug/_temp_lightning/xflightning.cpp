@@ -12,7 +12,7 @@ float max(float a, float b){
 	
 }
 
-inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, float shadowBias){
+inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, float* ssao, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, float shadowBias){
 	if (*((int*)&((*objectColor))) == 0)return;
 	const float ambientStrength = 0.1f;
 	vec3 lightColor = vec3(0.8f, 0.8f, 0.8f);
@@ -26,7 +26,7 @@ inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, byte4* FragC
 	}
 	}
 	vec3 diffuse = lightColor * diff;
-	vec3 result = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * (ambient + diffuse);
+	vec3 result = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * (ambient + diffuse) * (1.0f - (*ssao));
 	(*FragColor) = byte4(result.x, result.y, result.z);
 	
 }
@@ -53,10 +53,12 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		byte4* ptr_2 = (byte4*)(ptrPtrs[2] + wPos * 4);
 
-		byte4* ptr_3 = (byte4*)(ptrPtrs[3] + wPos * 4);
+		float* ptr_3 = (float*)(ptrPtrs[3] + wPos * 4);
 
-		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3){
-			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5);
+		byte4* ptr_4 = (byte4*)(ptrPtrs[4] + wPos * 4);
+
+		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3, ++ptr_4){
+			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, ptr_4, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5);
 		}
 	}
 }

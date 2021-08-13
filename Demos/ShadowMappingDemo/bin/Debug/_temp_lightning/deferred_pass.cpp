@@ -4,7 +4,7 @@ out byte4 FragColor;
 in vec3 pos;
 in vec3 norm;
 in byte4 objectColor;
-
+in float ssao;
 
 uniform vec3 lightDir;
 uniform sampler2D shadowMap;
@@ -26,6 +26,7 @@ void main()
 	if (*((int*)&(objectColor)) == 0)
 		return;
 
+
 	const float ambientStrength = 0.1f;
 
 	vec3 lightColor = vec3(0.8f, 0.8f, 0.8f);
@@ -45,9 +46,9 @@ void main()
 		}
 	}
 
-	vec3 diffuse = lightColor * diff;
 
-	vec3 result = vec3(objectColor.R, objectColor.G, objectColor.B) * (ambient + diffuse);
+	vec3 diffuse = lightColor * diff;
+	vec3 result = vec3(objectColor.R, objectColor.G, objectColor.B) * (ambient + diffuse) * (1.0f - ssao);
 
 	FragColor = byte4(result.x, result.y, result.z);
 }

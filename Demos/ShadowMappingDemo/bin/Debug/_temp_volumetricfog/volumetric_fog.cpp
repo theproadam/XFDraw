@@ -65,7 +65,7 @@ void main()
 	//fog_power = fog_power * (1.0f / NB_STEPS);	
 	f_power = f_power * (1.0f / NB_STEPS);
 
-	f_power *= textureNEAREST<float>(noiseMap, int2(gl_FragCoord.x + noiseX, gl_FragCoord.y + noiseY));
+	//f_power *= textureNEAREST<float>(noiseMap, int2(gl_FragCoord.x + noiseX, gl_FragCoord.y + noiseY));
 
 	FragColor = byte4(FragColor.R + f_power * 10.0f, FragColor.G + f_power * 10.0f, FragColor.B + f_power * 10.0f);
 }
