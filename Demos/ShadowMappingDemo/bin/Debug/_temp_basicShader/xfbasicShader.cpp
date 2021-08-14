@@ -24,8 +24,9 @@ inline void VSExec(vec3* pos, vec3* norm, vec3* gl_Position, vec3* norm_data, ve
 	
 }
 
-inline void FSExec(byte4* diffuse, vec3* normal, vec3* world_pos, vec3* norm_data, vec3* frag_pos, vec3 objectColor){
+inline void FSExec(byte4* diffuse, vec3* normal, vec3* world_pos, float* specular, vec3* norm_data, vec3* frag_pos, vec3 objectColor, float specular_value){
 	(*diffuse) = byte4(objectColor.x * 255.0f, objectColor.y * 255.0f, objectColor.z * 255.0f);
+	(*specular) = specular_value;
 	(*normal) = (*norm_data);
 	(*world_pos) = (*frag_pos);
 	
@@ -85,8 +86,9 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 vec3* ptr_1 = (vec3*)ptrPtrs[1] + mem_addr;
 vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
+float* ptr_3 = (float*)ptrPtrs[3] + mem_addr;
 
-			FSExec(ptr_0, ptr_1, ptr_2, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(vec3*)(uData2 + 0));}
+			FSExec(ptr_0, ptr_1, ptr_2, ptr_3, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(vec3*)(uData2 + 0), *(float*)(uData2 + 12));}
 	}
 	else
 	{
@@ -128,8 +130,9 @@ vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 vec3* ptr_1 = (vec3*)ptrPtrs[1] + mem_addr;
 vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
+float* ptr_3 = (float*)ptrPtrs[3] + mem_addr;
 
-			FSExec(ptr_0, ptr_1, ptr_2, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(vec3*)(uData2 + 0));
+			FSExec(ptr_0, ptr_1, ptr_2, ptr_3, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(vec3*)(uData2 + 0), *(float*)(uData2 + 12));
 		}	
 }
 }
@@ -832,6 +835,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			byte4* ptr_0 = (byte4*)(ptrPtrs[0] + wPos * 4);
 	vec3* ptr_1 = (vec3*)(ptrPtrs[1] + wPos * 12);
 	vec3* ptr_2 = (vec3*)(ptrPtrs[2] + wPos * 12);
+	float* ptr_3 = (float*)(ptrPtrs[3] + wPos * 4);
 	
 			Z_fptr = dptr + i * renderWidth;
 			zBegin = slopeZ * (float)FromX + bZ;
@@ -847,7 +851,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, ptr_1 + o, ptr_2 + o, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(vec3*)(uData2 + 0));
+				FSExec(ptr_0 + o, ptr_1 + o, ptr_2 + o, ptr_3 + o, (vec3*)(attribs + 0), (vec3*)(attribs + 3), *(vec3*)(uData2 + 0), *(float*)(uData2 + 12));
 			}
 		}
 	}

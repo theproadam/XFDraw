@@ -12,6 +12,7 @@ uniform GLMatrix shadow_proj;
 uniform sampler2D shadow_map;
 uniform float ray_bias;
 uniform sampler2D noiseMap;
+uniform float NB_STEPS_INV;
 uniform float noiseX;
 uniform float noiseY;
 
@@ -30,7 +31,7 @@ void main()
 	if (world_pos.x == 0 && world_pos.y == 0 && world_pos.z == 0)
 		return;
 
-	float step_length = MAX_LENGTH / (float)NB_STEPS;
+	float step_length = MAX_LENGTH * NB_STEPS_INV;
 
 	vec3 ray_direction = normalize(camera_pos - world_pos);
 	vec3 step_size = ray_direction * step_length;
@@ -62,10 +63,8 @@ void main()
 		ray_pos = ray_pos + step_size;
 	}
 
-	//fog_power = fog_power * (1.0f / NB_STEPS);	
-	f_power = f_power * (1.0f / NB_STEPS);
+	f_power = f_power * NB_STEPS_INV;
 
 	//f_power *= textureNEAREST<float>(noiseMap, int2(gl_FragCoord.x + noiseX, gl_FragCoord.y + noiseY));
-
 	FragColor = byte4(FragColor.R + f_power * 10.0f, FragColor.G + f_power * 10.0f, FragColor.B + f_power * 10.0f);
 }

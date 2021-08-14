@@ -24,15 +24,17 @@ inline void VSExec(vec3* pos, vec2* uv, vec3* gl_Position, vec2* uv_data, vec3* 
 	
 }
 
-inline void FSExec(byte4* diffuse, vec3* normal, vec3* world_pos, vec2* uv_data, vec3* frag_pos, sampler2D albedoTexture, sampler2D normalTexture, sampler2D heightTexture, vec2 textureSize, vec3 camera_Pos, float heightScale){
+inline void FSExec(byte4* diffuse, vec3* normal, vec3* world_pos, float* specular, vec2* uv_data, vec3* frag_pos, sampler2D albedoTexture, sampler2D normalTexture, sampler2D heightTexture, sampler2D speculTexture, vec2 textureSize, vec3 camera_Pos, float heightScale){
 	vec3 viewDir = normalize((*frag_pos) - camera_Pos);
 	float yVal = 1.0f - viewDir.y;
 	viewDir.y = viewDir.z;
 	viewDir.z = yVal;
 	float height = 1.0f - texture(heightTexture, vec2((*uv_data).x * textureSize.x, (*uv_data).y * textureSize.y)).R * 0.00392156862745f;
 	vec2 texCoords = (*uv_data) - vec2(viewDir) * (height * heightScale);
-	(*diffuse) = texture(albedoTexture, texCoords * textureSize);
-	byte4 tR = texture(normalTexture, texCoords * textureSize);
+	vec2 texResult = texCoords * textureSize;
+	(*diffuse) = texture(albedoTexture, texResult);
+	(*specular) = texture(speculTexture, texResult).R * 0.00392156862745f;
+	byte4 tR = texture(normalTexture, texResult);
 	(*normal) = vec3(tR.R * 0.0078431372549f - 1.0f, tR.B * 0.0078431372549f - 1.0f, (255.0f - tR.G) * 0.0078431372549f - 1.0f);
 	(*world_pos) = (*frag_pos);
 	
@@ -92,8 +94,9 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 vec3* ptr_1 = (vec3*)ptrPtrs[1] + mem_addr;
 vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
+float* ptr_3 = (float*)ptrPtrs[3] + mem_addr;
 
-			FSExec(ptr_0, ptr_1, ptr_2, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(sampler2D*)(uData2 + 28), *(sampler2D*)(uData2 + 56), *(vec2*)(uData2 + 84), *(vec3*)(uData2 + 92), *(float*)(uData2 + 104));}
+			FSExec(ptr_0, ptr_1, ptr_2, ptr_3, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(sampler2D*)(uData2 + 28), *(sampler2D*)(uData2 + 56), *(sampler2D*)(uData2 + 84), *(vec2*)(uData2 + 112), *(vec3*)(uData2 + 120), *(float*)(uData2 + 132));}
 	}
 	else
 	{
@@ -135,8 +138,9 @@ vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 vec3* ptr_1 = (vec3*)ptrPtrs[1] + mem_addr;
 vec3* ptr_2 = (vec3*)ptrPtrs[2] + mem_addr;
+float* ptr_3 = (float*)ptrPtrs[3] + mem_addr;
 
-			FSExec(ptr_0, ptr_1, ptr_2, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(sampler2D*)(uData2 + 28), *(sampler2D*)(uData2 + 56), *(vec2*)(uData2 + 84), *(vec3*)(uData2 + 92), *(float*)(uData2 + 104));
+			FSExec(ptr_0, ptr_1, ptr_2, ptr_3, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(sampler2D*)(uData2 + 28), *(sampler2D*)(uData2 + 56), *(sampler2D*)(uData2 + 84), *(vec2*)(uData2 + 112), *(vec3*)(uData2 + 120), *(float*)(uData2 + 132));
 		}	
 }
 }
@@ -839,6 +843,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 			byte4* ptr_0 = (byte4*)(ptrPtrs[0] + wPos * 4);
 	vec3* ptr_1 = (vec3*)(ptrPtrs[1] + wPos * 12);
 	vec3* ptr_2 = (vec3*)(ptrPtrs[2] + wPos * 12);
+	float* ptr_3 = (float*)(ptrPtrs[3] + wPos * 4);
 	
 			Z_fptr = dptr + i * renderWidth;
 			zBegin = slopeZ * (float)FromX + bZ;
@@ -854,7 +859,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, ptr_1 + o, ptr_2 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(sampler2D*)(uData2 + 28), *(sampler2D*)(uData2 + 56), *(vec2*)(uData2 + 84), *(vec3*)(uData2 + 92), *(float*)(uData2 + 104));
+				FSExec(ptr_0 + o, ptr_1 + o, ptr_2 + o, ptr_3 + o, (vec2*)(attribs + 0), (vec3*)(attribs + 2), *(sampler2D*)(uData2 + 0), *(sampler2D*)(uData2 + 28), *(sampler2D*)(uData2 + 56), *(sampler2D*)(uData2 + 84), *(vec2*)(uData2 + 112), *(vec3*)(uData2 + 120), *(float*)(uData2 + 132));
 			}
 		}
 	}

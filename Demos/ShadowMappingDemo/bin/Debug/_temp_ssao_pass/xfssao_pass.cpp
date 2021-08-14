@@ -6,8 +6,10 @@
 
 
 
-inline void shaderMethod(vec3* frag_pos, vec3* normal, float* ssao_buffer, vec3 cameraPos, mat3 cameraRot, GLMatrix cameraProj, float kernel_radius, int kernel_size, sampler1D kernel, sampler2D depth, float bias, float ssao_power, vec3 gl_FragCoord){
+inline void shaderMethod(vec3* frag_pos, vec3* normal, float* ssao_buffer, vec3 cameraPos, mat3 cameraRot, GLMatrix cameraProj, float kernel_radius, int kernel_size, sampler1D kernel, sampler2D depth, float bias, float ssao_power, int FrameCount, vec3 gl_FragCoord){
 	int offset = (int)gl_FragCoord.y % 2 == 0 ? 1 : 0;
+	int offsetX = FrameCount;
+	if ((int)(gl_FragCoord.x + offset + FrameCount) % 2 == 0)return;
 	vec3 camSpace = cameraRot * ((*frag_pos) - cameraPos);
 	float occlusion = 0.0f;
 	for (int i = 0;
@@ -48,6 +50,8 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 	fcpy((char*)(&uniform_7), (char*)UniformPointer + 152, 4);
 	float uniform_8;
 	fcpy((char*)(&uniform_8), (char*)UniformPointer + 156, 4);
+	int uniform_9;
+	fcpy((char*)(&uniform_9), (char*)UniformPointer + 160, 4);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
@@ -60,7 +64,7 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		vec3 gl_FragCoord = vec3(0, h, 0);
 		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++gl_FragCoord.x){
-			shaderMethod(ptr_0, ptr_1, ptr_2, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, gl_FragCoord);
+			shaderMethod(ptr_0, ptr_1, ptr_2, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, gl_FragCoord);
 		}
 	}
 }

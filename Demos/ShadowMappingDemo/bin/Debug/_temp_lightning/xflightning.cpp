@@ -3,30 +3,124 @@
 
 #include "xfconfig.cpp"
 
+float powf(float value, int count);
 float max(float a, float b);
+float distSquared(vec3 a, vec3 b);
 
 
+float powf(float value, int count){
+	if (count == 0) return 1.0f;
+	else if (count == 1) return value;
+	else if (count == 2) return value * value;
+	else if (count == 4){
+	float v1 = value * value;
+	return v1 * v1;
+	}
+	else if (count == 8){
+	float v1 = value * value;
+	v1 *= v1;
+	return v1 * v1;
+	}
+	else if (count == 16){
+	float v1 = value * value;
+	v1 *= v1;
+	v1 *= v1;
+	return v1 * v1;
+	}
+	else if (count == 32){
+	float v1 = value * value;
+	v1 *= v1;
+	v1 *= v1;
+	v1 *= v1;
+	return v1 * v1;
+	}
+	else if (count == 64){
+	float v1 = value * value;
+	v1 *= v1;
+	v1 *= v1;
+	v1 *= v1;
+	v1 *= v1;
+	return v1 * v1;
+	}
+	else if (count == 128){
+	float v1 = value * value;
+	v1 *= v1;
+	v1 *= v1;
+	v1 *= v1;
+	v1 *= v1;
+	v1 *= v1;
+	return v1 * v1;
+	}
+	else return 1.0f;
+	
+}
 float max(float a, float b){
 	if (a < b) return b;
 	else return a;
 	
 }
+float distSquared(vec3 a, vec3 b){
+	float x = a.x - b.x;
+	float y = a.y - b.y;
+	float z = a.z - b.z;
+	return x * x + y * y + z * z;
+	
+}
 
-inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, float* ssao, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, float shadowBias){
+inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, float* ssao, float* spec_power, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, vec3 viewPos, float shadowBias, vec3 reflectPos1, vec3 reflectPos2, vec3 reflectPos3, vec3 reflectPos4){
 	if (*((int*)&((*objectColor))) == 0)return;
 	const float ambientStrength = 0.1f;
+	float specularStrength = (*spec_power);
 	vec3 lightColor = vec3(0.8f, 0.8f, 0.8f);
 	vec3 ambient = lightColor * ambientStrength;
 	float diff = max(dot((*norm), lightDir), 0.0);
+	if (true){
+	float dist1 = distSquared((*pos), reflectPos1);
+	float dist2 = distSquared((*pos), reflectPos2);
+	float dist3 = distSquared((*pos), reflectPos3);
+	float dist4 = distSquared((*pos), reflectPos4);
+	if (dist1 < dist2 && dist1 < dist3 && dist1 < dist4){
+	(*FragColor) = byte4(255, 0, 0);
+	return;
+	}
+	else if (dist2 < dist1 && dist2 < dist3 && dist2 < dist4){
+	(*FragColor) = byte4(255, 255, 0);
+	return;
+	}
+	else if (dist3 < dist1 && dist3 < dist2 && dist3 < dist4){
+	(*FragColor) = byte4(255, 255, 255);
+	return;
+	}
+	else{
+	(*FragColor) = byte4(0, 0, 0);
+	return;
+	}
+	return;
+	}
+	float shadowResult = 1.0f;
 	if (diff != 0){
 	vec3 uv = shadowProj * (shadowRot * ((*pos) - shadowPos));
 	float src = shadowProj.farZ - textureNEAREST<float>(shadowMap, int2(uv.x, uv.y));
 	if (uv.z > src + shadowBias){
-	diff = 0;
+	shadowResult = 0.0f;
 	}
 	}
 	vec3 diffuse = lightColor * diff;
-	vec3 result = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * (ambient + diffuse) * (1.0f - (*ssao));
+	vec3 viewDir = normalize(viewPos - (*pos));
+	float spec = 0;
+	if (false){
+	vec3 halfwayDir = normalize(lightDir + viewDir);
+	spec = powf(max(dot((*norm), halfwayDir), 0.0f), 32);
+	}
+	else{
+	vec3 reflectDir = reflect(-lightDir, (*norm));
+	spec = powf(max(dot(viewDir, reflectDir), 0.0f), 32);
+	}
+	vec3 specular = lightColor * specularStrength * spec;
+	vec3 result = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * (ambient + ((diffuse + specular) * shadowResult)) * (1.0f - (*ssao));
+	if (result.x > 255) result.x = 255;
+	if (result.y > 255) result.y = 255;
+	if (result.z > 255) result.z = 255;
 	(*FragColor) = byte4(result.x, result.y, result.z);
 	
 }
@@ -41,8 +135,18 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 	fcpy((char*)(&uniform_3), (char*)UniformPointer + 96, 36);
 	vec3 uniform_4;
 	fcpy((char*)(&uniform_4), (char*)UniformPointer + 132, 12);
-	float uniform_5;
-	fcpy((char*)(&uniform_5), (char*)UniformPointer + 144, 4);
+	vec3 uniform_5;
+	fcpy((char*)(&uniform_5), (char*)UniformPointer + 144, 12);
+	float uniform_6;
+	fcpy((char*)(&uniform_6), (char*)UniformPointer + 156, 4);
+	vec3 uniform_7;
+	fcpy((char*)(&uniform_7), (char*)UniformPointer + 160, 12);
+	vec3 uniform_8;
+	fcpy((char*)(&uniform_8), (char*)UniformPointer + 172, 12);
+	vec3 uniform_9;
+	fcpy((char*)(&uniform_9), (char*)UniformPointer + 184, 12);
+	vec3 uniform_10;
+	fcpy((char*)(&uniform_10), (char*)UniformPointer + 196, 12);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
@@ -55,10 +159,12 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		float* ptr_3 = (float*)(ptrPtrs[3] + wPos * 4);
 
-		byte4* ptr_4 = (byte4*)(ptrPtrs[4] + wPos * 4);
+		float* ptr_4 = (float*)(ptrPtrs[4] + wPos * 4);
 
-		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3, ++ptr_4){
-			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, ptr_4, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5);
+		byte4* ptr_5 = (byte4*)(ptrPtrs[5] + wPos * 4);
+
+		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3, ++ptr_4, ++ptr_5){
+			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, ptr_4, ptr_5, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10);
 		}
 	}
 }

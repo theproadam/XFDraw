@@ -14,13 +14,18 @@ uniform sampler1D kernel;
 uniform sampler2D depth;
 uniform float bias;
 uniform float ssao_power;
+uniform int FrameCount;
 
 void main()
 {
 	int offset = (int)gl_FragCoord.y % 2 == 0 ? 1 : 0;
+	int offsetX = FrameCount;
 
-	//if ((int)(gl_FragCoord.x + offset) % 2 == 0)
-	//	return;
+	if ((int)(gl_FragCoord.x + offset + FrameCount) % 2 == 0)
+		return;
+
+	//ssao_buffer = 0.5f;
+//	return;
 
 	vec3 camSpace = cameraRot * (frag_pos - cameraPos);
 	float occlusion = 0.0f;

@@ -15,3 +15,4 @@ C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\planeFS_shadow.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\volumetric_fog.cpp
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\ssao.cpp
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\ShadowMappingDemo\bin\Debug\fxaa.cpp

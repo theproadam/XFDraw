@@ -178,6 +178,12 @@ struct byte4
 		R = 0;
 		A = 0;
 	}
+
+
+	vec3 xyz()
+	{
+		return vec3(R * 0.00392156862745f, G * 0.00392156862745f, B * 0.00392156862745f);
+	}
 };
 
 struct int2

@@ -15,9 +15,9 @@ float ComputeScattering(float lightDotView){
 	
 }
 
-inline void shaderMethod(vec3* world_pos, byte4* FragColor, int NB_STEPS, float MAX_LENGTH, vec3 camera_pos, mat3 shadow_rot, vec3 shadow_pos, vec3 shadow_dir, GLMatrix shadow_proj, sampler2D shadow_map, float ray_bias, sampler2D noiseMap, float noiseX, float noiseY, vec3 gl_FragCoord){
+inline void shaderMethod(vec3* world_pos, byte4* FragColor, int NB_STEPS, float MAX_LENGTH, vec3 camera_pos, mat3 shadow_rot, vec3 shadow_pos, vec3 shadow_dir, GLMatrix shadow_proj, sampler2D shadow_map, float ray_bias, sampler2D noiseMap, float NB_STEPS_INV, float noiseX, float noiseY, vec3 gl_FragCoord){
 	if ((*world_pos).x == 0 && (*world_pos).y == 0 && (*world_pos).z == 0)return;
-	float step_length = MAX_LENGTH / (float)NB_STEPS;
+	float step_length = MAX_LENGTH * NB_STEPS_INV;
 	vec3 ray_direction = normalize(camera_pos - (*world_pos));
 	vec3 step_size = ray_direction * step_length;
 	const float ditherPattern[4][4] = {
@@ -45,7 +45,7 @@ inline void shaderMethod(vec3* world_pos, byte4* FragColor, int NB_STEPS, float 
 	}
 	ray_pos = ray_pos + step_size;
 	}
-	f_power = f_power * (1.0f / NB_STEPS);
+	f_power = f_power * NB_STEPS_INV;
 	(*FragColor) = byte4((*FragColor).R + f_power * 10.0f, (*FragColor).G + f_power * 10.0f, (*FragColor).B + f_power * 10.0f);
 	
 }
@@ -74,6 +74,8 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 	fcpy((char*)(&uniform_10), (char*)UniformPointer + 196, 4);
 	float uniform_11;
 	fcpy((char*)(&uniform_11), (char*)UniformPointer + 200, 4);
+	float uniform_12;
+	fcpy((char*)(&uniform_12), (char*)UniformPointer + 204, 4);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
@@ -84,7 +86,7 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		vec3 gl_FragCoord = vec3(0, h, 0);
 		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++gl_FragCoord.x){
-			shaderMethod(ptr_0, ptr_1, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10, uniform_11, gl_FragCoord);
+			shaderMethod(ptr_0, ptr_1, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10, uniform_11, uniform_12, gl_FragCoord);
 		}
 	}
 }
