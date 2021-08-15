@@ -3,12 +3,12 @@
 
 #include "xfconfig.cpp"
 
-float powf(float value, int count);
-float max(float a, float b);
-float distSquared(vec3 a, vec3 b);
+inline float powf(float value, int count);
+inline float max(float a, float b);
+inline byte4 textureNEARESTTest(samplerCube inputCubemap, vec3 dir);
 
 
-float powf(float value, int count){
+inline float powf(float value, int count){
 	if (count == 0) return 1.0f;
 	else if (count == 1) return value;
 	else if (count == 2) return value * value;
@@ -54,48 +54,73 @@ float powf(float value, int count){
 	else return 1.0f;
 	
 }
-float max(float a, float b){
+inline float max(float a, float b){
 	if (a < b) return b;
 	else return a;
 	
 }
-float distSquared(vec3 a, vec3 b){
-	float x = a.x - b.x;
-	float y = a.y - b.y;
-	float z = a.z - b.z;
-	return x * x + y * y + z * z;
+inline byte4 textureNEARESTTest(samplerCube inputCubemap, vec3 dir){
+	int face;
+	vec2 uv = Cubemap_UVFace(dir, face);
+	if (face == 1) {
+	face = 0;
+	}
+	else if (face == 0) {
+	face = 1;
+	}
+	uv.x = 1.0f - uv.x;
+	if (uv.x > 1) uv.x = 1;
+	else if (uv.x < 0) uv.x = 0;
+	if (uv.y > 1) uv.y = 1;
+	else if (uv.y < 0) uv.y = 0;
+	int X = uv.x * (inputCubemap.width - 1);
+	int Y = uv.y * (inputCubemap.height - 1);
+	if (face == 0){
+	return inputCubemap.right[X + Y * inputCubemap.width];
+	}
+	else if (face == 1){
+	return inputCubemap.left[X + Y * inputCubemap.width];
+	}
+	else if (face == 2){
+	return inputCubemap.top[X + Y * inputCubemap.width];
+	}
+	else if (face == 3){
+	return inputCubemap.bottom[X + Y * inputCubemap.width];
+	}
+	else if (face == 4){
+	return inputCubemap.front[X + Y * inputCubemap.width];
+	}
+	else if (face == 5){
+	return inputCubemap.back[X + Y * inputCubemap.width];
+	}
 	
 }
 
-inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, float* ssao, float* spec_power, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, vec3 viewPos, float shadowBias, vec3 reflectPos1, vec3 reflectPos2, vec3 reflectPos3, vec3 reflectPos4){
+inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, float* ssao, float* spec_power, int* reflection_index, byte4* FragColor, vec3 lightDir, sampler2D shadowMap, GLMatrix shadowProj, mat3 shadowRot, vec3 shadowPos, vec3 viewPos, float shadowBias, samplerCube reflect1, samplerCube reflect2, samplerCube reflect3, samplerCube reflect4, vec3 reflectPos1, vec3 reflectPos2, vec3 reflectPos3, vec3 reflectPos4){
 	if (*((int*)&((*objectColor))) == 0)return;
-	const float ambientStrength = 0.1f;
+	const float ambientStrength = 0.2f;
 	float specularStrength = (*spec_power);
 	vec3 lightColor = vec3(0.8f, 0.8f, 0.8f);
 	vec3 ambient = lightColor * ambientStrength;
 	float diff = max(dot((*norm), lightDir), 0.0);
-	if (true){
-	float dist1 = distSquared((*pos), reflectPos1);
-	float dist2 = distSquared((*pos), reflectPos2);
-	float dist3 = distSquared((*pos), reflectPos3);
-	float dist4 = distSquared((*pos), reflectPos4);
-	if (dist1 < dist2 && dist1 < dist3 && dist1 < dist4){
-	(*FragColor) = byte4(255, 0, 0);
-	return;
+	vec3 objColr = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * 0.00392156862745f;
+	if ((*reflection_index) != 0){
+	byte4 result;
+	vec3 I = ((*pos) - viewPos);
+	vec3 R = reflect(I, (*norm));
+	if ((*reflection_index) == 1){
+	result = textureNEARESTTest(reflect1, R);
 	}
-	else if (dist2 < dist1 && dist2 < dist3 && dist2 < dist4){
-	(*FragColor) = byte4(255, 255, 0);
-	return;
+	else if ((*reflection_index) == 2){
+	result = textureNEARESTTest(reflect2, R);
 	}
-	else if (dist3 < dist1 && dist3 < dist2 && dist3 < dist4){
-	(*FragColor) = byte4(255, 255, 255);
-	return;
+	else if ((*reflection_index) == 3){
+	result = textureNEARESTTest(reflect3, R);
 	}
 	else{
-	(*FragColor) = byte4(0, 0, 0);
-	return;
+	result = textureNEARESTTest(reflect4, R);
 	}
-	return;
+	objColr = objColr * (1.0f - specularStrength) + result.xyz() * specularStrength;
 	}
 	float shadowResult = 1.0f;
 	if (diff != 0){
@@ -117,7 +142,7 @@ inline void shaderMethod(vec3* pos, vec3* norm, byte4* objectColor, float* ssao,
 	spec = powf(max(dot(viewDir, reflectDir), 0.0f), 32);
 	}
 	vec3 specular = lightColor * specularStrength * spec;
-	vec3 result = vec3((*objectColor).R, (*objectColor).G, (*objectColor).B) * (ambient + ((diffuse + specular) * shadowResult)) * (1.0f - (*ssao));
+	vec3 result = objColr * (ambient + ((diffuse + specular) * shadowResult)) * (1.0f - (*ssao)) * 255.0f;
 	if (result.x > 255) result.x = 255;
 	if (result.y > 255) result.y = 255;
 	if (result.z > 255) result.z = 255;
@@ -139,14 +164,22 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 	fcpy((char*)(&uniform_5), (char*)UniformPointer + 144, 12);
 	float uniform_6;
 	fcpy((char*)(&uniform_6), (char*)UniformPointer + 156, 4);
-	vec3 uniform_7;
-	fcpy((char*)(&uniform_7), (char*)UniformPointer + 160, 12);
-	vec3 uniform_8;
-	fcpy((char*)(&uniform_8), (char*)UniformPointer + 172, 12);
-	vec3 uniform_9;
-	fcpy((char*)(&uniform_9), (char*)UniformPointer + 184, 12);
-	vec3 uniform_10;
-	fcpy((char*)(&uniform_10), (char*)UniformPointer + 196, 12);
+	samplerCube uniform_7;
+	fcpy((char*)(&uniform_7), (char*)UniformPointer + 160, 44);
+	samplerCube uniform_8;
+	fcpy((char*)(&uniform_8), (char*)UniformPointer + 204, 44);
+	samplerCube uniform_9;
+	fcpy((char*)(&uniform_9), (char*)UniformPointer + 248, 44);
+	samplerCube uniform_10;
+	fcpy((char*)(&uniform_10), (char*)UniformPointer + 292, 44);
+	vec3 uniform_11;
+	fcpy((char*)(&uniform_11), (char*)UniformPointer + 336, 12);
+	vec3 uniform_12;
+	fcpy((char*)(&uniform_12), (char*)UniformPointer + 348, 12);
+	vec3 uniform_13;
+	fcpy((char*)(&uniform_13), (char*)UniformPointer + 360, 12);
+	vec3 uniform_14;
+	fcpy((char*)(&uniform_14), (char*)UniformPointer + 372, 12);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
@@ -161,10 +194,12 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		float* ptr_4 = (float*)(ptrPtrs[4] + wPos * 4);
 
-		byte4* ptr_5 = (byte4*)(ptrPtrs[5] + wPos * 4);
+		int* ptr_5 = (int*)(ptrPtrs[5] + wPos * 4);
 
-		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3, ++ptr_4, ++ptr_5){
-			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, ptr_4, ptr_5, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10);
+		byte4* ptr_6 = (byte4*)(ptrPtrs[6] + wPos * 4);
+
+		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++ptr_3, ++ptr_4, ++ptr_5, ++ptr_6){
+			shaderMethod(ptr_0, ptr_1, ptr_2, ptr_3, ptr_4, ptr_5, ptr_6, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10, uniform_11, uniform_12, uniform_13, uniform_14);
 		}
 	}
 }

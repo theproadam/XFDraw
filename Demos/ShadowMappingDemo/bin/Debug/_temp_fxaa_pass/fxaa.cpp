@@ -40,14 +40,12 @@ void main()
 	const float FXAA_REDUCE_MIN = 1.0f / 128.0f;
 
 	vec2 screenXY = vec2(gl_FragCoord);
-	byte4 cPixel = currentPixel;
 
-	vec3 rgbM = vec3(cPixel.R * 0.00392156862745f, cPixel.G * 0.00392156862745f, cPixel.B * 0.00392156862745f);
-	vec3 rgbNW = texture(src, screenXY + vec2(-1.0f, 0.0f)).xyz();
-	vec3 rgbNE = texture(src, screenXY + vec2(1.0f, 0.0f)).xyz();
-	vec3 rgbSW = texture(src, screenXY + vec2(0.0f, 1.0f)).xyz();
-	vec3 rgbSE = texture(src, screenXY + vec2(0.f, -1.0f)).xyz();
-	
+	vec3 rgbNW = texture(src, screenXY + vec2(-1.0f, -1.0f)).xyz();
+	vec3 rgbNE = texture(src, screenXY + vec2(1.0f, -1.0f)).xyz();
+	vec3 rgbSW = texture(src, screenXY + vec2(-1.0f, 1.0f)).xyz();
+	vec3 rgbSE = texture(src, screenXY + vec2(1.0f, 1.0f)).xyz();
+	vec3 rgbM = currentPixel.xyz();
 
 	vec3 luma = vec3(0.299f, 0.587f, 0.114f);
 	float lumaNW = dot(rgbNW, luma);
@@ -61,26 +59,32 @@ void main()
 
 	float range = lumaMax - lumaMin;
 
-	if (range <= 0.5f && range >= 0.06f)
+	if (!(range <= 0.5f && range >= 0.06f))
 	{
-		float delta1 = absf(lumaNW - lumaNE); //horizontal smear
-		float delta2 = absf(lumaSW - lumaSE); //vertical smear
-
-		float norm = 1.0f / (delta1 + delta2);
-		delta1 *= norm;
-		delta2 *= norm;
-
-		float norm1 = 1.0f / (lumaNW + lumaNE);
-		lumaNW *= norm1;
-		lumaNE *= norm1;
-
-	//	FragColor = byte4(255, 255, 255);
-	//	return;
-
-		vec3 val = (rgbNW * 0.5f + rgbNE * 0.5f) * delta2 + (rgbSW * 0.5f + rgbSE * 0.5f) * delta1;// +rgbM * 0.6f;
-		FragColor = byte4(val.x * 255.0f, val.y * 255.0f, val.z * 255.0f);
+		FragColor = currentPixel;
 		return;
 	}
 
-	FragColor = byte4(rgbM.x * 255.0f, rgbM.y * 255.0f, rgbM.z * 255.0f);
+
+	vec2 dir;
+	dir.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
+	dir.y = ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+
+	float dirReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * (0.25f * FXAA_REDUCE_MUL), FXAA_REDUCE_MIN);
+
+	float rcpDirMin = 1.0f / (min(absf(dir.x), absf(dir.y)) + dirReduce);
+
+	dir = min(vec2(FXAA_SPAN_MAX, FXAA_SPAN_MAX), max(vec2(-FXAA_SPAN_MAX, -FXAA_SPAN_MAX), dir * rcpDirMin));
+
+	vec3 rgbA = (texture(src, screenXY + dir * (1.0f / 3.0f - 0.5f)).xyz() + texture(src, screenXY + dir * (2.0f / 3.0f - 0.5f)).xyz()) * (1.0f / 2.0f);
+	vec3 rgbB = rgbA * (1.0f / 2.0f) + (texture(src, screenXY + dir * (0.0f / 3.0f - 0.5f)).xyz() + texture(src, screenXY + dir * (3.0f / 3.0f - 0.5f)).xyz()) * (1.0f / 4.0f);
+
+	float lumaB = dot(rgbB, luma);
+
+	if ((lumaB < lumaMin) || (lumaB > lumaMax)){
+		FragColor = byte4(rgbA.x * 255.0f, rgbA.y * 255.0f, rgbA.z * 255.0f);
+	}
+	else{
+		FragColor = byte4(rgbB.x * 255.0f, rgbB.y * 255.0f, rgbB.z * 255.0f);
+	}
 }

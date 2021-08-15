@@ -15,6 +15,7 @@ uniform sampler2D noiseMap;
 uniform float NB_STEPS_INV;
 uniform float noiseX;
 uniform float noiseY;
+uniform int FrameCount;
 
 float ComputeScattering(float lightDotView)
 {
@@ -31,6 +32,12 @@ void main()
 	if (world_pos.x == 0 && world_pos.y == 0 && world_pos.z == 0)
 		return;
 
+	int offset = (int)gl_FragCoord.y % 2 == 0 ? 1 : 0;
+	int offsetX = FrameCount;
+
+	//if ((int)(gl_FragCoord.x + offset + FrameCount) % 2 == 0)
+//		return;
+
 	float step_length = MAX_LENGTH * NB_STEPS_INV;
 
 	vec3 ray_direction = normalize(camera_pos - world_pos);
@@ -46,6 +53,7 @@ void main()
 	vec3 ray_pos = world_pos + step_size * ditherValue;
 
 	float f_power = 0.0f;
+
 
 	for (int i = 0; i < NB_STEPS; i++)
 	{

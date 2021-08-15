@@ -37,6 +37,12 @@ namespace ShadowMappingDemo
         static float shadowBias = 0.5f;
         static GLTexture noiseMap;
 
+        //Cubemap reflections
+        static Shader basicShaderCubemap;
+        static Shader planeShaderCubemap;
+
+        //saves 1-2ms by not requiring distSquared
+        static GLTexture reflectionIndex;
         static GLCubemap reflect1;
         static GLCubemap reflect2;
         static GLCubemap reflect3;
@@ -120,6 +126,9 @@ namespace ShadowMappingDemo
             normalBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Vector3));
             specularBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
+            //Reflections
+            reflectionIndex = new GLTexture(viewportWidth, viewportHeight, typeof(int));
+
             //FXAA
             fxaaBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
 
@@ -141,17 +150,21 @@ namespace ShadowMappingDemo
             basicShaderShadows = LoadShader("basicVS.cpp", "basicFS_shadow.cpp", "basicShaderShadow");
             lightShader = LoadShader("deferred_pass.cpp", "lightning");
             planeShader = LoadShader("planeVS.cpp", "planeFS.cpp", "planeShader");
-            planeShaderShadows = LoadShader("planeVS.cpp", "planeFS_shadow.cpp", "planeShaderShadow");
+            planeShaderShadows = LoadShader("planeVS.cpp", "planeFS_shadow.cpp", "planeShaderShadow");      
             volumetricFog = LoadShader("volumetric_fog.cpp", "volumetricfog");
             SSAO = LoadShader("ssao.cpp", "ssao_pass");
             FXAA = LoadShader("fxaa.cpp", "fxaa_pass");
-            //windowShader 
 
+            //Reflections
+            basicShaderCubemap = LoadShader("basicVS.cpp", "basicFS_reflection.cpp", "basicShaderReflect");
+            planeShaderCubemap = LoadShader("planeVS.cpp", "planeFS_reflection.cpp", "planeShaderReflect");
+            
             //Link framebuffers to shaders and configure shaders
             basicShader.AssignBuffer("diffuse", diffuseBuffer);
             basicShader.AssignBuffer("normal", normalBuffer);
             basicShader.AssignBuffer("world_pos", worldBuffer);
             basicShader.AssignBuffer("specular", specularBuffer);
+            basicShader.AssignBuffer("reflection_index", reflectionIndex);
 
             basicShader.ConfigureFaceCulling(GLCull.GL_BACK);
 
@@ -160,6 +173,7 @@ namespace ShadowMappingDemo
             lightShader.AssignBuffer("norm", normalBuffer);
             lightShader.AssignBuffer("objectColor", diffuseBuffer);
             lightShader.AssignBuffer("spec_power", specularBuffer);
+            lightShader.AssignBuffer("reflection_index", reflectionIndex);
 
             planeShader.AssignBuffer("diffuse", diffuseBuffer);
             planeShader.AssignBuffer("normal", normalBuffer);
@@ -191,7 +205,7 @@ namespace ShadowMappingDemo
             GenerateNoiseMap(1024, 1024);
 
             //Prepare SSAO shader->
-            ssaoSamples = GenerateSSAONoise(8);
+            ssaoSamples = GenerateSSAONoise(16);
             ssaoBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
 
             SSAO.AssignBuffer("ssao_buffer", ssaoBuffer);
@@ -211,9 +225,22 @@ namespace ShadowMappingDemo
             FXAA.SetValue("src", fxaaBuffer);
             FXAA.AssignBuffer("currentPixel", fxaaBuffer);
 
+            //Create reflection cubemaps
+            reflect1 = CreateCubemap(new Vector3(0, 20, 0), 256);
+            reflect2 = CreateCubemap(new Vector3(70.0f, 20, 0), 256);
+            reflect3 = CreateCubemap(new Vector3(70.0f, 20, -70.0f), 256);
+            reflect4 = CreateCubemap(new Vector3(0, 20, -70.0f), 256);
+
+            lightShader.SetValue("reflect1", reflect1);
+            lightShader.SetValue("reflect2", reflect2);
+            lightShader.SetValue("reflect3", reflect3);
+            lightShader.SetValue("reflect4", reflect4);
+
+
+
             //Preset camera position
-            inputManager.cameraPosition = new Vector3(-52.6f, 52.1984f, -122.77f);
-            inputManager.cameraRotation = new Vector3(0, 13.8f, 45.5f);
+         //   inputManager.cameraPosition = new Vector3(-52.6f, 52.1984f, -122.77f);
+         //   inputManager.cameraRotation = new Vector3(0, 13.8f, 45.5f);
 
             //Create FPS Counter->
             Timer fpsTimer = new Timer();
@@ -259,6 +286,7 @@ namespace ShadowMappingDemo
             GL.Clear(depthBuffer);
             GL.Clear(diffuseBuffer);
             worldBuffer.Clear();
+            reflectionIndex.Clear();
 
             sw.Stop();
             frametimeCount.Add("[Pass] Clear: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
@@ -291,27 +319,33 @@ namespace ShadowMappingDemo
             //Draw four Teapots:
             basicShader.SetValue("objectPos", new Vector3(0, 0, 0));
             basicShader.SetValue("objectColor", new Vector3(0.2f, 0.45f, 0.125f));
-            basicShader.SetValue("specular_value", 0.0f);          
+            basicShader.SetValue("specular_value", 0.1f);
+            basicShader.SetValue("reflectionData", (int)1);
             GL.Draw(teapotObject, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             basicShader.SetValue("objectPos", new Vector3(70.0f, 0, 0));
             basicShader.SetValue("objectColor", new Vector3(0.45f, 0.2f, 0.125f));
-            basicShader.SetValue("specular_value", 0.5f);   
+            basicShader.SetValue("specular_value", 0.5f);
+            basicShader.SetValue("reflectionData", (int)2);
             GL.Draw(teapotObject, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             basicShader.SetValue("objectPos", new Vector3(70.0f, 0, -70.0f));
             basicShader.SetValue("objectColor", new Vector3(0.45f, 0.125f, 0.2f));
-            basicShader.SetValue("specular_value", 0.8f); 
+            basicShader.SetValue("specular_value", 0.8f);
+            basicShader.SetValue("reflectionData", (int)3);
             GL.Draw(teapotObject, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             basicShader.SetValue("objectPos", new Vector3(0, 0, -70.0f));
             basicShader.SetValue("objectColor", new Vector3(0.125f, 0.2f, 0.45f));
-            basicShader.SetValue("specular_value", 0.3f); 
+            basicShader.SetValue("specular_value", 0.3f);
+            basicShader.SetValue("reflectionData", (int)4);
             GL.Draw(teapotObject, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             sw.Stop();
             frametimeCount.Add("[Draw] Teapots: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
             sw.Restart();
+
+            basicShader.SetValue("reflectionData", 0);
 
             //Draw the window
             basicShader.SetValue("objectPos", new Vector3(0.0f, 0.0f, 0.0f));
@@ -349,13 +383,32 @@ namespace ShadowMappingDemo
 
             lightShader.AssignBuffer("FragColor", enableFXAA ? fxaaBuffer : colorBuffer);
 
+         
+
             GL.Pass(lightShader);
 
             sw.Stop();
             frametimeCount.Add("[Pass] Lightning: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
             sw.Restart();
 
-            volumetricFog.AssignBuffer("FragColor", enableFXAA ? fxaaBuffer : colorBuffer);
+
+            FXAA.AssignBuffer("FragColor", colorBuffer);
+           // if (enableFXAA) FXAA.Pass();
+
+            if (enableFXAA)
+            {
+                GLFast.FastFXAA(colorBuffer, fxaaBuffer);
+            }
+
+
+
+            sw.Stop();
+            frametimeCount.Add("[Pass] FXAA: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
+            sw.Restart();
+
+
+         //   volumetricFog.SetValue("FrameCount", FramesRendered);
+            volumetricFog.AssignBuffer("FragColor", colorBuffer);
             volumetricFog.SetValue("camera_pos", cameraPosition);
          //   volumetricFog.Pass();
 
@@ -363,19 +416,12 @@ namespace ShadowMappingDemo
             frametimeCount.Add("[Pass] Fog: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
             sw.Restart();
 
-            FXAA.AssignBuffer("FragColor", colorBuffer);
-            if (enableFXAA) FXAA.Pass();
-
-            sw.Stop();
-            frametimeCount.Add("[Pass] FXAA: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
-            sw.Restart();
-
             DrawText();
 
             GL.Blit(colorBuffer, formData);
 
-            Console.Title = "Frametime: " + deltaT;
-         //   Console.Title = "camPos: " + cameraPosition.ToString() + ", camRot: " + inputManager.cameraRotation.ToString();
+         //   Console.Title = "Frametime: " + deltaT;
+            Console.Title = "camPos: " + cameraPosition.ToString() + ", camRot: " + inputManager.cameraRotation.ToString();
             FramesRendered++;
         }
 
@@ -477,6 +523,105 @@ namespace ShadowMappingDemo
             GLExtra.BlitFromBitmap(infoBitmap, colorBuffer, new Point(0, colorBuffer.Height - 400), new Rectangle(0, 0, 400, 400));
 
             frametimeCount.Clear();
+        }
+
+        static GLCubemap CreateCubemap(Vector3 location, int res)
+        {
+            GLTexture front = new GLTexture(res, res, typeof(Color4));
+            GLTexture back = new GLTexture(res, res, typeof(Color4));
+            GLTexture left = new GLTexture(res, res, typeof(Color4));
+            GLTexture right = new GLTexture(res, res, typeof(Color4));
+            GLTexture top = new GLTexture(res, res, typeof(Color4));
+            GLTexture bottom = new GLTexture(res, res, typeof(Color4));
+
+            GL.Clear(front, new Color4(126, 127, 255));
+            GL.Clear(back, new Color4(126, 127, 255));
+            GL.Clear(left, new Color4(126, 127, 255));
+            GL.Clear(right, new Color4(126, 127, 255));
+            GL.Clear(top, new Color4(126, 127, 255));
+            GL.Clear(bottom, new Color4(126, 127, 255));
+
+
+            GLCubemap result = new GLCubemap(front, back, left, right, top, bottom);          
+            GLMatrix projMat = GLMatrix.Perspective(90f, 90f); //90 hfov 90 vfov
+
+            //will be reused 6 times!
+            GLTexture depth = new GLTexture(res, res, typeof(float));
+
+            //setup basicShaderCubemap
+            basicShaderCubemap.SetValue("lightDir", Vector3.Normalize(new Vector3(0, 120.0f, 224.0f)));
+            basicShaderCubemap.ConfigureFaceCulling(GLCull.GL_BACK);
+            planeShaderCubemap.SetValue("lightDir", Vector3.Normalize(new Vector3(0, 120.0f, 224.0f)));
+
+            planeShaderCubemap.SetValue("albedoTexture", cobbleDiffuse);
+            planeShaderCubemap.SetValue("normalTexture", cobbleNormal);
+            planeShaderCubemap.SetValue("textureSize", new Vector2(cobbleDiffuse.Width, cobbleDiffuse.Height));
+
+            //Create basic render delegate
+            Action<GLBuffer,Matrix3x3, Vector3, GLTexture, Vector3> drawBasic = delegate(GLBuffer buff, Matrix3x3 rot, Vector3 pos, GLTexture dest, Vector3 col) {
+                if (location.x == pos.x && location.z == pos.z && buff != windowObject)
+                    return;
+
+                basicShaderCubemap.AssignBuffer("FragColor", dest);
+                basicShaderCubemap.SetValue("objectColor", col);
+                basicShaderCubemap.SetValue("cameraPos", location);
+                basicShaderCubemap.SetValue("cameraRot", rot);
+                basicShaderCubemap.SetValue("objectPos", pos);
+
+                GL.Draw(buff, basicShaderCubemap, depth, projMat, GLMode.Triangle);
+            };
+            
+            //create plane render delegate
+            Action<Matrix3x3, GLTexture> drawPlane = delegate(Matrix3x3 rot, GLTexture dest)
+            {
+
+                planeShaderCubemap.SetValue("objectPos", new Vector3(-55.0f, 0.0f, -125.0f));
+                planeShaderCubemap.SetValue("cameraPos", location);
+                planeShaderCubemap.SetValue("cameraRot", rot);
+                planeShaderCubemap.AssignBuffer("FragColor", dest);
+
+                GL.Draw(planeObject, planeShaderCubemap, depth, projMat, GLMode.Triangle);
+                depth.Clear();
+            };
+
+            //create face render delegate
+            Action<Matrix3x3, GLTexture> drawFace = delegate(Matrix3x3 rotMat, GLTexture dest)
+            {
+                drawBasic(teapotObject, rotMat, new Vector3(0, 0, 0), dest, new Vector3(0.2f, 0.45f, 0.125f));
+                drawBasic(teapotObject, rotMat, new Vector3(70.0f, 0, 0), dest, new Vector3(0.45f, 0.2f, 0.125f));
+                drawBasic(teapotObject, rotMat, new Vector3(70.0f, 0, -70.0f), dest, new Vector3(0.45f, 0.125f, 0.2f));
+                drawBasic(teapotObject, rotMat, new Vector3(0, 0, -70.0f), dest, new Vector3(0.125f, 0.2f, 0.45f));
+                drawBasic(windowObject, rotMat, new Vector3(0.0f, 0.0f, 0.0f), dest, new Vector3(0.25f, 0.25f, 0.25f));
+                
+            };
+
+            Matrix3x3 mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(0);
+            drawFace(mat3, front);
+            drawPlane(mat3, front);
+
+            mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(180f);
+            drawFace(mat3, back);
+            drawPlane(mat3, back);
+
+            mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(-90f);
+            drawFace(mat3, left);
+            drawPlane(mat3, left);
+
+            mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(90f);
+            drawFace(mat3, right);
+            drawPlane(mat3, right);
+
+            mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(-90) * Matrix3x3.PitchMatrix(0);
+            drawFace(mat3, bottom);
+            drawPlane(mat3, bottom);
+
+            mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(90) * Matrix3x3.PitchMatrix(0);
+            drawFace(mat3, top);
+            drawPlane(mat3, top);
+
+
+
+            return result;
         }
 
         static void GenerateShadowMap(GLTexture map)

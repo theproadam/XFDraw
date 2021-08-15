@@ -15,8 +15,10 @@ float ComputeScattering(float lightDotView){
 	
 }
 
-inline void shaderMethod(vec3* world_pos, byte4* FragColor, int NB_STEPS, float MAX_LENGTH, vec3 camera_pos, mat3 shadow_rot, vec3 shadow_pos, vec3 shadow_dir, GLMatrix shadow_proj, sampler2D shadow_map, float ray_bias, sampler2D noiseMap, float NB_STEPS_INV, float noiseX, float noiseY, vec3 gl_FragCoord){
+inline void shaderMethod(vec3* world_pos, byte4* FragColor, int NB_STEPS, float MAX_LENGTH, vec3 camera_pos, mat3 shadow_rot, vec3 shadow_pos, vec3 shadow_dir, GLMatrix shadow_proj, sampler2D shadow_map, float ray_bias, sampler2D noiseMap, float NB_STEPS_INV, float noiseX, float noiseY, int FrameCount, vec3 gl_FragCoord){
 	if ((*world_pos).x == 0 && (*world_pos).y == 0 && (*world_pos).z == 0)return;
+	int offset = (int)gl_FragCoord.y % 2 == 0 ? 1 : 0;
+	int offsetX = FrameCount;
 	float step_length = MAX_LENGTH * NB_STEPS_INV;
 	vec3 ray_direction = normalize(camera_pos - (*world_pos));
 	vec3 step_size = ray_direction * step_length;
@@ -76,6 +78,8 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 	fcpy((char*)(&uniform_11), (char*)UniformPointer + 200, 4);
 	float uniform_12;
 	fcpy((char*)(&uniform_12), (char*)UniformPointer + 204, 4);
+	int uniform_13;
+	fcpy((char*)(&uniform_13), (char*)UniformPointer + 208, 4);
 
 #pragma omp parallel for
 	for (int h = 0; h < Height; ++h){
@@ -86,7 +90,7 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		vec3 gl_FragCoord = vec3(0, h, 0);
 		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++gl_FragCoord.x){
-			shaderMethod(ptr_0, ptr_1, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10, uniform_11, uniform_12, gl_FragCoord);
+			shaderMethod(ptr_0, ptr_1, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10, uniform_11, uniform_12, uniform_13, gl_FragCoord);
 		}
 	}
 }
