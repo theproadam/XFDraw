@@ -18,6 +18,9 @@ namespace xfcore.Performance
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void DrawSkybox(float* tris, int* iptr, int skyBoxWidth, GLData projData, Matrix3x3 rotMatrix, float** sptr, int* bsptr, int** txptr, float* sdptr);
 
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void FXAA_PASS(int* TargetBuffer, int* SourceBuffer, int width, int height);
+
 
         public static void VignetteMultiply(GLTexture Target, GLTexture Multiplier)
         {
@@ -98,5 +101,31 @@ namespace xfcore.Performance
             colorBuffer.ReleaseLock();
         }
 
+        public static void FastFXAA(GLTexture outputBuffer, GLTexture inputBuffer)
+        {
+            outputBuffer.RequestLock();
+            inputBuffer.RequestLock();
+
+            if (outputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Width != outputBuffer.Width)
+                throw new Exception("Input and output buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height)
+                throw new Exception("Input and output buffer heights are not the same!");
+
+            //easier for debugging, -> breakpoint step in doesnt go to GetAddress();
+            int* addr1 = (int*)outputBuffer.GetAddress();
+            int* addr2 = (int*)inputBuffer.GetAddress();
+
+            FXAA_PASS(addr1, addr2, inputBuffer.Width, inputBuffer.Height);
+
+            outputBuffer.ReleaseLock();
+            inputBuffer.ReleaseLock();
+        }
     }
 }

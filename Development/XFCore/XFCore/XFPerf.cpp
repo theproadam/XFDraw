@@ -4,6 +4,7 @@
 #include <ppl.h>
 #include <atomic>
 
+
 using namespace Concurrency;
 
 #define byte unsigned char
@@ -752,6 +753,12 @@ void SkyPass(int i, int* iptr, int renderWidth, int* bsptr, int skyboxSize, floa
 	}
 }
 
+inline float absf(float val)
+{
+	return val > 0 ? val : -val;
+}
+
+#define byteToRGB 0.00392156862745f
 
 extern "C"
 {
@@ -925,6 +932,104 @@ extern "C"
 	__declspec(dllexport) void SSR_PASS(int* TargetBuffer, vec3* norm_data, vec3* pos_data, long count, long Width, long Height)
 	{
 		
+	}
+
+	__declspec(dllexport) void ResizeFast(int* TargetBuffer, int* SourceBuffer, long wDest, long hDest, long wSrc, long hSrc, long mode)
+	{
+		float factor_x = (float)wSrc / (float)wDest;
+		float factor_y = (float)hSrc / (float)hDest;
+
+#pragma omp parallel for
+		for (int h = 0; h < hDest; ++h)
+		{
+			int* dest = (int*)(TargetBuffer + wDest * h);
+			int* src = (int*)(TargetBuffer + wSrc * (int)(h * factor_y));
+
+			for (int w = 0; w < wDest; ++w)
+			{
+				dest[w] = src[(int)(w * factor_x)];
+			}
+		}
+
+	}
+
+	__declspec(dllexport) void FXAA_PASS(int* TargetBuffer, int* SourceBuffer, long width, long height)
+	{
+		int wsD = width * 4;
+
+#pragma omp parallel for
+		for (int h = 1; h < height - 1; h++)
+		{
+			unsigned char* bptr = (unsigned char*)SourceBuffer + h * wsD + 4;
+			int* tBuf = TargetBuffer + h * width;
+			int* sBuf = SourceBuffer + h * width;
+
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+
+			int Ydelta;
+			int Xdelta;
+
+			for (int w = 1; w < width - 1; w++, bptr+=4, tBuf++, sBuf++)
+			{
+				vec3 rgbM = vec3(bptr[2] * 0.00392156862745f, bptr[1] * 0.00392156862745f, bptr[0] * 0.00392156862745f);	
+				vec3 rgbNE = vec3(bptr[2 + 4] * byteToRGB, bptr[1 + 4] * byteToRGB, bptr[0 + 4] * byteToRGB);
+				vec3 rgbNW = vec3(bptr[2 - 4] * byteToRGB, bptr[1 - 4] * byteToRGB, bptr[0 - 4] * byteToRGB);
+				vec3 rgbSW = vec3(bptr[2 + wsD] * byteToRGB, bptr[1 + wsD] * byteToRGB, bptr[0 + wsD] * byteToRGB);
+				vec3 rgbSE = vec3(bptr[2 - wsD] * byteToRGB, bptr[1 - wsD] * byteToRGB, bptr[0 - wsD] * byteToRGB);
+
+				vec3 luma = vec3(0.299f, 0.587f, 0.114f);
+				float lumaNW = dot(rgbNW, luma);
+				float lumaNE = dot(rgbNE, luma);
+				float lumaSW = dot(rgbSW, luma);
+				float lumaSE = dot(rgbSE, luma);
+				float lumaM = dot(rgbM, luma);
+
+				float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+				float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+
+				float range = lumaMax - lumaMin;
+
+				if (range <= 0.5f && range >= 0.06f)
+				{
+					float delta1 = absf(lumaNW - lumaNE); //horizontal smear
+					float delta2 = absf(lumaSW - lumaSE); //vertical smear
+
+					float norm = 1.0f / (delta1 + delta2);
+					delta1 *= norm;
+					delta2 *= norm;
+
+					vec3 val = (rgbNW * 0.5f + rgbNE * 0.5f) * delta2 + (rgbSW * 0.5f + rgbSE * 0.5f) * delta1;// +rgbM * 0.6f;
+
+					((unsigned char*)tBuf)[0] = val.z * 255.0f;
+					((unsigned char*)tBuf)[1] = val.y * 255.0f;
+					((unsigned char*)tBuf)[2] = val.x * 255.0f;
+
+					continue;
+				}
+				tBuf[0] = sBuf[0];
+			}
+
+			tBuf[0] = sBuf[0];
+
+		}
+
+		//these loops could theoretically be parallelized
+
+		for (int w = 0; w < width - 1; w++)
+		{
+			TargetBuffer[w] = SourceBuffer[w];
+		}
+
+		int offset = (height - 1) * width;
+
+
+		for (int w = 0; w < width; w++)
+		{
+			TargetBuffer[offset + w] = SourceBuffer[offset + w];
+		}
+
 	}
 
 }

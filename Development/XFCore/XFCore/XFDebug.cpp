@@ -1131,8 +1131,8 @@ void FillDebug(int index, float* p, int* iptr, float* dptr, int iColor, int stri
 	if (FACE_CULL == 1 || FACE_CULL == 2)
 	{
 		float A = BACKFACECULL3(VERTEX_DATA);
-		if (FACE_CULL == 2 && A > 0) return RETURN_VALUE;
-		else if (FACE_CULL == 1 && A < 0) return RETURN_VALUE;
+		if (FACE_CULL == 2 && A >= 0) return RETURN_VALUE;
+		else if (FACE_CULL == 1 && A <= 0) return RETURN_VALUE;
 	}
 
 	if (yMax >= RH) yMax = RH - 1;
@@ -1201,11 +1201,17 @@ void FillDebug(int index, float* p, int* iptr, float* dptr, int iColor, int stri
 				s = farZ - (1.0f / zBegin - oValue);
 				zBegin += slopeZ;
 
-				if (Z_fptr[o] > s) continue;
+				if (Z_fptr[o] > s - 0.1f) continue;
 
 				//RGB_iptr++;
 				Z_fptr[o] = s;
-				RGB_iptr[o] = s * 2;				
+			//	RGB_iptr[o] = s * 2;	
+				unsigned char* v = (unsigned char*)(RGB_iptr + o);
+				v[0] = v[0] * 0.55f + 255.0f * 0.45f;
+				v[1] = v[1] * 0.55f + 255.0f * 0.45f;
+				v[2] = v[2] * 0.55f + 255.0f * 0.45f;
+
+				
 			}
 
 		}
