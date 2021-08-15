@@ -13,6 +13,9 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### Skybox + Cubemap Example ~3ms (>30ms if the viewport is filled due to forward rendering)
 ![Phong Shader Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapoReflections.png)
 
+#### XFDraw included demo. Parallax Mapping + Volumetric Fog + SSAO + FXAA + Deferred rendering
+![XFDemo](https://github.com/theproadam/XFDraw/blob/main/Screenshots/Teapots.png)
+
 #### Skybox + Cubemap + Screenspace Reflection ~35ms (50 ray count + inefficient SSR shader)
 ![SSR Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotScreenSpace.png)
 
