@@ -559,7 +559,7 @@ namespace xfcore.Shaders
 
         public void ConfigureDepthTest(bool depthTestEnabled, float ZOffset)
         {
-            
+            throw new NotImplementedException();
         }
 
         public void LinkMSAAConfig(MSAAData MSAA)
@@ -636,6 +636,9 @@ namespace xfcore.Shaders
 
                 for (int i = 0; i < textureSlots.Length; i++)
                     textureSlots[i].ReleaseLock();
+
+                for (int i = 0; i < samplerTextures.Length; i++)
+                    samplerTextures[i].ReleaseLock();
             }
         }
     }

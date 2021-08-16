@@ -16,6 +16,7 @@ namespace xfcore.Buffers
 
         private object ThreadLock = new object();
         private int LocalLockCount = 0;
+
         private int LocalLock = 0; //0 - free, 1 - taken
         private int CriticalLock = 0; //0 - free, 1 - taken
 
@@ -88,6 +89,13 @@ namespace xfcore.Buffers
             }
             else Interlocked.Increment(ref LocalLockCount);
             
+        }
+
+        public void GetLockStatus(out bool CriticalRequested, out bool NonCriticalRequested, out int NonCriticalCount)
+        {
+            NonCriticalRequested = Interlocked.CompareExchange(ref LocalLock, 0, 0) == 0;
+            CriticalRequested = Interlocked.CompareExchange(ref CriticalLock, 0, 0) == 0;
+            NonCriticalCount = Interlocked.CompareExchange(ref LocalLockCount, 0, 0);
         }
 
         internal void ReleaseLock()
