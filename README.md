@@ -10,7 +10,7 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 ### Features
 - Fully programmable fragment shader
 - Programmable vertex shader (Projection is done internally)
-- Hardcoded performance features (FXAA, Vignette)
+- Hardcoded performance features (FXAA, Vignette, Draw Skybox)
 - Dedicated programmable high performance screenspace shaders
 - Tangent, Bitangent normal mapping supported (demo included)
 - Parallax, shadow mapping and volumetric fog supported (demo included)
