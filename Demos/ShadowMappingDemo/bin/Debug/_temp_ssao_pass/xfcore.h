@@ -640,6 +640,19 @@ inline float texture(sampler1D inputBuffer, int index)
 	return inputBuffer.mem_addr[index];
 }
 
+template<typename T>
+inline T texture(sampler1D inputBuffer, int index)
+{
+	const int floatStride = sizeof(T) / 4;
+
+	if (inputBuffer.stride != sizeof(T))
+		return T();
+
+	if (index < 0) index = 0;
+	if (index * floatStride >= inputBuffer.size) index = inputBuffer.size - floatStride;
+
+	return ((T*)inputBuffer.mem_addr)[index];
+}
 
 struct GLMatrix
 {

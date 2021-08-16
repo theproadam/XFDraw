@@ -76,12 +76,13 @@ namespace ShadowMappingDemo
         //Pre FXAA Buffer
         static GLTexture fxaaBuffer;
 
-        static float ssao_range = 15.5f;//1.0f;
-        static float ssao_bias = -3.62f;//1.0f;
+        static float ssao_range = 5.5f;//1.0f;
+        static float ssao_bias = 2.82f;//1.0f;
         static float ssao_power = 4.0f;
 
         static GLTexture ssaoBuffer;
         static GLBuffer ssaoSamples;
+        static GLTexture ssaoNoise;
 
         //Form data
         static Form renderForm;
@@ -131,6 +132,7 @@ namespace ShadowMappingDemo
 
             //FXAA
             fxaaBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
+          
 
             //Initialize the render thread
             RT = new RenderThread(144);
@@ -154,6 +156,7 @@ namespace ShadowMappingDemo
             volumetricFog = LoadShader("volumetric_fog.cpp", "volumetricfog");
             SSAO = LoadShader("ssao.cpp", "ssao_pass");
             FXAA = LoadShader("fxaa.cpp", "fxaa_pass");
+           // blurSSAO = LoadShader("ssao_blur.cpp", "ssao_blurpass");
 
             //Reflections
             basicShaderCubemap = LoadShader("basicVS.cpp", "basicFS_reflection.cpp", "basicShaderReflect");
@@ -217,7 +220,10 @@ namespace ShadowMappingDemo
             SSAO.SetValue("kernel", ssaoSamples);
             SSAO.SetValue("depth", depthBuffer);
 
+            SSAO.SetValue("ssao_noise", ssaoNoise);
+            SSAO.ConfigureTexture("ssao_noise", TextureFiltering.GL_NEAREST, TextureWarp.GL_REPEAT);
             lightShader.AssignBuffer("ssao", ssaoBuffer);
+
 
             //Prepare FXAA
             
@@ -239,8 +245,8 @@ namespace ShadowMappingDemo
 
 
             //Preset camera position
-         //   inputManager.cameraPosition = new Vector3(-52.6f, 52.1984f, -122.77f);
-         //   inputManager.cameraRotation = new Vector3(0, 13.8f, 45.5f);
+            inputManager.cameraPosition = new Vector3(-52.6f, 52.1984f, -122.77f);
+            inputManager.cameraRotation = new Vector3(0, 13.8f, 45.5f);
 
             //Create FPS Counter->
             Timer fpsTimer = new Timer();
@@ -375,7 +381,7 @@ namespace ShadowMappingDemo
             volumetricFog.SetValue("noiseX", 4.0f * (float)FramesRendered);
             volumetricFog.SetValue("noiseY", 4.0f * (float)FramesRendered);
 
-        //    SSAO.Pass();
+            SSAO.Pass();
 
             sw.Stop();
             frametimeCount.Add("[Pass] SSAO: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
@@ -458,11 +464,11 @@ namespace ShadowMappingDemo
 
             if (e.KeyCode == Keys.B)
             {
-                ssao_range += 5f;
+                ssao_range += 1f;
             }
             else if (e.KeyCode == Keys.V)
             {
-                ssao_range -= 5f;
+                ssao_range -= 1f;
             }
 
             if (e.KeyCode == Keys.L)
@@ -764,20 +770,36 @@ namespace ShadowMappingDemo
             for (int i = 0; i < bufferSize; i++)
             {
                 Vector3 sample =  new Vector3((float)rnd.NextDouble() * 2f - 1f, (float)rnd.NextDouble() * 2f - 1f, (float)rnd.NextDouble());
+                sample = Vector3.Normalize(sample);
                 float scale = (float)i / (float)bufferSize;
                 scale = Lerp(0.1f, 1.0f, scale * scale);
                 sample *= scale;
                 buffer[i] = sample;
             }
 
+            GLTexture noise = new GLTexture(4, 4, typeof(Vector2));
+
+            noise.LockPixels(delegate(GLBytes8 data) {
+                for (int h = 0; h < 4; h++)
+                {
+                    for (int w = 0; w < 4; w++)
+                    {
+                        double angle = rnd.NextDouble() * 2d * Math.PI;
+                        data.SetPixel(w,h, new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)));
+                    }
+                } 
+            });
+
+            ssaoNoise = noise;
+
             return new GLBuffer(buffer);
         }
 
         static Shader LoadShader(string shaderName, string outputName)
         {
-            ShaderCompile sModule = ShaderParser.Parse(shaderName, outputName, CompileOption.None);
+            ShaderCompile sModule = ShaderParser.Parse(shaderName, outputName, CompileOption.None, CompileOption.IncludeCstdio, CompileOption.UseFor);
 
-          //  ShaderCompile.COMMAND_LINE = "";// "/DEBUG /ZI";
+          //  ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
 
             Shader outputShader;
 

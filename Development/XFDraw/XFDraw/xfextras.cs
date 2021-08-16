@@ -945,8 +945,8 @@ namespace xfcore.Extras
         {
             GLTexture source = tSlot.dataTexture;
 
-            if (source.Stride != 4)
-                throw new Exception("sampler2D only works with 32bpp textures!");
+           // if (source.Stride != 4)
+           //     throw new Exception("sampler2D only works with 32bpp textures!");
 
             w = source.Width;
             h = source.Height;
@@ -975,7 +975,7 @@ namespace xfcore.Extras
 
             size = source.Size / 4;
             mem_addr = (float*)source.GetAddress();
-            stride = source.Stride;
+            stride = source.Stride * 4;
         }
     }
 

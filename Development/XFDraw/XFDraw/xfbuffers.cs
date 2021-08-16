@@ -70,6 +70,7 @@ namespace xfcore.Buffers
         }
 
         public delegate void ReadPixelDelegate4(GLBytes4 output);
+        public delegate void ReadPixelDelegate8(GLBytes8 output);
         public delegate void ReadPixelDelegateFloat(GLFloatBytes output);
         public delegate void ReadPixelDelegate12(GLBytes12 output);
 
@@ -101,8 +102,8 @@ namespace xfcore.Buffers
 
         public GLTexture(int width, int height, Type type)
         {
-            if (width <= 10 || height <= 10)
-                throw new Exception("GLTexture must be bigger than 10x10!");
+            if (width <= 3 || height <= 3)
+                throw new Exception("GLTexture must be bigger than 3x3!");
 
             _width = width;
             _height = height;
@@ -173,6 +174,18 @@ namespace xfcore.Buffers
             ReleaseLock();
         }
 
+        public unsafe void LockPixels(ReadPixelDelegate8 del)
+        {
+            if (_stride != 8) throw new Exception("Stride is not 8!");
+
+            RequestLock();
+
+            GLBytes8 bytes = new GLBytes8(_width, _height, (xfcore.Extras.Vector2*)HEAP_ptr);
+            del(bytes);
+            bytes.Dispose();
+
+            ReleaseLock();
+        }
 
         public unsafe void LockPixels(ReadPixelDelegate12 del)
         {
@@ -246,7 +259,6 @@ namespace xfcore.Buffers
         }
     }
 
-
     public unsafe class GLBytes4
     {
         bool disposed = false;
@@ -294,6 +306,55 @@ namespace xfcore.Buffers
             disposed = true;
         }
     }
+
+    public unsafe class GLBytes8
+    {
+        bool disposed = false;
+        xfcore.Extras.Vector2* ptr;
+        int _width;
+        int _height;
+
+        public GLBytes8(int width, int height, xfcore.Extras.Vector2* ptr)
+        {
+            this.ptr = ptr;
+            _width = width;
+            _height = height;
+        }
+
+        public xfcore.Extras.Vector2 GetPixel(int x, int y)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            return ptr[x + y * _width];
+        }
+
+        public void SetPixel(int x, int y, xfcore.Extras.Vector2 Value)
+        {
+            if (x < 0 || x >= _width)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (y < 0 || y >= _height)
+                throw new Exception("Pixel must be on GLTexture!");
+
+            if (disposed)
+                throw new Exception("This instance has already been disposed!");
+
+            ptr[x + y * _width] = Value;
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
+        }
+    }
+
 
     public unsafe class GLBytes12
     {

@@ -157,6 +157,13 @@ void main()
 	if (*((int*)&(objectColor)) == 0)
 		return;
 
+//	FragColor = byte4((1.0f - ssao) * 255, (1.0f - ssao) * 255, (1.0f - ssao) * 255);
+//	return;
+
+	
+
+
+
 //	FragColor = byte4(spec_power * 255, spec_power * 255, spec_power * 255);
 //	return;
 
@@ -237,7 +244,7 @@ void main()
 
 	vec3 specular = lightColor * specularStrength * spec;
 
-	vec3 result = objColr * (ambient + ((diffuse + specular) * shadowResult)) * (1.0f - ssao) * 255.0f;
+	vec3 result = objColr * (ambient + ((diffuse + specular) * shadowResult)) * (ssao) * 255.0f;
 
 	if (result.x > 255) result.x = 255;
 	if (result.y > 255) result.y = 255;
