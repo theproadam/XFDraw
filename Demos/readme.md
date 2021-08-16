@@ -4,6 +4,7 @@
 
 ### Features
 - Deferred rendering
+- Phong Lightning
 - Real-time Shadows
 - Real-time Reflections
 - Volumetric Fog
