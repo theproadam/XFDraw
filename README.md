@@ -15,6 +15,8 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 - Tangent, Bitangent normal mapping supported (demo included)
 - Parallax, shadow mapping and volumetric fog supported (demo included)
 - Screenspace and cubemap reflections supported
+- Advanced buffer critical and non-critical locking system
+- Multithreaded rendering support (Create multiple shaders from one dll)
 - Direct blit (No bitmaps required)
 - GDI+ Interoperability (blit bitmaps onto the drawbuffer)
 - GLSL like shader code
