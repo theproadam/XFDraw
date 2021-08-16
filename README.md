@@ -1,12 +1,29 @@
-# XFDraw
-XFDraw is a realtime, high performance, software renderer written in C++ controlled via a wrapper written in C#. XFDraw is still in development, however with its WIP "Simple" mode XFDraw can handle insane amounts of polygons. It is the last and fastest version of the "renderX" series.
+## XFDraw
+![](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/xfban.png)
 
+XFDraw is a realtime, high performance, software renderer written in C++ controlled via a wrapper written in C#. It's shaders are written in C++, however they are nearly identical to the GLSL language.
 
 Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a Wiki available to help with a quick start.
 
-#### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
+###### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
 
-### Demo Screenshots
+### Features
+- Fully programmable fragment shader
+- Programmable vertex shader (Projection is done internally)
+- Hardcoded performance features (FXAA, Vignette, Draw Skybox)
+- Dedicated programmable high performance screenspace shaders
+- Tangent, Bitangent normal mapping supported (demo included)
+- Parallax, shadow mapping and volumetric fog supported (demo included)
+- Screenspace and cubemap reflections supported
+- Direct blit (No bitmaps required)
+- GDI+ Interoperability (blit bitmaps onto the drawbuffer)
+- GLSL like shader code
+- Correct perspective interpolation
+- Perspective, Orthographic and mixed modes supported
+- Built in safety features, *should* be impossible to segfault
+- Textures support nearest and bilinear interpolation, with wrapping modes
+
+### Screenshots
 #### Phong Example. 926 Triangles ~1.2ms (>20ms if the viewport is filled due to forward rendering)
 ![Phong Shader Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotPhong.png)
 
