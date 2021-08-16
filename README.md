@@ -7,6 +7,22 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 
 ###### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
 
+### Features
+- Fully programmable fragment shader
+- Programmable vertex shader (Projection is done internally)
+- Hardcoded performance features (FXAA, Vignette)
+- Dedicated programmable high performance screenspace shaders
+- Tangent, Bitangent normal mapping supported (demo included)
+- Parallax, shadow mapping and volumetric fog supported (demo included)
+- Screenspace and cubemap reflections supported
+- Direct blit (No bitmaps required)
+- GDI+ Interoperability (blit bitmaps onto the drawbuffer)
+- GLSL like shader code
+- Correct perspective interpolation
+- Perspective, Orthographic and mixed modes supported
+- Built in safety features, *should* be impossible to segfault
+- Textures support nearest and bilinear interpolation, with wrapping modes
+
 ### Screenshots
 #### Phong Example. 926 Triangles ~1.2ms (>20ms if the viewport is filled due to forward rendering)
 ![Phong Shader Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotPhong.png)
