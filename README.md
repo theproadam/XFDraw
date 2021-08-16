@@ -17,6 +17,7 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 - Screenspace and cubemap reflections supported
 - Advanced buffer critical and non-critical locking system
 - Multithreaded rendering support (Create multiple shaders from one dll)
+- MSAA Support (Triangles have gaps but its there)
 - Direct blit (No bitmaps required)
 - GDI+ Interoperability (blit bitmaps onto the drawbuffer)
 - GLSL like shader code
