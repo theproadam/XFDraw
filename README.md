@@ -3,11 +3,11 @@
 
 XFDraw is a realtime, high performance, software renderer written in C++ controlled via a wrapper written in C#. It's shaders are written in C++, however they are nearly identical to the GLSL language.
 
-Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a Wiki available to help with a quick start.
+Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a ![Wiki](https://github.com/theproadam/XFDraw/wiki) available to help with a quick start.
 
 ###### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
 
-### Features
+## Features
 - Fully programmable fragment shader
 - Programmable vertex shader (Projection is done internally)
 - Hardcoded performance features (FXAA, Vignette, Draw Skybox)
@@ -17,6 +17,7 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 - Screenspace and cubemap reflections supported
 - Advanced buffer critical and non-critical locking system
 - Multithreaded rendering support (Create multiple shaders from one dll)
+- MSAA Support (Triangles have gaps but its there)
 - Direct blit (No bitmaps required)
 - GDI+ Interoperability (blit bitmaps onto the drawbuffer)
 - GLSL like shader code
@@ -119,4 +120,4 @@ teapotShader.SetValue("cameraPos", cameraPosition);
 //When done, draw the object
 GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
 ```
-Compiling is done via `cl.exe`, however you can always compile your code manually. Expect a wiki section on how to do this soon.
+Compiling is done via `cl.exe`, however you can always compile your code manually. 
