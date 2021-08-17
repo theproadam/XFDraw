@@ -120,4 +120,4 @@ teapotShader.SetValue("cameraPos", cameraPosition);
 //When done, draw the object
 GL.Draw(teapotObject, teapotShader, depthBuffer, projMatrix, GLMode.Triangle);
 ```
-Compiling is done via `cl.exe`, however you can always compile your code manually. Expect a wiki section on how to do this soon.
+Compiling is done via `cl.exe`, however you can always compile your code manually. 
