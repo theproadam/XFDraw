@@ -3,7 +3,7 @@
 
 XFDraw is a realtime, high performance, software renderer written in C++ controlled via a wrapper written in C#. It's shaders are written in C++, however they are nearly identical to the GLSL language.
 
-Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a Wiki available to help with a quick start.
+Just like renderXF, XFDraw has been also designed to be as simple and user friendly as possible. Because of this most of the code is composed of super simple commands, and buffer, shader and framebuffer initialization is also very simple. There is also a ![Wiki](https://github.com/theproadam/XFDraw/wiki) available to help with a quick start.
 
 ###### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
 
