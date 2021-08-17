@@ -26,13 +26,15 @@ inline float smoothstep(float edge0, float edge1, float x){
 	
 }
 
-inline void shaderMethod(vec3* frag_pos, vec3* normal, float* ssao_buffer, vec3 cameraPos, mat3 cameraRot, GLMatrix cameraProj, float kernel_radius, int kernel_size, sampler1D kernel, sampler2D depth, float bias, float ssao_power, int FrameCount, sampler2D ssao_noise){
+inline void shaderMethod(vec3* frag_pos, vec3* normal, float* ssao_buffer, vec3 cameraPos, mat3 cameraRot, GLMatrix cameraProj, float kernel_radius, int kernel_size, sampler1D kernel, sampler2D depth, float bias, float ssao_power, int FrameCount, sampler2D ssao_noise, vec3 gl_FragCoord){
 	vec3 camSpace = cameraRot * ((*frag_pos) - cameraPos);
 	float occlusion = 0.0f;
 	for (int i = 0;
 	 i < kernel_size;
 	 i++){
 	vec3 pos = texture<vec3>(kernel, i);
+	vec2 randomness = texture<vec2>(ssao_noise, vec2(gl_FragCoord));
+	pos = rotateZAxis(pos, randomness);
 	vec3 samplePos = cameraProj * (camSpace + pos * kernel_radius);
 	float sampleDepth = cameraProj.farZ - texture<float>(depth, vec2(samplePos));
 	float rangeCheck = 1.0f;
@@ -49,7 +51,7 @@ inline void shaderMethod(vec3* frag_pos, vec3* normal, float* ssao_buffer, vec3 
 	if (occlusion < 0.0f){
 	occlusion = 0;
 	}
-	(*ssao_buffer) = 1.0f - occlusion;
+	(*ssao_buffer) = occlusion;
 	
 }
 extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height, unsigned char** ptrPtrs, void* UniformPointer){
@@ -85,8 +87,9 @@ extern "C" __declspec(dllexport) void ShaderCallFunction(long Width, long Height
 
 		float* ptr_2 = (float*)(ptrPtrs[2] + wPos * 4);
 
-		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2){
-			shaderMethod(ptr_0, ptr_1, ptr_2, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10);
+		vec3 gl_FragCoord = vec3(0, h, 0);
+		for (int w = 0; w < Width; ++w, ++ptr_0, ++ptr_1, ++ptr_2, ++gl_FragCoord.x){
+			shaderMethod(ptr_0, ptr_1, ptr_2, uniform_0, uniform_1, uniform_2, uniform_3, uniform_4, uniform_5, uniform_6, uniform_7, uniform_8, uniform_9, uniform_10, gl_FragCoord);
 		}
 	}
 }

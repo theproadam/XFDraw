@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Drawing;
 using System.IO;
 using xfcore.Extras;
 using xfcore.Buffers;
+using System.Drawing;
+using System.Windows.Forms;
 using xfcore;
 
 namespace ShadowMappingDemo
@@ -351,8 +351,8 @@ namespace ShadowMappingDemo
 
         public static GLTexture LoadTexture(string fileName)
         {
-         //   if (!File.Exists(fileName))
-          //      throw new Exception();
+            //   if (!File.Exists(fileName))
+            //      throw new Exception();
 
             Bitmap src = new Bitmap(fileName);
             GLTexture texture = new GLTexture(src.Width, src.Height, typeof(Color4));
@@ -413,11 +413,11 @@ namespace ShadowMappingDemo
             {
                 coords1[i * 5 + 0] *= mult.x;
 
-              //  coords1[i * 5 + 1] *= mult.y;
-             //   coords1[i * 5 + 2] = 0;
+                //  coords1[i * 5 + 1] *= mult.y;
+                //   coords1[i * 5 + 2] = 0;
                 coords1[i * 5 + 1] = 0;
                 coords1[i * 5 + 2] *= mult.y;
-                
+
 
                 coords1[i * 5 + 3] *= m1.x;
                 coords1[i * 5 + 4] *= m1.y;
@@ -438,7 +438,30 @@ namespace ShadowMappingDemo
         }
     }
 
-    public class DebugWindow : Form
+    public static class Screenshot
+    {
+        public static void Take(GLTexture source, string fileOut)
+        {
+            if (File.Exists(fileOut))
+                File.Delete(fileOut);
+
+            if (source.Stride != 4)
+                throw new Exception("Source must be 32bpp!");
+
+            Bitmap output = null;
+
+            source.LockPixels(delegate(GLBytes4 data) {
+                output = new Bitmap(source.Width, source.Height);
+                GLExtra.BlitIntoBitmap(source, output, new Point(0, 0), new Rectangle(0, 0, source.Width, source.Height));
+            });
+
+            output.Save(fileOut);
+            output.Dispose();
+  
+        }
+    }
+
+    public class DebugWindow// : Form
     {
         public Bitmap displayBitmap;
 

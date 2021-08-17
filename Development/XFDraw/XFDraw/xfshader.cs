@@ -545,7 +545,7 @@ namespace xfcore.Shaders
             wireOffset = zOffset;
         }
 
-        public void ConfigureLateWireframe(bool isEnabled, Color4 lateColor, GLTexture targetTexture)
+        public void ConfigureLateWireframe(bool isEnabled, Color4 lateColor, GLTexture targetTexture = null)
         {
             if (targetTexture.Stride != 4)
                 throw new Exception("Only 32bpp supported for late wireframe!");

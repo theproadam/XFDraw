@@ -247,7 +247,7 @@ namespace xfcore.Buffers
             return ptr[x + y * _width];
         }
 
-        public void SetPixel(int x, int y, float Color)
+        public void SetPixel(int x, int y, float Data)
         {
             if (x < 0 || x >= _width)
                 throw new Exception("Pixel must be on GLTexture!");
@@ -258,7 +258,7 @@ namespace xfcore.Buffers
             if (disposed)
                 throw new Exception("This instance has already been disposed!");
 
-            ptr[x + y * _width] = Color;
+            ptr[x + y * _width] = Data;
         }
 
         public void Dispose()
@@ -576,17 +576,17 @@ namespace xfcore.Buffers
             ReleaseLock();
         }
 
-        public GLBuffer(int size, int Stride = 3)
+        public GLBuffer(int sizeBytes, int Stride = 3)
         {
-            if (size <= 0) throw new Exception("Size must be bigger than zero!");
-            if (size % Stride != 0) throw new Exception("Invalid Stride OR Size!");
-            if (size % 4 != 0) throw new Exception("GLBuffer only supports FP32 numbers!");
+            if (sizeBytes <= 0) throw new Exception("Size must be bigger than zero!");
+            if (sizeBytes % Stride != 0) throw new Exception("Invalid Stride OR Size!");
+            if (sizeBytes % 4 != 0) throw new Exception("GLBuffer only supports FP32 numbers!");
             if (Stride <= 0) throw new Exception("Stride must be bigger than 0!");
 
             stride = Stride;
-            _size = size;
+            _size = sizeBytes;
             Interlocked.Add(ref Buffer_RAM_Usage, _size);
-            HEAP_ptr = Marshal.AllocHGlobal(size);
+            HEAP_ptr = Marshal.AllocHGlobal(sizeBytes);
             fptr = (float*)HEAP_ptr;
         }
 
@@ -643,12 +643,12 @@ namespace xfcore.Buffers
             return HEAP_ptr;
         }
 
-        public void Resize(int size, int newStride = 3)
+        public void Resize(int byteSize, int newStride = 3)
         {
-            if (size <= 0) throw new Exception("Cannot allocate a buffer of size zero or less!");
+            if (byteSize <= 0) throw new Exception("Cannot allocate a buffer of size zero or less!");
             if (newStride <= 0) throw new Exception("Stride must be bigger than zero!");
-            if (size % newStride != 0) throw new Exception("Stride must be a multiple of size!");
-            if (size % 4 != 0) throw new Exception("GLBuffer only supports FP32 numbers!");
+            if (byteSize % newStride != 0) throw new Exception("Stride must be a multiple of size!");
+            if (byteSize % 4 != 0) throw new Exception("GLBuffer only supports FP32 numbers!");
 
             Interlocked.Increment(ref CriticalLock);
             bool lockTaken = false;
@@ -656,8 +656,8 @@ namespace xfcore.Buffers
 
             try
             {
-                Interlocked.Add(ref Buffer_RAM_Usage, -size);
-                _size = size;
+                Interlocked.Add(ref Buffer_RAM_Usage, -byteSize);
+                _size = byteSize;
 
                 HEAP_ptr = Marshal.ReAllocHGlobal(HEAP_ptr, (IntPtr)(_size));
                 fptr = (float*)HEAP_ptr;

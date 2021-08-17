@@ -51,8 +51,10 @@ void main()
 	{
 		vec3 pos = texture<vec3>(kernel, i);
 
-	//	vec2 randomness = texture<vec2>(ssao_noise, vec2(gl_FragCoord));
-	//	pos = rotateZAxis(pos, randomness);
+		vec3 pos1 = vec3(texture(kernel, i * 3 + 0), texture(kernel, i * 3 + 1), texture(kernel, i * 3 + 2));
+
+		vec2 randomness = texture<vec2>(ssao_noise, vec2(gl_FragCoord));
+		pos = rotateZAxis(pos, randomness);
 
 		vec3 samplePos = cameraProj * (camSpace + pos * kernel_radius);		
 		
@@ -83,5 +85,5 @@ void main()
 		occlusion = 0;
 	}
 
-	ssao_buffer = 1.0f - occlusion;
+	ssao_buffer = occlusion;
 }

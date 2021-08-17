@@ -104,6 +104,7 @@ namespace ShadowMappingDemo
         static int LastFPS = 0;
         static float lastDeltaTime = 0;
         static List<string> frametimeCount = new List<string>();
+        static int screenshot = 0;
 
         static void Main(string[] args)
         {
@@ -315,12 +316,6 @@ namespace ShadowMappingDemo
             SSAO.SetValue("cameraProj", projMatrix);
             SSAO.SetValue("FrameCount", (int)(FramesRendered % 2));
 
-            //set reflection cubemap positions->
-            lightShader.SetValue("reflectPos1", new Vector3(0, 0, 0));
-            lightShader.SetValue("reflectPos2", new Vector3(70.0f, 0, 0));
-            lightShader.SetValue("reflectPos3", new Vector3(70.0f, 0, -70.0f));
-            lightShader.SetValue("reflectPos4", new Vector3(0, 0, -70.0f));
-
             sw.Restart();
             //Draw four Teapots:
             basicShader.SetValue("objectPos", new Vector3(0, 0, 0));
@@ -406,6 +401,11 @@ namespace ShadowMappingDemo
                 GLFast.FastFXAA(colorBuffer, fxaaBuffer);
             }
 
+            //colorBuffer.LockPixels()
+           // planeObject.LockBuffer()
+
+            //GLTexture myBuffer = new GLTexture()
+
 
 
             sw.Stop();
@@ -485,7 +485,11 @@ namespace ShadowMappingDemo
                 enableFXAA = !enableFXAA;
             }
 
-
+            if (e.KeyCode == Keys.F12)
+            {
+                lock (RT.RenderLock)
+                    Screenshot.Take(colorBuffer, "screenshot" + screenshot++ + ".png");
+            }
 
 
             Console.WriteLine("ssao_range: " + ssao_range);
@@ -502,6 +506,17 @@ namespace ShadowMappingDemo
                 //Resize all of the buffers:
                 colorBuffer.Resize(viewportWidth, viewportHeight);
                 depthBuffer.Resize(viewportWidth, viewportHeight);
+
+
+                diffuseBuffer.Resize(viewportWidth, viewportHeight);
+                worldBuffer.Resize(viewportWidth, viewportHeight);
+                normalBuffer.Resize(viewportWidth, viewportHeight);
+                specularBuffer.Resize(viewportWidth, viewportHeight);
+
+                ssaoBuffer.Resize(viewportWidth, viewportHeight);
+                fxaaBuffer.Resize(viewportWidth, viewportHeight);
+
+                reflectionIndex.Resize(viewportWidth, viewportHeight);
             }
         }
 

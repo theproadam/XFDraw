@@ -25,11 +25,6 @@ uniform samplerCube reflect3;
 uniform samplerCube reflect4;
 
 
-uniform vec3 reflectPos1;
-uniform vec3 reflectPos2;
-uniform vec3 reflectPos3;
-uniform vec3 reflectPos4;
-
 inline float powf(float value, int count)
 {
 	if (count == 0) return 1.0f;
@@ -157,15 +152,44 @@ void main()
 	if (*((int*)&(objectColor)) == 0)
 		return;
 
-//	FragColor = byte4((1.0f - ssao) * 255, (1.0f - ssao) * 255, (1.0f - ssao) * 255);
-//	return;
+	float slope = 3.375f;
+	float b = -slope * gl_FragCoord.x + gl_FragCoord.y;
 
-	
+	float x_intercept = -b / slope;
+	/*
+
+	if (x_intercept <= 0.0f)
+	{
+		FragColor = objectColor;
+		return;
+	}
+
+	if (x_intercept > 0.0f && x_intercept <= 266.0f)
+	{
+		FragColor = byte4(norm.x * 127.5f + 127.5f, norm.y * 127.5f + 127.5f, norm.z * 127.5f + 127.5f);
+		return;
+	}
+
+	if (x_intercept > 266 && x_intercept <= 533)
+	{
+		FragColor = byte4(pos.x, pos.y, pos.z);
+		return;
+	}
 
 
+	if (x_intercept > 533 && x_intercept <= 800)
+	{
+		FragColor = byte4(spec_power * 255, spec_power * 255, spec_power * 255);
+		return;
+	}
 
-//	FragColor = byte4(spec_power * 255, spec_power * 255, spec_power * 255);
-//	return;
+	if (x_intercept > 800 && x_intercept <= 1066)
+	{
+		FragColor = byte4((1.0f - ssao) * 255, (1.0f - ssao) * 255, (1.0f - ssao) * 255);
+		return;
+	}
+	*/
+
 
 	const float ambientStrength = 0.2f;
 	float specularStrength = spec_power;
@@ -205,12 +229,24 @@ void main()
 			result = textureNEARESTTest(reflect4, R);
 		}
 
+		if (false)
+		if (x_intercept > 1066 && x_intercept <= 1333)
+		{
+			FragColor = result;
+			return;
+		}
+
 		//FragColor = result;
 		//return;
 	
 		objColr = objColr * (1.0f - specularStrength) + result.xyz() * specularStrength;
 	}
 
+	if (false)
+	if (x_intercept > 1066 && x_intercept <= 1333)
+	{
+		return;
+	}
 
 	float shadowResult = 1.0f;
 
@@ -244,7 +280,7 @@ void main()
 
 	vec3 specular = lightColor * specularStrength * spec;
 
-	vec3 result = objColr * (ambient + ((diffuse + specular) * shadowResult)) * (ssao) * 255.0f;
+	vec3 result = objColr * (ambient + ((diffuse + specular) * shadowResult)) * (1.0f - ssao) * 255.0f;
 
 	if (result.x > 255) result.x = 255;
 	if (result.y > 255) result.y = 255;

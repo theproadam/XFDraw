@@ -16,6 +16,7 @@ namespace xfcore.Shaders.Builder
         public static string COMPILER_LOCATION = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\";
         public static string COMPILER_NAME = "cl.exe";
         public static string COMMAND_LINE = "/openmp /nologo /GS /GL /Oi /MD /O2 /fp:fast -Ofast /Oy /Ox /Ot"; //GL hang?
+        public static string COMPILER_ENV_SETUP = @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\vcvars32.bat";
 
         internal ShaderField[] sFieldsInVS;
         internal ShaderField[] sFieldsOutVS;
@@ -99,7 +100,7 @@ namespace xfcore.Shaders.Builder
             
             compiler.Start();
 
-            compiler.StandardInput.WriteLine("\"" + @"C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\vcvars32.bat" + "\"");
+            compiler.StandardInput.WriteLine("\"" + COMPILER_ENV_SETUP + "\"");
             compiler.StandardInput.WriteLine(@"cl.exe /EHsc /LD " + cppFileSource + " " + COMMAND_LINE);
             compiler.StandardInput.WriteLine(@"exit");
 

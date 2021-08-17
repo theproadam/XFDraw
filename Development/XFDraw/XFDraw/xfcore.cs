@@ -150,6 +150,7 @@ namespace xfcore
                 if (startIndex < 0) throw new Exception("Start Index Cannot be less than Zero!");
                 if (startIndex >= trisCount || stopIndex == 0){
                     buffer.ReleaseLock();
+                    depth.ReleaseLock();
                     return;
                 }
                 if (stopIndex > trisCount) stopIndex = trisCount;
