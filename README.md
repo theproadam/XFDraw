@@ -7,7 +7,7 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 
 ###### Currently XFDraw is still WIP. v0.5.0 should be the first stable release.
 
-### Features
+## Features
 - Fully programmable fragment shader
 - Programmable vertex shader (Projection is done internally)
 - Hardcoded performance features (FXAA, Vignette, Draw Skybox)
