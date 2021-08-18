@@ -1,4 +1,4 @@
-# XFDraw Demo
+# XFDraw Shadow Demo
 
 ![](https://github.com/theproadam/XFDraw/blob/main/Screenshots/deferred.png)
 
