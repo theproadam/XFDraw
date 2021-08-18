@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Threading.Tasks;   
 using System.Runtime.InteropServices;
 using System.IO;
 using System.Windows.Forms;
@@ -285,7 +285,6 @@ namespace xfcore
     public enum GLMode
     {
         Triangle = 0,
-        TriangleSingle,
         Wireframe = 1,
         TriangleWireLate = 2,
         Line

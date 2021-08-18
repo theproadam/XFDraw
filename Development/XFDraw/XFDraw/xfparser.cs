@@ -213,6 +213,9 @@ namespace xfcore.Shaders.Builder
             string VSReady = PrepareInput(analyzeVS);
             ShaderParser vsModule = Parse(VSReady);
 
+            if (compileOptions.Contains(CompileOption.TriangleSingleMode) && vsModule.internalStride != 0)
+                throw new Exception("Triangle Single Mode Cannot Have Any Vertex attributes!");
+
             string[] analyzeFS = File.ReadAllLines(fragmentShader);
             string FSReady = PrepareInput(analyzeFS);
             ShaderParser fsModule = Parse(FSReady);
@@ -347,7 +350,7 @@ namespace xfcore.Shaders.Builder
             bool forceC = cOps.Contains(CompileOption.ForceRecompile);
             bool hasSerial = !cOps.Contains(CompileOption.DoNotSerialize);
             bool allowMSAA = cOps.Contains(CompileOption.EnableMSAA);
-            
+            bool isSingle = cOps.Contains(CompileOption.TriangleSingleMode);
 
             string foldername = "_temp_" + ext;
             //realPath = foldername;
@@ -396,7 +399,10 @@ namespace xfcore.Shaders.Builder
             bool XYReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragCoord");
             bool XYZReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragPos");
             bool ZReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_FragDepth");
-            
+
+            if (isSingle && (XYReq || XYZReq || ZReq))
+                throw new Exception("Cannot be single sample mode and have any gl_Frag... data!");
+
             bool FSIReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_InstanceID");
             bool VSIReq = ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_InstanceID");
 
@@ -407,7 +413,7 @@ namespace xfcore.Shaders.Builder
             if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
 
             string sign, exec;
-            WriteVSSign(vs, vsIn, vsOut, out sign, out exec);
+            WriteVSSign(vs, vsIn, vsOut, VSIReq, out sign, out exec);
 
             string sign1, exec1, ptrs1;
             WriteFSSign(fs, fsIn, fsOut, allowMSAA, XYReq, XYZReq, ZReq, FSIReq, out sign1, out exec1, out ptrs1);
@@ -465,12 +471,35 @@ namespace xfcore.Shaders.Builder
 
             shaderCode = Regex.Replace(shaderCode, "\n", "\n\t");
 
-            
-
             //Write ClippingCode ->
             shaderCode += ClippingCode + "\n";
             shaderCode += "\t" + Transforms + "\n";
             shaderCode += "\t" + FaceCulling;
+
+            if (isSingle)
+            {
+                string buf = "";
+
+                for (int i = 0; i < fsOut.Length; i++)
+                {
+                    string type = TypeToString(fsOut[i].dataType);
+                    string signat = type + " " + "flat_data_" + i + ";";
+                    buf += "\t" + signat + "\n";
+                    buf += "\t" + type + "* " + "ptr_" + i + " = &" + "flat_data_" + i + ";";         
+                }
+
+                buf += "\n\n\tif (true)\n\t{\n\t\tint o = 0;";  //for new scope, as the o value will interfere
+
+                buf += "\n\t\t" + exec1;
+
+                buf += "\n\t}\n";
+                //exec method
+
+                shaderCode += buf;
+            }
+
+            
+
             shaderCode += "\n\t" + ScanLineStart;
             shaderCode += "\n\n\t\t\t" + "int wPos = renderWidth * i;\n" + "\t\t\t";
             shaderCode += Regex.Replace(ptrs1, "\n", "\n\t") + "\n";
@@ -486,10 +515,13 @@ namespace xfcore.Shaders.Builder
 				zBegin += slopeZ;
 
 				if (Z_fptr[o] > s) continue;
-				Z_fptr[o] = s;
+				Z_fptr[o] = s;" + "\n";
 
-				if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
-				else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
+            if (!isSingle)
+                shaderCode += @"
+				    if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
+				    else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
+
 
 
             if (XYZReq)
@@ -501,8 +533,16 @@ namespace xfcore.Shaders.Builder
             if (allowMSAA)
                 shaderCode += "\n\t\t\t\tbyte4 defr;\n";
 
-
-            shaderCode += "\n\n\t\t\t\t" + exec1 + "\n";
+            if (isSingle)
+            {
+                shaderCode += "\n";
+                for (int i = 0; i < fsOut.Length; i++)
+                {
+                    shaderCode += "\t\t\t\tptr_" + i + "[o] = flat_data_" + i + ";\n";
+                }   
+            }
+            else
+                shaderCode += "\n\n\t\t\t\t" + exec1 + "\n";
 
             if (allowMSAA)
             {
@@ -3238,7 +3278,8 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
 	}
 
 	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
-}";}
+}
+";}
         }
 
         //->
@@ -3562,7 +3603,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
             return mainCode;
         }
 
-        static void WriteVSSign(ShaderParser data, ShaderField[] vsIn, ShaderField[] vsOut, out string sign, out string exec)
+        static void WriteVSSign(ShaderParser data, ShaderField[] vsIn, ShaderField[] vsOut, bool VSIReq, out string sign, out string exec)
         {
             string methodSign = "inline void VSExec(";
             string methodExec = "VSExec(";
@@ -3592,6 +3633,12 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
                 methodSign += type + " " + data.shaderUniforms[i].name + ", ";
             }
 
+            if (VSIReq)
+            {
+                methodExec += "index, ";
+                methodSign += "int gl_InstanceID, ";
+            }
+
 
             exec = methodExec.Substring(0, methodExec.Length - 2) + ");";
             sign = methodSign.Substring(0, methodSign.Length - 2) + ")";
@@ -3610,6 +3657,9 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
                 startIndex = 1;
                 methodExec += "&defr, ";
                 methodSign += "byte4" + "* " + fsOut[0].name + ", ";
+
+                if (fsOut[0].dataType != DataType.byte4)
+                    throw new Exception("msaa first variable must be byte4!");
 
                 ptrsDecl += "byte4" + "* " + "ptr_" + 0 + " = (" + "byte4" + "*)(ptrPtrs[" + 0 + "] + wPos * " + 4 + ");\n";
             }
@@ -3639,9 +3689,6 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
                 methodExec += "*(" + type + "*)(uData2 + " + data.shaderUniforms[i].layoutPosition + "), ";
                 methodSign += type + " " + data.shaderUniforms[i].name + ", ";
             }
-
-            //if (pos)
-           //     methodExec += "gl_FragCoord, ";
 
             if (XY)
             {
@@ -3932,6 +3979,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
         DoNotSerialize,
         EnableMSAA,
         EnableSIMD,
+        TriangleSingleMode,
         IncludeCstdio,
         UseOMP,
         UsePPL,
