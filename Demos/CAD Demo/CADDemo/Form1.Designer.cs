@@ -45,6 +45,7 @@
             this.menuItem13 = new System.Windows.Forms.MenuItem();
             this.menuItem14 = new System.Windows.Forms.MenuItem();
             this.menuItem15 = new System.Windows.Forms.MenuItem();
+            this.menuItem16 = new System.Windows.Forms.MenuItem();
             this.SuspendLayout();
             // 
             // mainMenu1
@@ -53,6 +54,7 @@
             this.menuItem1,
             this.menuItem13,
             this.menuItem14,
+            this.menuItem16,
             this.menuItem15});
             // 
             // menuItem1
@@ -142,8 +144,13 @@
             // 
             // menuItem15
             // 
-            this.menuItem15.Index = 3;
+            this.menuItem15.Index = 4;
             this.menuItem15.Text = "About";
+            // 
+            // menuItem16
+            // 
+            this.menuItem16.Index = 3;
+            this.menuItem16.Text = "Settings";
             // 
             // Form1
             // 
@@ -176,6 +183,7 @@
         private System.Windows.Forms.MenuItem menuItem13;
         private System.Windows.Forms.MenuItem menuItem14;
         private System.Windows.Forms.MenuItem menuItem15;
+        private System.Windows.Forms.MenuItem menuItem16;
 
 
     }

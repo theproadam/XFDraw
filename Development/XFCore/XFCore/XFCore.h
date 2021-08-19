@@ -361,7 +361,7 @@ inline void DrawLineFast(int* iptr, int rw, int diValue, float fromX, float from
 	}
 }
 
-inline void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, unsigned char* bptr,
+inline void DrawLineDATA_OLD(float* FromDATA, float* ToDATA, float* dptr, unsigned char* bptr,
 	float* ScratchSpace, int Index, int Stride, float farZ, int renderHeight, int renderWidth, int wsD, int sD)
 {
 	if (FromDATA[0] == ToDATA[0] & FromDATA[1] == ToDATA[1])
@@ -474,6 +474,78 @@ inline void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, unsigned c
 
 
 			}
+		}
+	}
+}
+
+inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+			int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			iptr[mem_addr] = color;
+		}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			iptr[mem_addr] = color;
 		}
 	}
 }

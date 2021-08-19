@@ -16,9 +16,14 @@ using namespace Concurrency;
 
 
 
-inline void VSExec(vec3* vertex_data, vec3* gl_Position, vec3 cameraPos, mat3 cameraRot, int gl_InstanceID){
+inline void VSExec(vec3* vertex_data, vec3* gl_Position, vec3 cameraPos, mat3 cameraRot, float normalOffset, sampler1D normal_buffer_vs, int gl_InstanceID){
+	if (normalOffset == 0){
 	(*gl_Position) = cameraRot * ((*vertex_data) - cameraPos);
-	int val = gl_InstanceID;
+	}
+	else{
+	vec3 normal = texture<vec3>(normal_buffer_vs, gl_InstanceID);
+	(*gl_Position) = (cameraRot * ((*vertex_data) - cameraPos)) + normal * normalOffset;
+	}
 	
 }
 
@@ -140,6 +145,7 @@ inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigne
 
 	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 }
+
 void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){
 	const int stride = 3;
 	const int readStride = 3;
@@ -150,7 +156,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	for (int b = 0; b < 3; ++b){
 		float* input = p + (index * faceStride + b * readStride);
 		float* output = VERTEX_DATA + b * stride;
-		VSExec((vec3*)(input + 0), (vec3*)(output + 0), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), index);
+		VSExec((vec3*)(input + 0), (vec3*)(output + 0), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), *(float*)(uData1 + 48), *(sampler1D*)(uData1 + 52), index);
 	}
 	
 	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
@@ -688,7 +694,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	//temp variables ->
 	float fwi = 1.0f / projData.fw;
 	float fhi = 1.0f / projData.fh;
-	float ox = projData.ox, oy = projData.oy;
+	float ox = 1.0f / projData.ox, oy = 1.0f / projData.oy;
 	
 	//XYZ-> XY Transforms
 	

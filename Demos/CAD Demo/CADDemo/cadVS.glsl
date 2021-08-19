@@ -2,10 +2,20 @@
 
 uniform vec3 cameraPos;
 uniform mat3 cameraRot;
+uniform float normalOffset;
+uniform sampler1D normal_buffer_vs;
 
 void main()
 {
-	gl_Position = cameraRot * (vertex_data - cameraPos);
+	if (normalOffset == 0)
+	{
+		gl_Position = cameraRot * (vertex_data - cameraPos);
 
-	int val = gl_InstanceID;
+	}
+	else
+	{
+		vec3 normal = texture<vec3>(normal_buffer_vs, gl_InstanceID);
+		gl_Position = (cameraRot * (vertex_data - cameraPos)) + normal * normalOffset;
+	}
+	
 }

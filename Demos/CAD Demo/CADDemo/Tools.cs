@@ -386,7 +386,37 @@ namespace CADDemo
 
             vBuffer = vertexBuffer;
             nBuffer = normalBuffer;
+        }
 
+        public static void ImportSTL(string fileName, out float[] vBuffer, out float[] nBuffer, out Vector3[] eBuffer)
+        {
+            STLImporter STLI = new STLImporter(fileName);
+
+            float[] vertexBuffer = new float[STLI.AllTriangles.Length * 3 * 3];
+            float[] normalBuffer = new float[STLI.AllTriangles.Length * 3];
+
+            for (int i = 0; i < STLI.AllTriangles.Length; i++)
+            {
+                vertexBuffer[i * 9] = STLI.AllTriangles[i].vertex1.x;
+                vertexBuffer[i * 9 + 1] = STLI.AllTriangles[i].vertex1.y;
+                vertexBuffer[i * 9 + 2] = STLI.AllTriangles[i].vertex1.z;
+                vertexBuffer[i * 9 + 3] = STLI.AllTriangles[i].vertex2.x;
+                vertexBuffer[i * 9 + 4] = STLI.AllTriangles[i].vertex2.y;
+                vertexBuffer[i * 9 + 5] = STLI.AllTriangles[i].vertex2.z;
+                vertexBuffer[i * 9 + 6] = STLI.AllTriangles[i].vertex3.x;
+                vertexBuffer[i * 9 + 7] = STLI.AllTriangles[i].vertex3.y;
+                vertexBuffer[i * 9 + 8] = STLI.AllTriangles[i].vertex3.z;
+                normalBuffer[i * 3] = STLI.AllTriangles[i].normals.x;
+                normalBuffer[i * 3 + 1] = STLI.AllTriangles[i].normals.y;
+                normalBuffer[i * 3 + 2] = STLI.AllTriangles[i].normals.z;
+            }
+
+            // vBuffer = new GLBuffer(vertexBuffer, 3);
+            // nBuffer = new GLBuffer(normalBuffer, 3);
+
+            eBuffer = EdgeFinder.FindEdges(STLI.AllTriangles, 45);
+            vBuffer = vertexBuffer;
+            nBuffer = normalBuffer;
         }
 
         public static GLBuffer ImportSTL(string fileName, float interpolationAngle)
@@ -487,6 +517,125 @@ namespace CADDemo
   
         }
     }
+
+    public static class EdgeFinder
+    {
+        static bool ContainsVertexPair(Triangle A, Triangle B, out Vector3 vec1, out Vector3 vec2)
+        {
+            int count = 0;
+
+            vec1 = new Vector3(0, 0, 0);
+            vec2 = new Vector3(0, 0, 0);
+
+            if (A.vertex1.isApproximately(B.vertex1))
+            {
+                if (count == 0) vec1 = A.vertex1;
+                else if (count == 1) vec2 = A.vertex1;
+                count++;
+            }
+            else if (A.vertex1.isApproximately(B.vertex2))
+            {
+                if (count == 0) vec1 = A.vertex1;
+                else if (count == 1) vec2 = A.vertex1;
+                count++;
+            }
+            else if (A.vertex1.isApproximately(B.vertex3))
+            {
+                if (count == 0) vec1 = A.vertex1;
+                else if (count == 1) vec2 = A.vertex1;
+                count++;
+            }
+
+
+            if (A.vertex2.isApproximately(B.vertex1))
+            {
+                if (count == 0) vec1 = A.vertex2;
+                else if (count == 1) vec2 = A.vertex2;
+                count++;
+            }
+            else if (A.vertex2.isApproximately(B.vertex2))
+            {
+                if (count == 0) vec1 = A.vertex2;
+                else if (count == 1) vec2 = A.vertex2;
+                count++;
+            }
+            else if (A.vertex2.isApproximately(B.vertex3))
+            {
+                if (count == 0) vec1 = A.vertex2;
+                else if (count == 1) vec2 = A.vertex2;
+                count++;
+            }
+
+            if (count == 2)
+                return true;
+
+            if (A.vertex3.isApproximately(B.vertex1))
+            {
+                if (count == 0) vec1 = A.vertex3;
+                else if (count == 1) vec2 = A.vertex3;
+                count++;
+            }
+            else if (A.vertex3.isApproximately(B.vertex2))
+            {
+                if (count == 0) vec1 = A.vertex3;
+                else if (count == 1) vec2 = A.vertex3;
+                count++;
+            }
+            else if (A.vertex3.isApproximately(B.vertex3))
+            {
+                if (count == 0) vec1 = A.vertex3;
+                else if (count == 1) vec2 = A.vertex3;
+                count++;
+            }
+
+            if (count == 2)
+                return true;
+
+            return false;
+        }
+
+        public static Vector3[] FindEdges(Triangle[] Input, float CutoffAngle)
+        {
+            CutoffAngle *= (float)(Math.PI / 180f);
+            CutoffAngle = (float)Math.Cos(CutoffAngle);
+
+            object threadLock = new object();
+
+            List<Vector3> edgeLines = new List<Vector3>();
+
+            List<Triangle> Inputs = Input.ToList();
+
+            Restart:
+
+            for (int i = 0; i < Inputs.Count; i++)
+            {
+                Parallel.For(0, Inputs.Count, j => {
+                    if (i == j) return;
+
+                    //dot product is faster to compute
+                    if (Vector3.Dot(Inputs[i].normals, Inputs[j].normals) <= CutoffAngle)
+                    {
+                        Vector3 a, b;
+                        if (ContainsVertexPair(Inputs[i], Inputs[j], out a, out b))
+                        {
+                            lock (threadLock)
+                            {
+                                edgeLines.Add(a);
+                                edgeLines.Add(b);
+                            }                      
+                        }
+                    }  
+                });
+                
+                Inputs.RemoveAt(0);
+                goto Restart;
+            }
+
+
+            return edgeLines.ToArray();
+        }
+    }
+
 
     public class DebugWindow// : Form
     {

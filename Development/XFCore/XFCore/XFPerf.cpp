@@ -939,6 +939,7 @@ extern "C"
 		float factor_x = (float)wSrc / (float)wDest;
 		float factor_y = (float)hSrc / (float)hDest;
 
+
 #pragma omp parallel for
 		for (int h = 0; h < hDest; ++h)
 		{
