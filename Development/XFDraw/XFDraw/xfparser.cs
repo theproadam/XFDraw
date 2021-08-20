@@ -2492,7 +2492,7 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 	//temp variables ->
 	float fwi = 1.0f / projData.fw;
 	float fhi = 1.0f / projData.fh;
-	float ox = projData.ox, oy = projData.oy;
+	float ox = 1.0f / projData.ox, oy = 1.0f / projData.oy;
 	
 	//XYZ-> XY Transforms
 	

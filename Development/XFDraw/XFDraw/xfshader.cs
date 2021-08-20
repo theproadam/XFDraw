@@ -66,6 +66,8 @@ namespace xfcore.Shaders
         internal byte[] uniformBytesFS;
 
         internal TextureSlot[] samplerTextures;
+        internal TextureSlot[] samplerTexturesVS;
+
         internal GLTexture[] textureSlots;
         internal MSAAData msaaConfig;
 
@@ -229,6 +231,13 @@ namespace xfcore.Shaders
                     uniformFS[i].texturePos = samplerCount++;
 
             samplerTextures = new TextureSlot[samplerCount];
+
+            samplerCount = 0;
+            for (int i = 0; i < uniformVS.Length; i++)
+                if (uniformVS[i].dataType == DataType.sampler2D || uniformVS[i].dataType == DataType.samplerCube || uniformVS[i].dataType == DataType.sampler1D)
+                    uniformVS[i].texturePos = samplerCount++;
+
+            samplerTexturesVS = new TextureSlot[samplerCount];
 	    }
 
         public Shader(string shaderDLL)
@@ -334,6 +343,12 @@ namespace xfcore.Shaders
 
             samplerTextures = new TextureSlot[samplerCount];
 
+            samplerCount = 0;
+            for (int i = 0; i < uniformVS.Length; i++)
+                if (uniformVS[i].dataType == DataType.sampler2D || uniformVS[i].dataType == DataType.samplerCube || uniformVS[i].dataType == DataType.sampler1D)
+                    uniformVS[i].texturePos = samplerCount++;
+
+            samplerTexturesVS = new TextureSlot[samplerCount];
         }
 
         public void SetValue(string uniformName, object value)
@@ -381,6 +396,13 @@ namespace xfcore.Shaders
                             if (isCubemap) throw new Exception("A cubemap error occured! (8592)");
 
                             if (isStruct) uniformVS[i].typeAlt.SetValue(structFind, uniformVS[i].layoutPosition, uniformBytesVS, value);
+                            else if (isBuffer)
+                            {
+                                if (uniformVS[i].dataType != DataType.sampler1D)
+                                    throw new Exception("\"" + uniformName + "\" is not a GLBuffer!");
+
+                                samplerTexturesVS[uniformVS[i].texturePos] = new TextureSlot(uniformName, (GLBuffer)value);
+                            }
                             else
                             {
                                 int mSize = Marshal.SizeOf(value);
@@ -423,7 +445,7 @@ namespace xfcore.Shaders
                         else if (isBuffer)
                         {
                             if (uniformFS[i].dataType != DataType.sampler1D)
-                                throw new Exception("\"" + uniformName + "\" is not a buffer!");
+                                throw new Exception("\"" + uniformName + "\" is not a GLBuffer!");
 
                             samplerTextures[uniformFS[i].texturePos] = new TextureSlot(uniformName, (GLBuffer)value);
                         }
@@ -711,6 +733,10 @@ namespace xfcore.Shaders
 
           //  if (proj.vFOV == 0)
          //       oValue = 0;
+
+    //        if (!(proj.iValue == 0 || proj.iValue == 1))
+   //             throw new Exception();
+
         }
     }
 

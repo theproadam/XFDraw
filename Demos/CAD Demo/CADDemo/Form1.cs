@@ -136,9 +136,9 @@ namespace CADDemo
             Y = rotMat * (Y - cameraPos);
             Z = rotMat * (Z - cameraPos);
 
-            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, X, new Color4(255, 0, 0));
-            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Y, new Color4(0, 0, 255));
-            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Z, new Color4(0, 255, 0));
+            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, X, new Color4(255, 0, 0), 3);
+            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Y, new Color4(0, 0, 255), 3);
+            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Z, new Color4(0, 255, 0), 3);
         }
 
         void DrawEdgeLines(GLMatrix projMatrix, Matrix3x3 rotMat, Vector3 cameraPos)
@@ -152,7 +152,7 @@ namespace CADDemo
 
             for (int i = 0; i < edgeLines.Length / 2; i++)
             {
-                 GL.Line3D(colorBuffer, depthBuffer, projMatrix, toScreen(edgeLines[i * 2]), toScreen(edgeLines[i * 2 + 1]), new Color4(0, 0, 0), -1.0f);     
+                 GL.Line3D(colorBuffer, depthBuffer, projMatrix, toScreen(edgeLines[i * 2]), toScreen(edgeLines[i * 2 + 1]), new Color4(0, 0, 0), 2, -0.5f);     
             }
         }
 

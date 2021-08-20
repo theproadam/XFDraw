@@ -272,7 +272,7 @@ namespace xfcore.Extras
                 lhs.x * rhs.y - lhs.y * rhs.x);
         }
 
-        const float EPSILON = 10E-4f;
+        const float EPSILON = 1E-3f;
         public bool isApproximately(Vector3 CompareTo)
         {
             return Math.Abs(CompareTo.x - x) < EPSILON && Math.Abs(CompareTo.y - y) < EPSILON && Math.Abs(CompareTo.z - z) < EPSILON;

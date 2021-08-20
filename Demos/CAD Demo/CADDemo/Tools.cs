@@ -596,6 +596,9 @@ namespace CADDemo
 
         public static Vector3[] FindEdges(Triangle[] Input, float CutoffAngle)
         {
+            if (Input.Length >= 10000)
+                return new Vector3[0];
+
             CutoffAngle *= (float)(Math.PI / 180f);
             CutoffAngle = (float)Math.Cos(CutoffAngle);
 

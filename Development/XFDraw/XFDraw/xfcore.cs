@@ -35,6 +35,9 @@ namespace xfcore
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void ClearColor(int* iptr, int Width, int Height, int Color);
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void Line3D(int* iptr, float* dptr, int width, int height, Vector3 from, Vector3 to, GLData projData, int color, int thickness, float zoffset);
         #endregion
 
         #region PInvokeXFCore
@@ -128,10 +131,32 @@ namespace xfcore
                 ptr[i] = 0;
         }
 
+        static void CheckSamplerTextures(Shader shader)
+        {
+            for (int i = 0; i < shader.samplerTextures.Length; i++)
+                if (shader.samplerTextures[i].IsNull())
+                    throw new Exception("One of the assigned textures is null!");
+
+            for (int i = 0; i < shader.samplerTextures.Length; i++)
+                if (!shader.samplerTextures[i].isValid())
+                    throw new Exception("One of the assigned GLCubemap is invalid!");
+
+            for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                if (shader.samplerTexturesVS[i].IsNull())
+                    throw new Exception("One of the assigned textures is null!");
+
+            for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                if (!shader.samplerTexturesVS[i].isValid())
+                    throw new Exception("One of the assigned GLCubemap is invalid!");
+        }
+
         public static void Draw(GLBuffer buffer, Shader shader, GLTexture depth, GLMatrix projectionMatrix, GLMode drawMode, int startIndex = 0, int stopIndex = int.MaxValue)
         {
             buffer.RequestLock();
             depth.RequestLock();
+
+            if (depth.Stride != 4)
+                throw new Exception("Depth buffer must be a 32 bit float type!");
 
             lock (shader.ThreadLock)
             {
@@ -166,13 +191,7 @@ namespace xfcore
                     if (textureSlots[i] == null)
                         throw new Exception("One of the assigned framebuffers is null!");
 
-                for (int i = 0; i < shader.samplerTextures.Length; i++)
-                    if (shader.samplerTextures[i].IsNull())
-                        throw new Exception("One of the assigned textures is null!");
-
-                for (int i = 0; i < shader.samplerTextures.Length; i++)
-                    if (!shader.samplerTextures[i].isValid())
-                        throw new Exception("One of the assigned GLCubemap is invalid!");
+                CheckSamplerTextures(shader);
 
 
                 if (textureSlots.Length == 0)
@@ -183,6 +202,9 @@ namespace xfcore
 
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                     shader.samplerTextures[i].RequestLock();
+
+                for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                    shader.samplerTexturesVS[i].RequestLock();
 
                 int width = depth.Width, height = depth.Height;
 
@@ -203,6 +225,17 @@ namespace xfcore
                     else
                         shader.SetValue(shader.samplerTextures[i].name, new sampler1D(shader.samplerTextures[i]));
                 }
+
+                for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                {
+                    if (shader.samplerTexturesVS[i].slotType == SlotType.Texture)
+                        shader.SetValue(shader.samplerTexturesVS[i].name, new sampler2D(shader.samplerTexturesVS[i]));
+                    else if (shader.samplerTexturesVS[i].slotType == SlotType.Cubemap)
+                        shader.SetValue(shader.samplerTexturesVS[i].name, new samplerCube(shader.samplerTexturesVS[i]));
+                    else
+                        shader.SetValue(shader.samplerTexturesVS[i].name, new sampler1D(shader.samplerTexturesVS[i]));
+                }
+
 
                 if (shader.lateWireTexture != null)
                 {
@@ -268,12 +301,51 @@ namespace xfcore
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                     shader.samplerTextures[i].ReleaseLock();
 
+                for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                    shader.samplerTexturesVS[i].ReleaseLock();
+
                 if (shader.lateWireTexture != null)
                     shader.lateWireTexture.ReleaseLock();
             }
 
             buffer.ReleaseLock();
             depth.ReleaseLock();
+        }
+        static int debugv = 0;
+
+        public static void Line3D(GLTexture targetBuffer, GLTexture depthBuffer, GLMatrix projectionMatrix, Vector3 From, Vector3 To, Color4 color, int thickness, float zoffset = 0)
+        {
+            int col = ((((((byte)color.A << 8) | (byte)color.R) << 8) | (byte)color.G) << 8) | (byte)color.B;
+
+            if (thickness <= 0)
+                throw new Exception("Thickness must be bigger than zero!");
+
+            targetBuffer.RequestLock();
+            depthBuffer.RequestLock();
+
+
+            if (targetBuffer.Stride != 4)
+                throw new Exception("This function only draws to 32bpp buffers!");
+
+            if (depthBuffer.Stride != 4)
+                throw new Exception("Depth buffer must be a 32 bit float type!");
+
+            if (targetBuffer.Width != depthBuffer.Width)
+                throw new Exception("Color and depth buffers must be the same width!");
+
+            if (targetBuffer.Height != depthBuffer.Height)
+                throw new Exception("Color and depth buffers must be the same height!");
+
+            int* iptr = (int*)targetBuffer.GetAddress();
+            float* dptr = (float*)depthBuffer.GetAddress();
+
+            GLData gData = new GLData(targetBuffer.Width, targetBuffer.Height, projectionMatrix);
+
+
+            Line3D(iptr, dptr, targetBuffer.Width, targetBuffer.Height, From, To, gData, col, thickness, zoffset);
+
+            targetBuffer.ReleaseLock();
+            depthBuffer.ReleaseLock();
         }
 
         public static void Pass(Shader targetShader)
@@ -480,9 +552,13 @@ namespace xfcore
             if (orthographicMat.iValue != 1)
                 throw new Exception("orthographicMat must be a orthographic matrix!");
 
-            throw new Exception("Not Yet Supported!");
 
-           return new GLMatrix(0, 0, 0, 0, 0);
+            if (factorOfB < 0 || factorOfB > 1)
+                throw new Exception("Factor must be between 0 and 1!");
+
+           // throw new Exception("Not Yet Supported!");
+
+            return new GLMatrix(perspectiveMat.vFOV, perspectiveMat.hFOV, orthographicMat.vSize, orthographicMat.hSize, factorOfB);
         }
 
         public Vector3 WorldToScreenPoint(Vector3 coord, System.Drawing.Size viewportSize, VertexTransform vertexShader)
