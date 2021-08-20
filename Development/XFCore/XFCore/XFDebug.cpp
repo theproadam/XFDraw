@@ -3591,24 +3591,17 @@ extern "C"
 
 		float* attribs = (float*)alloca((stride - 3) * 3 * sizeof(float));
 
-		float ax = (VERTEX_DATA[0] - VERTEX_DATA[stride]);
-		float ay = (VERTEX_DATA[1] - VERTEX_DATA[stride + 1]);
+		int uppr = (int)((lineThick - 1.0f) / 2.0f);
+		int lwr = (int)(lineThick / 2.0f);
 
-		int lwr = 0;
-		int hgh = 0;
-
-		if (ax * ax > ay * ay)
-		{
-			for (int i = 0; i < hgh; i++)
+		if (lineThick > 1)
+			for (int i = -lwr; i <= uppr; i++)
 			{
-
+				DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, i);
 			}
-
-
-		}
-
-		DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ);
-
+		else if (lineThick == 1)
+			DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, 0);
+	
 		
 	}
 }

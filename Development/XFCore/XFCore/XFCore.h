@@ -478,7 +478,7 @@ inline void DrawLineDATA_OLD(float* FromDATA, float* ToDATA, float* dptr, unsign
 	}
 }
 
-inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ)
+inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ, int offsetmod)
 {
 	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
 		return;
@@ -503,7 +503,7 @@ inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* ipt
 
 		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
 		{
-			int tY = (int)(i * slope + b);
+			int tY = (int)(i * slope + b) + offsetmod;
 			float depth = 1.0f / (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
@@ -534,7 +534,7 @@ inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* ipt
 
 		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
 		{
-			int tY = (int)(i * slope + b);
+			int tY = (int)(i * slope + b) + offsetmod;
 			float depth = 1.0f / (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
