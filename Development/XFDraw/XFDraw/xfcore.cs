@@ -134,7 +134,7 @@ namespace xfcore
         static void CheckSamplerTextures(Shader shader)
         {
             for (int i = 0; i < shader.samplerTextures.Length; i++)
-                if (shader.samplerTextures[i].IsNull())
+                if (shader.samplerTextures[i] == null || shader.samplerTextures[i].IsNull())
                     throw new Exception("One of the assigned textures is null!");
 
             for (int i = 0; i < shader.samplerTextures.Length; i++)
@@ -142,7 +142,7 @@ namespace xfcore
                     throw new Exception("One of the assigned GLCubemap is invalid!");
 
             for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
-                if (shader.samplerTexturesVS[i].IsNull())
+                if (shader.samplerTexturesVS[i] == null || shader.samplerTexturesVS[i].IsNull())
                     throw new Exception("One of the assigned textures is null!");
 
             for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
@@ -203,8 +203,9 @@ namespace xfcore
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                     shader.samplerTextures[i].RequestLock();
 
-                for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
-                    shader.samplerTexturesVS[i].RequestLock();
+                if (shader.samplerTexturesVS != null)
+                    for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                        shader.samplerTexturesVS[i].RequestLock();
 
                 int width = depth.Width, height = depth.Height;
 
@@ -301,11 +302,13 @@ namespace xfcore
                 for (int i = 0; i < shader.samplerTextures.Length; i++)
                     shader.samplerTextures[i].ReleaseLock();
 
-                for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
-                    shader.samplerTexturesVS[i].ReleaseLock();
+                if (shader.samplerTexturesVS != null)
+                    for (int i = 0; i < shader.samplerTexturesVS.Length; i++)
+                        shader.samplerTexturesVS[i].ReleaseLock();
 
                 if (shader.lateWireTexture != null)
                     shader.lateWireTexture.ReleaseLock();
+
             }
 
             buffer.ReleaseLock();

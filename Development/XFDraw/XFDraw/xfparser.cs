@@ -205,7 +205,7 @@ namespace xfcore.Shaders.Builder
             if (fragmentShader.Contains('.') && fragmentShader.Split('.')[0] == outputName)
                 throw new Exception("outputName must be unique when compared to fragmentShader!");
 
-
+            
             if (!File.Exists(vertexShader) || !File.Exists(fragmentShader))
                 throw new FileNotFoundException();
 
@@ -357,17 +357,21 @@ namespace xfcore.Shaders.Builder
 
             #region Foldering
 
+            string filePath1Name = Path.GetFileName(filePath1);
+            string filePath2Name = Path.GetFileName(filePath2);
+
+
             if (!Directory.Exists(foldername))
                 Directory.CreateDirectory(foldername);
 
             bool prevFile = false;
 
-            if (File.Exists(foldername + @"\" + filePath1))
+            if (File.Exists(foldername + @"\" + filePath1Name))
             {
-                if (File.ReadLines(filePath1).SequenceEqual(File.ReadLines(foldername + @"\" + filePath1)) && !forceC)
+                if (File.ReadLines(filePath1).SequenceEqual(File.ReadLines(foldername + @"\" + filePath1Name)) && !forceC)
                     prevFile = true;
                 else
-                    File.Delete(foldername + @"\" + filePath1);
+                    File.Delete(foldername + @"\" + filePath1Name);
             }
 
             if (forceC) prevFile = false;
@@ -375,21 +379,22 @@ namespace xfcore.Shaders.Builder
             if (!File.Exists(foldername + @"\xf" + wPath + ".dll"))
                 prevFile = false;
 
-            if (File.Exists(foldername + @"\" + filePath2))
+            if (File.Exists(foldername + @"\" + filePath2Name))
             {
-                if (File.ReadLines(filePath2).SequenceEqual(File.ReadLines(foldername + @"\" + filePath2)) && prevFile)
+                if (File.ReadLines(filePath2).SequenceEqual(File.ReadLines(foldername + @"\" + filePath2Name)) && prevFile)
                     return false;
 
-                File.Delete(foldername + @"\" + filePath2);
+                File.Delete(foldername + @"\" + filePath2Name);
             }
 
-            if (File.Exists(foldername + @"\" + filePath1))
+            if (File.Exists(foldername + @"\" + filePath1Name))
             {
-                File.Delete(foldername + @"\" + filePath1);
+                File.Delete(foldername + @"\" + filePath1Name);
             }
 
-            File.Copy(filePath1, foldername + @"\" + filePath1);
-            File.Copy(filePath2, foldername + @"\" + filePath2);
+
+            File.Copy(filePath1, foldername + @"\" + Path.GetFileName(filePath1));
+            File.Copy(filePath2, foldername + @"\" + Path.GetFileName(filePath2));
 
             #endregion
 
@@ -466,6 +471,8 @@ namespace xfcore.Shaders.Builder
             shaderCode += "float* input = p + (index * faceStride + b * readStride);\n\t";
             shaderCode += "float* output = VERTEX_DATA + b * stride;\n\t" + exec + "\n}\n\n";
 
+            shaderCode += FaceScale3D + "\n\t";
+
             shaderCode += "bool* AP = (bool*)alloca(BUFFER_SIZE + 12);\n";
             shaderCode += "frtlzeromem(AP, BUFFER_SIZE);\n\n";
 
@@ -474,8 +481,13 @@ namespace xfcore.Shaders.Builder
             //Write ClippingCode ->
             shaderCode += ClippingCode + "\n";
             shaderCode += "\t" + Transforms + "\n";
+
+          //  shaderCode += "\t\n" + FaceScaling;
+
+
             shaderCode += "\t" + FaceCulling;
 
+          
             if (isSingle)
             {
                 string buf = "";
@@ -499,7 +511,7 @@ namespace xfcore.Shaders.Builder
             }
 
             
-
+            
             shaderCode += "\n\t" + ScanLineStart;
             shaderCode += "\n\n\t\t\t" + "int wPos = renderWidth * i;\n" + "\t\t\t";
             shaderCode += Regex.Replace(ptrs1, "\n", "\n\t") + "\n";
@@ -556,8 +568,22 @@ namespace xfcore.Shaders.Builder
 
             shaderCode += LateWireCode + "\n}";
 
-            shaderCode = entryCode + shaderCode;
-            shaderCode += "\n\n" + (cOps.Contains(CompileOption.UseFor) ? NotParallelCode : ParallelCode);
+            shaderCode = entryCode + shaderCode + "\n\n";
+
+            if (cOps.Contains(CompileOption.UseFor))
+            {
+                shaderCode += NotParallelCode;
+            }
+            else if (cOps.Contains(CompileOption.UseOMP))
+            {
+                shaderCode += ParallelCodeOMP;
+            }
+            else //if (cOps.Contains(CompileOption.UsePPL)) //default
+            {
+                shaderCode += ParallelCode;
+            }
+
+          //  shaderCode += "\n\n" + (cOps.Contains(CompileOption.UseFor) ? NotParallelCode : ParallelCode);
 
 
             if (hasSerial)
@@ -691,8 +717,19 @@ namespace xfcore.Shaders.Builder
 
             shaderOutput.Add(uFields);
 
-            shaderOutput.Add("#pragma omp parallel for");
-            shaderOutput.Add("\tfor (int h = 0; h < Height; ++h){");
+            if (cOps.Contains(CompileOption.UsePPL))
+            {
+                shaderOutput.Add("int hheight = height;");
+                shaderOutput.Add("parallel_for(0, hheight, [&](int h){");
+            }
+            else
+            {
+                if (cOps.Contains(CompileOption.UseOMP))
+                    shaderOutput.Add("#pragma omp parallel for");
+
+                shaderOutput.Add("\tfor (int h = 0; h < Height; ++h){");
+            }    
+            
             shaderOutput.Add("\t\tint wPos = Width * h;");
             shaderOutput.AddRange(ptrs);
 
@@ -712,6 +749,11 @@ namespace xfcore.Shaders.Builder
 
             shaderOutput.Add("\t\tfor (int w = 0; w < Width; ++w" + ptrsIncr + "){");
             shaderOutput.Add("\t\t\tshaderMethod(" + methodSignPre + ");\n\t\t}\n\t}");
+
+            if (cOps.Contains(CompileOption.UsePPL))
+            {
+                shaderOutput.Add("\t);\n");
+            }
 
             shaderOutput.Add("}");
 
@@ -2545,11 +2587,47 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 
 	if (wireData.WIRE_MODE == 1)
 	{
-		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, wireData.offset_wire);
+        DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, index, projData.matrixlerpv != 1, projData.oValue, 1, wireData.offset_wire);
 		return RETURN_VALUE;
 	}
 
 	int yMin = (int)yMinValue, yMax = (int)yMaxValue;";
+            }
+        }
+
+        static string FaceScale3D
+        {
+            get
+            {
+                return @"
+
+    if (wireData.depth_offset != 0)
+	{
+		vec3 max = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		vec3 min = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (VERTEX_DATA[i * stride] > max.x) max.x = VERTEX_DATA[i * stride];
+			if (VERTEX_DATA[i * stride] < min.x) min.x = VERTEX_DATA[i * stride];
+
+			if (VERTEX_DATA[i * stride + 1] > max.y) max.y = VERTEX_DATA[i * stride + 1];
+			if (VERTEX_DATA[i * stride + 1] < min.y) min.y = VERTEX_DATA[i * stride + 1];
+
+			if (VERTEX_DATA[i * stride + 2] > max.z) max.z = VERTEX_DATA[i * stride + 2];
+			if (VERTEX_DATA[i * stride + 2] < min.z) min.z = VERTEX_DATA[i * stride + 2];
+		}
+
+		vec3 center = (max - min) * 0.5f + min;
+
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			VERTEX_DATA[i * stride + 0] = (VERTEX_DATA[i * stride + 0] - center.x) * wireData.depth_offset + center.x;
+			VERTEX_DATA[i * stride + 1] = (VERTEX_DATA[i * stride + 1] - center.y) * wireData.depth_offset + center.y;
+			VERTEX_DATA[i * stride + 2] = (VERTEX_DATA[i * stride + 2] - center.z) * wireData.depth_offset + center.z;
+		}
+	}
+    ";
             }
         }
 
@@ -2559,6 +2637,9 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
             {
                 return @"float slopeZ, bZ, s;
 	float sA, sB;
+
+    if (yMin < 0) yMin = 0;
+	if (yMax >= renderHeight) yMax = renderHeight - 1;
 
 	float* Intersects = (float*)alloca((4 + (stride - 3) * 5) * 4);
 	float* attribs = Intersects + 4 + (stride - 3) * 2;
@@ -2652,6 +2733,21 @@ inline void MSAA_SAMPLE(byte4 data, int RW, int X, int Y, int stride, float* VER
 	parallel_for(start, stop, [&](int index){
 		MethodExec(index,tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, conf, msaa);
 	});
+}";
+            }
+        }
+
+        static string ParallelCodeOMP
+        {
+            get
+            {
+                return "extern \"C\"" + @" __declspec(dllexport) void ShaderCallFunction(long start, long stop, float* tris, float* dptr, char* uDataVS, char* uDataFS, unsigned char** ptrPtrs, GLData pData, GLExtra conf, MSAAConfig* msaa)
+{
+#pragma omp parallel for
+	for (int i = start; i < stop; i++)
+	{
+		MethodExec(i, tris, dptr, uDataVS, uDataFS, ptrPtrs, pData, conf, msaa);
+	}
 }";
             }
         }
@@ -3162,7 +3258,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
         {
             get
             {
-                return @"void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, int FaceIndex, int VW, int VH, float farZ)
+                return @"void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, bool perspMat, float oValue, int offsetmod, int FaceIndex, int VW, int VH, float farZ)
 {
 	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
 		return;
@@ -3199,8 +3295,8 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
 
 		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
 		{
-			int tY = (int)(i * slope + b);
-			float depth = 1.0f / (slopeZ * (float)i + bZ);
+			int tY = (int)(i * slope + b) + offsetmod;
+			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
 			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
@@ -3246,8 +3342,8 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
 
 		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
 		{
-			int tY = (int)(i * slope + b);
-			float depth = 1.0f / (slopeZ * (float)i + bZ);
+            int tY = (int)(i * slope + b) + offsetmod;
+			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
 			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
@@ -3268,16 +3364,21 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
         {
             get
             {
-                return @"inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, float zoffset)
+                return @"inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, int findex, bool perspMat, float oValue, int lineThick, float zoffset)
 {
 	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
 
+	int uppr = (int)((lineThick - 1.0f) / 2.0f);
+	int lwr = (int)(lineThick / 2.0f);
+
 	for (int i = 0; i < BUFFER_SIZE - 1; i++)
 	{
-		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+		for (int s = -lwr; s <= uppr; s++)
+			DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, perspMat, oValue, s, findex, projData.renderWidth, projData.renderHeight, projData.farZ);
 	}
 
-	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
+	for (int s = -lwr; s <= uppr; s++)
+		DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, perspMat, oValue, s, findex, projData.renderWidth, projData.renderHeight, projData.farZ);
 }
 ";}
         }

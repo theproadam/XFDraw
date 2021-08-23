@@ -11,37 +11,28 @@ using namespace Concurrency;
 #define RETURN_VALUE
 #define RtlZeroMemory frtlzeromem
 
-inline vec3 scaleVec(vec3 input, vec3 scale);
 
 
-inline vec3 scaleVec(vec3 input, vec3 scale){
-	return vec3(input.x * scale.x, input.y * scale.y, input.z * scale.z);
+
+
+
+inline void VSExec(vec3* vertex_data, vec3* norm_data, vec3* gl_Position, vec3* normals, vec3 cameraPos, mat3 cameraRot, vec3 objectPos, mat3 objectRot, float zoomMod){
+	vec3 pos = cameraRot * (((objectRot * (*vertex_data)) * 0.01f * zoomMod + objectPos) - cameraPos);
+	(*normals) = (*norm_data);
+	(*gl_Position) = pos;
 	
 }
 
-
-
-inline void VSExec(vec3* vertex_data, vec3* gl_Position, vec3 cameraPos, mat3 cameraRot, float normalOffset, sampler1D normal_buffer_vs, float object_scale, vec3 object_center, int gl_InstanceID){
-	vec3 fPos = cameraRot * ((((*vertex_data) - object_center) * object_scale + object_center) - cameraPos);
-	if (normalOffset == 0){
-	(*gl_Position) = fPos;
+inline void FSExec(byte4* FragColor, vec3* normals, mat3 camera_rotation, int colorMode, mat3 object_r){
+	float opacity = -(((camera_rotation * object_r) * (*normals)).z) * 127.5f + 127.5f;
+	if (colorMode == 0){
+	(*FragColor) = byte4(opacity * 0.8f, 50, 50);
 	}
-	else{
-	vec3 normal = texture<vec3>(normal_buffer_vs, gl_InstanceID);
-	(*gl_Position) = fPos + normal * normalOffset;
+	else if (colorMode == 1){
+	(*FragColor) = byte4(50, opacity * 0.8f, 50);
 	}
-	
-}
-
-inline void FSExec(byte4* FragColor, sampler1D normal_buffer, mat3 camera_rotation, int isOrange, int gl_InstanceID){
-	if (isOrange == 1){
-	(*FragColor) = byte4(255, 127, 80);
-	}
-	else{
-	vec3 normal = texture<vec3>(normal_buffer, gl_InstanceID);
-	normal = (camera_rotation * normal);
-	float color = -normal.z * 127.5f + 127.5f;
-	(*FragColor) = byte4(color, color, color);
+	else if (colorMode == 2){
+	(*FragColor) = byte4(50, 50, opacity * 0.8f);
 	}
 	
 }
@@ -99,7 +90,7 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 
-			FSExec(ptr_0, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), *(int*)(uData2 + 48), FaceIndex);}
+			FSExec(ptr_0, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(mat3*)(uData2 + 40));}
 	}
 	else
 	{
@@ -140,7 +131,7 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 
-			FSExec(ptr_0, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), *(int*)(uData2 + 48), FaceIndex);
+			FSExec(ptr_0, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(mat3*)(uData2 + 40));
 		}	
 }
 }
@@ -163,16 +154,16 @@ inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigne
 }
 
 void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){
-	const int stride = 3;
-	const int readStride = 3;
-	const int faceStride = 9;
+	const int stride = 6;
+	const int readStride = 6;
+	const int faceStride = 18;
 	
 	float* VERTEX_DATA = (float*)alloca(stride * 3 * 4);
 	int BUFFER_SIZE = 3;
 	for (int b = 0; b < 3; ++b){
 		float* input = p + (index * faceStride + b * readStride);
 		float* output = VERTEX_DATA + b * stride;
-		VSExec((vec3*)(input + 0), (vec3*)(output + 0), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), *(float*)(uData1 + 48), *(sampler1D*)(uData1 + 52), *(float*)(uData1 + 64), *(vec3*)(uData1 + 68), index);
+		VSExec((vec3*)(input + 0), (vec3*)(input + 3), (vec3*)(output + 0), (vec3*)(output + 3), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), *(vec3*)(uData1 + 48), *(mat3*)(uData1 + 60), *(float*)(uData1 + 96));
 	}
 	
 	
@@ -789,15 +780,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 		return RETURN_VALUE;
 	}
 
-	int yMin = (int)yMinValue, yMax = (int)yMaxValue;	byte4 flat_data_0;
-	byte4* ptr_0 = &flat_data_0;
-
-	if (true)
-	{
-		int o = 0;
-		FSExec(ptr_0 + o, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), *(int*)(uData2 + 48), index);
-	}
-
+	int yMin = (int)yMinValue, yMax = (int)yMaxValue;
 	float slopeZ, bZ, s;
 	float sA, sB;
 
@@ -899,7 +882,10 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				if (Z_fptr[o] > s) continue;
 				Z_fptr[o] = s;
 
-				ptr_0[o] = flat_data_0;
+				    if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
+				    else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
+
+				FSExec(ptr_0 + o, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(mat3*)(uData2 + 40));
 			}
 		}
 	}

@@ -32,12 +32,16 @@ namespace CADDemo
         GLBuffer vertexBuffer, normalBuffer;
         GLMatrix projMatrix;
 
+        GLBuffer axisIndicator;
+
         float[] vbuf = null;
         float[] nbuf = null;
 
         Vector3[] edgeLines;
 
         Shader cadShader;
+        Shader axisShader;
+
         float TargetZoomMod = 1.0f, CurrentZoomMod = 0.0f;
         float TargetPerspective = 0.0f, CurrentPerspective = 0.0f;
 
@@ -47,6 +51,7 @@ namespace CADDemo
         int viewportWidth, viewportHeight;
 
         Stopwatch sw = new Stopwatch();
+        Vector3 objectCOM;
 
         Vector3 CalculateCenterOfModel(float[] Input, out float BiggestDelta)
         {
@@ -65,11 +70,13 @@ namespace CADDemo
                 if (Input[i * 3 + 2] < min.z) min.z = Input[i * 3 + 2];
             }
 
+         
             float BG = (max.x - min.x);
             if ((max.y - min.y) > BG) BG = (max.y - min.y);
             if ((max.z - min.z) > BG) BG = (max.z - min.z);
 
             BiggestDelta = BG;// *2;
+
             return new Vector3((max.x - min.x) / 2f + min.x, (max.y - min.y) / 2f + min.y, (max.z - min.z) / 2f + min.z);
         }
 
@@ -96,14 +103,24 @@ namespace CADDemo
             projMatrix = GLMatrix.Perspective(90, viewportWidth, viewportHeight);
 
             cadShader = LoadShader("cadVS.glsl", "cadFS.glsl", "cad_shader");
+            axisShader = LoadShader("axisVS.glsl", "axisFS.glsl", "axis_shader", false);
+
+
+
             cadShader.AssignBuffer("FragColor", colorBuffer);
             cadShader.ConfigureFaceCulling(GLCull.GL_BACK);
+            axisShader.ConfigureFaceCulling(GLCull.GL_BACK);
+
+            axisShader.AssignBuffer("FragColor", colorBuffer);
 
             ObjectLoader.ImportSTL(@"C:\\Users\\Adam\\3D Objects\\3D\\custom piece1.stl", out vbuf, out nbuf);
-            inputManager.cameraPoint = CalculateCenterOfModel(vbuf, out inputManager.CameraZoom);
+            objectCOM = CalculateCenterOfModel(vbuf, out inputManager.CameraZoom);
+            inputManager.cameraPoint = objectCOM;
             inputManager.cameraRotation = new Vector3(0, 45, -45);
             CurrentZoomMod = 0.0f;
             TargetZoomMod = 1.0f;
+
+            axisIndicator = ObjectLoader.ImportSTL("indicator.stl", 89f);
 
             vertexBuffer = new GLBuffer(vbuf, 3);
             normalBuffer = new GLBuffer(nbuf, 3);
@@ -156,6 +173,28 @@ namespace CADDemo
             }
         }
 
+        void DrawIndicator()
+        {
+            Matrix3x3 mainMat = Matrix3x3.RollMatrix(0f);
+            axisShader.SetValue("objectRot", mainMat);
+            axisShader.SetValue("object_r", mainMat);
+
+            axisShader.SetValue("colorMode", 0);
+            GL.Draw(axisIndicator, axisShader, depthBuffer, projMatrix, GLMode.Triangle);
+
+            mainMat = Matrix3x3.YawMatrix(90f) * Matrix3x3.RollMatrix(90f);
+            axisShader.SetValue("objectRot", mainMat);
+            axisShader.SetValue("colorMode", 2);
+            axisShader.SetValue("object_r", mainMat);
+            GL.Draw(axisIndicator, axisShader, depthBuffer, projMatrix, GLMode.Triangle);
+
+            mainMat = Matrix3x3.PitchMatrix(-90f) * Matrix3x3.RollMatrix(-90f);
+            axisShader.SetValue("objectRot", mainMat);
+            axisShader.SetValue("colorMode", 1);
+            axisShader.SetValue("object_r", mainMat);
+            GL.Draw(axisIndicator, axisShader, depthBuffer, projMatrix, GLMode.Triangle);
+        }
+
         public float Lerp(float A, float B, float t)
         {
             t = Math.Min(Math.Max(t, 0f), 1f);
@@ -167,26 +206,18 @@ namespace CADDemo
             string winTitle = "";
 
             if (Math.Abs(TargetZoomMod - CurrentZoomMod) > 0.01f)
-            {
                 CurrentZoomMod = Lerp(CurrentZoomMod, TargetZoomMod, 0.05f);
-            }
             else CurrentZoomMod = TargetZoomMod;
 
             if (Math.Abs(TargetPerspective - CurrentPerspective) > 0.01f)
-            {
                 CurrentPerspective = Lerp(CurrentPerspective, TargetPerspective, 0.05f);
-            }
             else CurrentPerspective = TargetPerspective;
 
 
             if (CurrentPerspective == 1)
-            {
                 projMatrix = GLMatrix.Orthographic(inputManager.CameraZoom * 1f, viewportWidth, viewportHeight);
-            }
             else if (CurrentPerspective == 0)
-            {
                 projMatrix = GLMatrix.Perspective(90, viewportWidth, viewportHeight);
-            }
        //     else projMatrix = GLMatrix.Mix(GLMatrix.Perspective(90, viewportWidth, viewportHeight),
       //          GLMatrix.Orthographic(160, viewportWidth, viewportHeight), 0.5627217f);
             else projMatrix = GLMatrix.Mix(GLMatrix.Perspective(90, viewportWidth, viewportHeight),
@@ -218,14 +249,45 @@ namespace CADDemo
 
                 cadShader.SetValue("camera_rotation", cameraRotMat);
                 cadShader.SetValue("normalOffset", 10.0f * (1.0f - CurrentZoomMod));
+                cadShader.SetValue("object_center", objectCOM);
+                cadShader.SetValue("object_scale", 1.0f);
+                cadShader.SetValue("isOrange", (int)0);
+
+                axisShader.SetValue("camera_rotation", cameraRotMat);
+                axisShader.SetValue("cameraPos", cameraPosition);
+                axisShader.SetValue("cameraRot", cameraRotMat);
+                axisShader.SetValue("objectPos", objectCOM);
+                axisShader.SetValue("zoomMod", inputManager.CameraZoom);
 
                 cadShader.ConfigureLateWireframe(true, new Color4(0, 0, 0), colorBuffer);
                 cadShader.ConfigureWireframeOffset(-0.1f);
+
+                projMatrix.ZFar = 1000;
 
                 sw.Start();
                 GL.Draw(vertexBuffer, cadShader, depthBuffer, projMatrix, GLMode.Triangle);
                 sw.Stop();
                 winTitle += "object: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms ";
+
+                cadShader.SetValue("isOrange", (int)1);
+                projMatrix.ZFar = 900;
+
+                sw.Restart();
+                cadShader.SetValue("object_scale", 1.02f);
+                GL.Draw(vertexBuffer, cadShader, depthBuffer, projMatrix, GLMode.Triangle);
+
+                cadShader.SetValue("object_scale", 0.98f);
+                GL.Draw(vertexBuffer, cadShader, depthBuffer, projMatrix, GLMode.Triangle);
+                sw.Stop();
+                winTitle += "object highlight: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms ";
+
+                projMatrix.ZFar = 1100;
+
+                DrawIndicator();
+
+                
+
+                projMatrix.ZFar = 1000;
 
                 DrawAxes(projMatrix, cameraRotMat, cameraPosition);
 
@@ -238,10 +300,13 @@ namespace CADDemo
 
             winTitle += "fxaa: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms ";
 
-            this.Invoke((Action)delegate()
+            //Must be BeginInvoke otherwise the program will hard-freeze
+            
+            this.BeginInvoke((Action)delegate()
             {
                 this.Text = "->" + winTitle;
             });
+
 
             GL.Blit(finalBuffer, formData);
         }
@@ -266,12 +331,12 @@ namespace CADDemo
             return outputShader;
         }
 
-        static Shader LoadShader(string vsShaderName, string fsShaderName, string outputName)
+        static Shader LoadShader(string vsShaderName, string fsShaderName, string outputName, bool isSingleMode = true)
         {
-            ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName, CompileOption.TriangleSingleMode);
+            ShaderCompile sModule = ShaderParser.Parse(vsShaderName, fsShaderName, outputName, isSingleMode ? CompileOption.TriangleSingleMode : CompileOption.None);
             //   ShaderCompile.COMMAND_LINE = "/DEBUG /ZI";
             string temp = ShaderCompile.COMMAND_LINE;
-            //  ShaderCompile.COMMAND_LINE = "";
+              ShaderCompile.COMMAND_LINE = "";
 
             Shader outputShader;
 
@@ -292,14 +357,20 @@ namespace CADDemo
 
         void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            RT.Abort();
+           // RT.Abort();
             RT.Stop();
+
+            if (false)
+            lock (RT.RenderLock)
+            {
+                Console.WriteLine("Exiting...");
+            }
         }
 
         void Form1_Resize(object sender, EventArgs e)
         {
             lock (RT.RenderLock) //Lock statement prevents rendering while updates are occuring!
-            {
+            {     
                 viewportWidth = ((Form)sender).ClientSize.Width;
                 viewportHeight = ((Form)sender).ClientSize.Height;
 
@@ -327,7 +398,9 @@ namespace CADDemo
             vertexBuffer = new GLBuffer(vbuf, 3);
             normalBuffer = new GLBuffer(nbuf, 3);
 
-            inputManager.cameraPoint = CalculateCenterOfModel(vbuf, out inputManager.CameraZoom);
+
+            objectCOM = CalculateCenterOfModel(vbuf, out inputManager.CameraZoom);
+            inputManager.cameraPoint = objectCOM;
             CurrentZoomMod = 0.0f;
             TargetZoomMod = 1.0f;
         }

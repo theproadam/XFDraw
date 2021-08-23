@@ -11,3 +11,5 @@ C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\CADDemo\bin\Debug\cad
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\CADDemo\bin\Debug\CADDemo.exe.config
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\CADDemo\bin\Debug\CADDemo.exe
 C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\CADDemo\obj\Debug\CADDemo.exe
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\CADDemo\bin\Debug\axisVS.glsl
+C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFDraw\CADDemo\bin\Debug\axisFS.glsl

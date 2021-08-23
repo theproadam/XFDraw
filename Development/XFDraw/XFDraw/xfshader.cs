@@ -78,6 +78,7 @@ namespace xfcore.Shaders
         internal int lateWireColor = 0;
         internal float wireOffset = 0;
         internal GLTexture lateWireTexture;
+        internal float faceScaleValue = 0;
 
         internal bool isScreenSpace = false;
         internal object ThreadLock = new object();
@@ -232,12 +233,17 @@ namespace xfcore.Shaders
 
             samplerTextures = new TextureSlot[samplerCount];
 
-            samplerCount = 0;
-            for (int i = 0; i < uniformVS.Length; i++)
-                if (uniformVS[i].dataType == DataType.sampler2D || uniformVS[i].dataType == DataType.samplerCube || uniformVS[i].dataType == DataType.sampler1D)
-                    uniformVS[i].texturePos = samplerCount++;
+            if (uniformVS != null)
+            {
+                samplerCount = 0;
+                for (int i = 0; i < uniformVS.Length; i++)
+                    if (uniformVS[i].dataType == DataType.sampler2D || uniformVS[i].dataType == DataType.samplerCube || uniformVS[i].dataType == DataType.sampler1D)
+                        uniformVS[i].texturePos = samplerCount++;
 
-            samplerTexturesVS = new TextureSlot[samplerCount];
+                samplerTexturesVS = new TextureSlot[samplerCount];
+            }
+
+            
 	    }
 
         public Shader(string shaderDLL)
@@ -579,6 +585,21 @@ namespace xfcore.Shaders
             lateWireTexture = targetTexture;
         }
 
+        public void ConfigureFaceScaling(bool enable, float ScalingValue = 0.0f)
+        {
+            throw new Exception("Experimental feature -> Removed");
+
+            if (!enable)
+                faceScaleValue = 0;
+            else
+            {
+                if (ScalingValue <= 0)
+                    throw new Exception("Scaling Value must be bigger than zero!");
+
+                faceScaleValue = ScalingValue;
+            }
+        }
+
         public void ConfigureDepthTest(bool depthTestEnabled, float ZOffset)
         {
             throw new NotImplementedException();
@@ -758,7 +779,7 @@ namespace xfcore.Shaders
             wire_ptr = ptr;
             offset_wire = shader.wireOffset;
             depth_mode = 0;
-            depth_offset = 0;
+            depth_offset = shader.faceScaleValue;
         }
     }
 

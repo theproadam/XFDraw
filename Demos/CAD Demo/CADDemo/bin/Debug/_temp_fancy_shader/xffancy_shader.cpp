@@ -11,42 +11,31 @@ using namespace Concurrency;
 #define RETURN_VALUE
 #define RtlZeroMemory frtlzeromem
 
-inline vec3 scaleVec(vec3 input, vec3 scale);
-
-
-inline vec3 scaleVec(vec3 input, vec3 scale){
-	return vec3(input.x * scale.x, input.y * scale.y, input.z * scale.z);
-	
-}
 
 
 
-inline void VSExec(vec3* vertex_data, vec3* gl_Position, vec3 cameraPos, mat3 cameraRot, float normalOffset, sampler1D normal_buffer_vs, float object_scale, vec3 object_center, int gl_InstanceID){
-	vec3 fPos = cameraRot * ((((*vertex_data) - object_center) * object_scale + object_center) - cameraPos);
+
+
+inline void VSExec(vec3* vertex_data, vec3* gl_Position, vec3 cameraPos, mat3 cameraRot, float normalOffset, sampler1D normal_buffer_vs, int gl_InstanceID){
 	if (normalOffset == 0){
-	(*gl_Position) = fPos;
+	(*gl_Position) = cameraRot * ((*vertex_data) - cameraPos);
 	}
 	else{
 	vec3 normal = texture<vec3>(normal_buffer_vs, gl_InstanceID);
-	(*gl_Position) = fPos + normal * normalOffset;
+	(*gl_Position) = (cameraRot * ((*vertex_data) - cameraPos)) + normal * normalOffset;
 	}
 	
 }
 
-inline void FSExec(byte4* FragColor, sampler1D normal_buffer, mat3 camera_rotation, int isOrange, int gl_InstanceID){
-	if (isOrange == 1){
-	(*FragColor) = byte4(255, 127, 80);
-	}
-	else{
+inline void FSExec(byte4* FragColor, sampler1D normal_buffer, mat3 camera_rotation, int gl_InstanceID){
 	vec3 normal = texture<vec3>(normal_buffer, gl_InstanceID);
 	normal = (camera_rotation * normal);
 	float color = -normal.z * 127.5f + 127.5f;
 	(*FragColor) = byte4(color, color, color);
-	}
 	
 }
 
-void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, bool perspMat, float oValue, int offsetmod, int FaceIndex, int VW, int VH, float farZ)
+void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, char* uData2, unsigned char** ptrPtrs, float zoffset, int Stride, int FaceIndex, int VW, int VH, float farZ)
 {
 	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
 		return;
@@ -83,8 +72,8 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
 
 		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
 		{
-			int tY = (int)(i * slope + b) + offsetmod;
-			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
 			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
@@ -99,7 +88,7 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 
-			FSExec(ptr_0, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), *(int*)(uData2 + 48), FaceIndex);}
+			FSExec(ptr_0, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), FaceIndex);}
 	}
 	else
 	{
@@ -124,8 +113,8 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
 
 		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
 		{
-            int tY = (int)(i * slope + b) + offsetmod;
-			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
+			int tY = (int)(i * slope + b);
+			float depth = 1.0f / (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
 			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
@@ -140,26 +129,21 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
 
-			FSExec(ptr_0, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), *(int*)(uData2 + 48), FaceIndex);
+			FSExec(ptr_0, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), FaceIndex);
 		}	
 }
 }
 
-inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, int findex, bool perspMat, float oValue, int lineThick, float zoffset)
+inline void DrawWireFrame(float* VERTEX_DATA, float* dptr, char* uData2, unsigned char** ptrPtrs, int BUFFER_SIZE, int Stride, GLData projData, float zoffset)
 {
 	float* attribs = (float*)alloca((Stride - 3) * 3 * sizeof(float));
 
-	int uppr = (int)((lineThick - 1.0f) / 2.0f);
-	int lwr = (int)(lineThick / 2.0f);
-
 	for (int i = 0; i < BUFFER_SIZE - 1; i++)
 	{
-		for (int s = -lwr; s <= uppr; s++)
-			DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, perspMat, oValue, s, findex, projData.renderWidth, projData.renderHeight, projData.farZ);
+		DrawLineDATA(VERTEX_DATA + i * Stride, VERTEX_DATA + (i + 1) * Stride, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 	}
 
-	for (int s = -lwr; s <= uppr; s++)
-		DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, perspMat, oValue, s, findex, projData.renderWidth, projData.renderHeight, projData.farZ);
+	DrawLineDATA(VERTEX_DATA + (BUFFER_SIZE - 1) * Stride, VERTEX_DATA, dptr, attribs, uData2, ptrPtrs, zoffset, Stride, 0, projData.renderWidth, projData.renderHeight, projData.farZ);
 }
 
 void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){
@@ -172,39 +156,10 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	for (int b = 0; b < 3; ++b){
 		float* input = p + (index * faceStride + b * readStride);
 		float* output = VERTEX_DATA + b * stride;
-		VSExec((vec3*)(input + 0), (vec3*)(output + 0), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), *(float*)(uData1 + 48), *(sampler1D*)(uData1 + 52), *(float*)(uData1 + 64), *(vec3*)(uData1 + 68), index);
+		VSExec((vec3*)(input + 0), (vec3*)(output + 0), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), *(float*)(uData1 + 48), *(sampler1D*)(uData1 + 52), index);
 	}
 	
-	
-	
-	    if (wireData.depth_offset != 0)
-		{
-			vec3 max = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-			vec3 min = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-	
-			for (int i = 0; i < BUFFER_SIZE; i++)
-			{
-				if (VERTEX_DATA[i * stride] > max.x) max.x = VERTEX_DATA[i * stride];
-				if (VERTEX_DATA[i * stride] < min.x) min.x = VERTEX_DATA[i * stride];
-	
-				if (VERTEX_DATA[i * stride + 1] > max.y) max.y = VERTEX_DATA[i * stride + 1];
-				if (VERTEX_DATA[i * stride + 1] < min.y) min.y = VERTEX_DATA[i * stride + 1];
-	
-				if (VERTEX_DATA[i * stride + 2] > max.z) max.z = VERTEX_DATA[i * stride + 2];
-				if (VERTEX_DATA[i * stride + 2] < min.z) min.z = VERTEX_DATA[i * stride + 2];
-			}
-	
-			vec3 center = (max - min) * 0.5f + min;
-	
-			for (int i = 0; i < BUFFER_SIZE; i++)
-			{
-				VERTEX_DATA[i * stride + 0] = (VERTEX_DATA[i * stride + 0] - center.x) * wireData.depth_offset + center.x;
-				VERTEX_DATA[i * stride + 1] = (VERTEX_DATA[i * stride + 1] - center.y) * wireData.depth_offset + center.y;
-				VERTEX_DATA[i * stride + 2] = (VERTEX_DATA[i * stride + 2] - center.z) * wireData.depth_offset + center.z;
-			}
-		}
-	    
-		bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
+	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
 	frtlzeromem(AP, BUFFER_SIZE);
 	
 	#pragma region NearPlaneCFG
@@ -785,7 +740,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 	if (wireData.WIRE_MODE == 1)
 	{
-        DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, index, projData.matrixlerpv != 1, projData.oValue, 1, wireData.offset_wire);
+		DrawWireFrame(VERTEX_DATA, dptr, uData2, ptrPtrs, BUFFER_SIZE, stride, projData, wireData.offset_wire);
 		return RETURN_VALUE;
 	}
 
@@ -795,14 +750,11 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 	if (true)
 	{
 		int o = 0;
-		FSExec(ptr_0 + o, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), *(int*)(uData2 + 48), index);
+		FSExec(ptr_0 + o, *(sampler1D*)(uData2 + 0), *(mat3*)(uData2 + 12), index);
 	}
 
 	float slopeZ, bZ, s;
 	float sA, sB;
-
-    if (yMin < 0) yMin = 0;
-	if (yMax >= renderHeight) yMax = renderHeight - 1;
 
 	float* Intersects = (float*)alloca((4 + (stride - 3) * 5) * 4);
 	float* attribs = Intersects + 4 + (stride - 3) * 2;
