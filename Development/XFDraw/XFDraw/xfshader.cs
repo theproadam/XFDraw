@@ -750,7 +750,7 @@ namespace xfcore.Shaders
             iox = ox; //???? renderXF seems to have this issue
             ioy = oy;
 
-            oValue = ow / (float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv);
+            oValue = ow / ((float)Math.Tan(proj.vFOV / 2f) * (1f - matrixlerpv));
 
           //  if (proj.vFOV == 0)
          //       oValue = 0;

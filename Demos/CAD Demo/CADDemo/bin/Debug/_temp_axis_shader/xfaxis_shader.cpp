@@ -23,17 +23,19 @@ inline void VSExec(vec3* vertex_data, vec3* norm_data, vec3* gl_Position, vec3* 
 	
 }
 
-inline void FSExec(byte4* FragColor, vec3* normals, mat3 camera_rotation, int colorMode, mat3 object_r){
+inline void FSExec(byte4* FragColor, int* clickIndex, vec3* normals, mat3 camera_rotation, int colorMode, int clickValue, mat3 object_r){
 	float opacity = -(((camera_rotation * object_r) * (*normals)).z) * 127.5f + 127.5f;
-	if (colorMode == 0){
+	if (clickValue == colorMode) opacity *= 0.5f;
+	if (colorMode == 1){
 	(*FragColor) = byte4(opacity * 0.8f, 50, 50);
 	}
-	else if (colorMode == 1){
+	else if (colorMode == 2){
 	(*FragColor) = byte4(50, opacity * 0.8f, 50);
 	}
-	else if (colorMode == 2){
+	else if (colorMode == 3){
 	(*FragColor) = byte4(50, 50, opacity * 0.8f);
 	}
+	(*clickIndex) = colorMode;
 	
 }
 
@@ -89,8 +91,9 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
 				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
+int* ptr_1 = (int*)ptrPtrs[1] + mem_addr;
 
-			FSExec(ptr_0, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(mat3*)(uData2 + 40));}
+			FSExec(ptr_0, ptr_1, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(int*)(uData2 + 40), *(mat3*)(uData2 + 44));}
 	}
 	else
 	{
@@ -130,8 +133,9 @@ void DrawLineDATA(float* FromDATA, float* ToDATA, float* dptr, float* attrib, ch
 				attribs[z] = y_Mxb[z] * depth + y_mxB[z];
             
             byte4* ptr_0 = (byte4*)ptrPtrs[0] + mem_addr;
+int* ptr_1 = (int*)ptrPtrs[1] + mem_addr;
 
-			FSExec(ptr_0, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(mat3*)(uData2 + 40));
+			FSExec(ptr_0, ptr_1, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(int*)(uData2 + 40), *(mat3*)(uData2 + 44));
 		}	
 }
 }
@@ -166,36 +170,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 		VSExec((vec3*)(input + 0), (vec3*)(input + 3), (vec3*)(output + 0), (vec3*)(output + 3), *(vec3*)(uData1 + 0), *(mat3*)(uData1 + 12), *(vec3*)(uData1 + 48), *(mat3*)(uData1 + 60), *(float*)(uData1 + 96));
 	}
 	
-	
-	
-	    if (wireData.depth_offset != 0)
-		{
-			vec3 max = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-			vec3 min = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-	
-			for (int i = 0; i < BUFFER_SIZE; i++)
-			{
-				if (VERTEX_DATA[i * stride] > max.x) max.x = VERTEX_DATA[i * stride];
-				if (VERTEX_DATA[i * stride] < min.x) min.x = VERTEX_DATA[i * stride];
-	
-				if (VERTEX_DATA[i * stride + 1] > max.y) max.y = VERTEX_DATA[i * stride + 1];
-				if (VERTEX_DATA[i * stride + 1] < min.y) min.y = VERTEX_DATA[i * stride + 1];
-	
-				if (VERTEX_DATA[i * stride + 2] > max.z) max.z = VERTEX_DATA[i * stride + 2];
-				if (VERTEX_DATA[i * stride + 2] < min.z) min.z = VERTEX_DATA[i * stride + 2];
-			}
-	
-			vec3 center = (max - min) * 0.5f + min;
-	
-			for (int i = 0; i < BUFFER_SIZE; i++)
-			{
-				VERTEX_DATA[i * stride + 0] = (VERTEX_DATA[i * stride + 0] - center.x) * wireData.depth_offset + center.x;
-				VERTEX_DATA[i * stride + 1] = (VERTEX_DATA[i * stride + 1] - center.y) * wireData.depth_offset + center.y;
-				VERTEX_DATA[i * stride + 2] = (VERTEX_DATA[i * stride + 2] - center.z) * wireData.depth_offset + center.z;
-			}
-		}
-	    
-		bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
+	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
 	frtlzeromem(AP, BUFFER_SIZE);
 	
 	#pragma region NearPlaneCFG
@@ -870,6 +845,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 
 			int wPos = renderWidth * i;
 			byte4* ptr_0 = (byte4*)(ptrPtrs[0] + wPos * 4);
+	int* ptr_1 = (int*)(ptrPtrs[1] + wPos * 4);
 	
 			Z_fptr = dptr + i * renderWidth;
 			zBegin = slopeZ * (float)FromX + bZ;
@@ -885,7 +861,7 @@ void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, un
 				    if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				    else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);
 
-				FSExec(ptr_0 + o, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(mat3*)(uData2 + 40));
+				FSExec(ptr_0 + o, ptr_1 + o, (vec3*)(attribs + 0), *(mat3*)(uData2 + 0), *(int*)(uData2 + 36), *(int*)(uData2 + 40), *(mat3*)(uData2 + 44));
 			}
 		}
 	}

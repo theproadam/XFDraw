@@ -471,7 +471,7 @@ namespace xfcore.Shaders.Builder
             shaderCode += "float* input = p + (index * faceStride + b * readStride);\n\t";
             shaderCode += "float* output = VERTEX_DATA + b * stride;\n\t" + exec + "\n}\n\n";
 
-            shaderCode += FaceScale3D + "\n\t";
+       //     shaderCode += FaceScale3D + "\n\t";
 
             shaderCode += "bool* AP = (bool*)alloca(BUFFER_SIZE + 12);\n";
             shaderCode += "frtlzeromem(AP, BUFFER_SIZE);\n\n";

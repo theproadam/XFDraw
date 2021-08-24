@@ -759,6 +759,12 @@ inline float absf(float val)
 }
 
 #define byteToRGB 0.00392156862745f
+#define lumaByte 0.0000153787004998f
+
+inline float dotByte(byte4 lhs, byte4 rhs)
+{
+	return lumaByte * (lhs.R * rhs.R + lhs.G * rhs.G + lhs.B * rhs.B);
+}
 
 extern "C"
 {
@@ -1006,6 +1012,93 @@ extern "C"
 					((unsigned char*)tBuf)[0] = val.z * 255.0f;
 					((unsigned char*)tBuf)[1] = val.y * 255.0f;
 					((unsigned char*)tBuf)[2] = val.x * 255.0f;
+
+					continue;
+				}
+				tBuf[0] = sBuf[0];
+			}
+
+			tBuf[0] = sBuf[0];
+
+		}
+
+		//these loops could theoretically be parallelized
+
+		for (int w = 0; w < width - 1; w++)
+		{
+			TargetBuffer[w] = SourceBuffer[w];
+		}
+
+		int offset = (height - 1) * width;
+
+
+		for (int w = 0; w < width; w++)
+		{
+			TargetBuffer[offset + w] = SourceBuffer[offset + w];
+		}
+
+	}
+
+	__declspec(dllexport) void FXAA_PASS2(byte4* TargetBuffer, byte4* SourceBuffer, long width, long height)
+	{
+		int wsD = width * 4;
+
+#pragma omp parallel for
+		for (int h = 1; h < height - 1; h++)
+		{
+			unsigned char* bptr = (unsigned char*)SourceBuffer + h * wsD + 4;
+			byte4* tBuf = TargetBuffer + h * width;
+			byte4* sBuf = SourceBuffer + h * width;
+
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+
+			int Ydelta;
+			int Xdelta;
+
+			for (int w = 1; w < width - 1; w++, bptr += 4, tBuf++, sBuf++)
+			{
+				byte4 rgbM = sBuf[0];
+				byte4 rgbNE = sBuf[1];
+				byte4 rgbNW = sBuf[-1];
+				byte4 rgbSW = sBuf[width];
+				byte4 rgbSE = sBuf[-width];
+
+				//vec3 luma = vec3(0.299f, 0.587f, 0.114f);
+				byte4 luma = byte4(0.299f * 255.0f, 0.587f * 255.0f, 0.114f * 255.0f);
+				float lumaNW = dotByte(rgbNW, luma);
+				float lumaNE = dotByte(rgbNE, luma);
+				float lumaSW = dotByte(rgbSW, luma);
+				float lumaSE = dotByte(rgbSE, luma);
+				float lumaM = dotByte(rgbM, luma);
+
+				float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+				float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+
+				float range = lumaMax - lumaMin;
+
+				if (range <= 0.5f && range >= 0.06f)
+				{
+					float delta1 = absf(lumaNW - lumaNE); //horizontal smear
+					float delta2 = absf(lumaSW - lumaSE); //vertical smear
+
+					float norm = 1.0f / (delta1 + delta2);
+					delta1 *= norm;
+					delta2 *= norm;
+
+					//vec3 val = (rgbNW * 0.5f + rgbNE * 0.5f) * delta2 + (rgbSW * 0.5f + rgbSE * 0.5f) * delta1;// +rgbM * 0.6f;
+
+					unsigned char R = (rgbNW.R * 0.5f + rgbNE.R * 0.5f) * delta2 + (rgbSW.R * 0.5f + rgbSE.R * 0.5f) * delta1;
+					unsigned char G = (rgbNW.G * 0.5f + rgbNE.G * 0.5f) * delta2 + (rgbSW.G * 0.5f + rgbSE.G * 0.5f) * delta1;
+					unsigned char B = (rgbNW.B * 0.5f + rgbNE.B * 0.5f) * delta2 + (rgbSW.B * 0.5f + rgbSE.B * 0.5f) * delta1;
+
+					byte4 reslt = byte4(R, G, B);
+
+					tBuf[0] = reslt;
+				//	((unsigned char*)tBuf)[0] = val.z * 255.0f;
+				//	((unsigned char*)tBuf)[1] = val.y * 255.0f;
+				//	((unsigned char*)tBuf)[2] = val.x * 255.0f;
 
 					continue;
 				}

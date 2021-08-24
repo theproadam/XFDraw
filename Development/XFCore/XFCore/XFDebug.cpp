@@ -3564,7 +3564,8 @@ extern "C"
 		//XYZ-> XY Transforms
 
 		float mMinOne = (1.0f - projData.matrixlerpv);
-
+		bool perspMat = projData.matrixlerpv != 1;
+		float oValue = projData.oValue;
 
 		if (projData.matrixlerpv == 0)
 		for (int im = 0; im < 2; im++)
@@ -3597,10 +3598,10 @@ extern "C"
 		if (lineThick > 1)
 			for (int i = -lwr; i <= uppr; i++)
 			{
-				DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, i);
+				DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, perspMat, oValue, i);
 			}
 		else if (lineThick == 1)
-			DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, 0);
+			DrawLineNoDATA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, color, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, perspMat, oValue, 0);
 	
 		
 	}

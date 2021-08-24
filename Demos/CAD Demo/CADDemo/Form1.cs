@@ -28,7 +28,7 @@ namespace CADDemo
 
         RenderThread RT = new RenderThread(144);
         
-        GLTexture colorBuffer, depthBuffer, finalBuffer;
+        GLTexture colorBuffer, depthBuffer, clickBuffer, finalBuffer;
         GLBuffer vertexBuffer, normalBuffer;
         GLMatrix projMatrix;
 
@@ -52,6 +52,8 @@ namespace CADDemo
 
         Stopwatch sw = new Stopwatch();
         Vector3 objectCOM;
+
+        Point cursoronForm;
 
         Vector3 CalculateCenterOfModel(float[] Input, out float BiggestDelta)
         {
@@ -95,6 +97,7 @@ namespace CADDemo
 
             colorBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
             depthBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(float));
+            clickBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(int));
             finalBuffer = new GLTexture(viewportWidth, viewportHeight, typeof(Color4));
 
             inputManager = new CADInputManager(this);
@@ -156,6 +159,19 @@ namespace CADDemo
             GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, X, new Color4(255, 0, 0), 3);
             GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Y, new Color4(0, 0, 255), 3);
             GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Z, new Color4(0, 255, 0), 3);
+
+
+            X = new Vector3(-1000, 0, 0);
+            Y = new Vector3(0, -1000, 0);
+            Z = new Vector3(0, 0, -1000);
+
+            X = rotMat * (X - cameraPos);
+            Y = rotMat * (Y - cameraPos);
+            Z = rotMat * (Z - cameraPos);
+
+            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, X, new Color4(255, 0, 0), 2);
+          //  GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Y, new Color4(0, 0, 255), 1);
+            GL.Line3D(colorBuffer, depthBuffer, projMatrix, Origin, Z, new Color4(0, 255, 0), 2);
         }
 
         void DrawEdgeLines(GLMatrix projMatrix, Matrix3x3 rotMat, Vector3 cameraPos)
@@ -173,24 +189,50 @@ namespace CADDemo
             }
         }
 
+        int GetMouseBuffer()
+        {
+            this.BeginInvoke((Action)delegate()
+            {
+                cursoronForm = this.PointToClient(Cursor.Position);
+                cursoronForm.Y = viewportHeight - cursoronForm.Y - 1;
+            });
+
+            int sourceX = cursoronForm.X;
+            int sourceY = cursoronForm.Y;
+
+            int result = 0;
+
+            if (sourceX >= 0 && sourceX < viewportWidth)
+                if (sourceY >= 0 && sourceY < viewportHeight)
+                    clickBuffer.LockPixels(delegate(GLBytes4 data) {
+                        result = data.GetPixel(sourceX, sourceY);
+                    });
+       
+            return result;
+        }
+        
         void DrawIndicator()
         {
+            axisShader.SetValue("clickValue", GetMouseBuffer());
+
+            clickBuffer.Clear();
+
             Matrix3x3 mainMat = Matrix3x3.RollMatrix(0f);
             axisShader.SetValue("objectRot", mainMat);
             axisShader.SetValue("object_r", mainMat);
 
-            axisShader.SetValue("colorMode", 0);
+            axisShader.SetValue("colorMode", 1);
             GL.Draw(axisIndicator, axisShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             mainMat = Matrix3x3.YawMatrix(90f) * Matrix3x3.RollMatrix(90f);
             axisShader.SetValue("objectRot", mainMat);
-            axisShader.SetValue("colorMode", 2);
+            axisShader.SetValue("colorMode", 3);
             axisShader.SetValue("object_r", mainMat);
             GL.Draw(axisIndicator, axisShader, depthBuffer, projMatrix, GLMode.Triangle);
 
             mainMat = Matrix3x3.PitchMatrix(-90f) * Matrix3x3.RollMatrix(-90f);
             axisShader.SetValue("objectRot", mainMat);
-            axisShader.SetValue("colorMode", 1);
+            axisShader.SetValue("colorMode", 2);
             axisShader.SetValue("object_r", mainMat);
             GL.Draw(axisIndicator, axisShader, depthBuffer, projMatrix, GLMode.Triangle);
         }
@@ -225,6 +267,7 @@ namespace CADDemo
 
             GL.Clear(colorBuffer, 240, 240, 240);
             depthBuffer.Clear();
+        //    clickBuffer.Clear();
 
             inputManager.CalculateMouseInput();
             inputManager.CalcualteKeyboardInput(6.994f);
@@ -258,6 +301,7 @@ namespace CADDemo
                 axisShader.SetValue("cameraRot", cameraRotMat);
                 axisShader.SetValue("objectPos", objectCOM);
                 axisShader.SetValue("zoomMod", inputManager.CameraZoom);
+                axisShader.AssignBuffer("clickIndex", clickBuffer);
 
                 cadShader.ConfigureLateWireframe(true, new Color4(0, 0, 0), colorBuffer);
                 cadShader.ConfigureWireframeOffset(-0.1f);
@@ -279,19 +323,21 @@ namespace CADDemo
                 cadShader.SetValue("object_scale", 0.98f);
                 GL.Draw(vertexBuffer, cadShader, depthBuffer, projMatrix, GLMode.Triangle);
                 sw.Stop();
-                winTitle += "object highlight: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms ";
+                winTitle += "object highlight: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms, ";
 
                 projMatrix.ZFar = 1100;
 
+                sw.Restart();
                 DrawIndicator();
-
-                
 
                 projMatrix.ZFar = 1000;
 
                 DrawAxes(projMatrix, cameraRotMat, cameraPosition);
 
                 DrawEdgeLines(projMatrix, cameraRotMat, cameraPosition);
+                sw.Stop();
+
+                winTitle += "axes and indicator: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms, ";
             }
 
             sw.Restart();
@@ -378,6 +424,7 @@ namespace CADDemo
                 colorBuffer.Resize(viewportWidth, viewportHeight);
                 depthBuffer.Resize(viewportWidth, viewportHeight);
                 finalBuffer.Resize(viewportWidth, viewportHeight);
+                clickBuffer.Resize(viewportWidth, viewportHeight);
 
                 projMatrix = GLMatrix.Perspective(90, viewportWidth, viewportHeight);
             }
@@ -394,6 +441,8 @@ namespace CADDemo
 
 
             ObjectLoader.ImportSTL(oDialog.FileName, out vbuf, out nbuf, out edgeLines);
+
+
 
             vertexBuffer = new GLBuffer(vbuf, 3);
             normalBuffer = new GLBuffer(nbuf, 3);

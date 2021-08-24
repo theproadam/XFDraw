@@ -478,7 +478,7 @@ inline void DrawLineDATA_OLD(float* FromDATA, float* ToDATA, float* dptr, unsign
 	}
 }
 
-inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ, int offsetmod)
+inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int color, float zoffset, int Stride, int VW, int VH, float farZ, bool perspMat, float oValue, int offsetmod)
 {
 	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
 		return;
@@ -504,7 +504,7 @@ inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* ipt
 		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
 		{
 			int tY = (int)(i * slope + b) + offsetmod;
-			float depth = 1.0f / (slopeZ * (float)i + bZ);
+			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
 			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
@@ -535,7 +535,7 @@ inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* ipt
 		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
 		{
 			int tY = (int)(i * slope + b) + offsetmod;
-			float depth = 1.0f / (slopeZ * (float)i + bZ);
+			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
 
 			float s = farZ - depth;
 			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
@@ -549,6 +549,43 @@ inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* ipt
 		}
 	}
 }
+
+struct byte4
+{
+	unsigned char B;
+	unsigned char G;
+	unsigned char R;
+	unsigned char A;
+
+	byte4(unsigned char r, unsigned char g, unsigned char b)
+	{
+		A = 255;
+		R = r;
+		G = g;
+		B = b;
+	}
+
+	byte4(unsigned char a, unsigned char r, unsigned char g, unsigned char b)
+	{
+		A = a;
+		R = r;
+		G = g;
+		B = b;
+	}
+
+	byte4()
+	{
+		B = 0;
+		G = 0;
+		R = 0;
+		A = 0;
+	}
+
+	vec3 xyz()
+	{
+		return vec3(R, G, B);
+	}
+};
 
 
 void FIP(float* TA, int INDEX, float* VD, int A, int B, float LinePos);

@@ -365,6 +365,8 @@ namespace CADDemo
             float[] vertexBuffer = new float[STLI.AllTriangles.Length * 3 * 3];
             float[] normalBuffer = new float[STLI.AllTriangles.Length * 3];
 
+            System.Diagnostics.Debug.WriteLine(STLI.AllTriangles.Length);
+
             for (int i = 0; i < STLI.AllTriangles.Length; i++)
             {
                 vertexBuffer[i * 9] = STLI.AllTriangles[i].vertex1.x;
@@ -394,6 +396,8 @@ namespace CADDemo
 
             float[] vertexBuffer = new float[STLI.AllTriangles.Length * 3 * 3];
             float[] normalBuffer = new float[STLI.AllTriangles.Length * 3];
+
+            System.Diagnostics.Debug.WriteLine(STLI.AllTriangles.Length);
 
             for (int i = 0; i < STLI.AllTriangles.Length; i++)
             {
