@@ -1,5 +1,5 @@
 # XFDraw CAD Demo
-This demo demonstates XFDraw's CAD capability. it is centered around performance, and thus uses the special "one fragment shader call per triangle" method to increase performance by around 3.5X. Note that this demo is still WIP, and it being used as a bug fixing platform for XFDraw.
+This demo demonstates XFDraw's CAD capability. it is centered around performance, and thus uses the special "one fragment shader call per triangle" method to increase performance by around 3.5X. Note that this demo is still WIP, and it being used as a bug fixing platform for XFDraw. Note that some shaders here weren't compiled for performance, so the final version should have better performance.
 
 ### Screenshots
 #### Plane
