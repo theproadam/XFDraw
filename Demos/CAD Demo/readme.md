@@ -1,6 +1,8 @@
 # XFDraw CAD Demo
 This demo demonstates XFDraw's CAD capability. it is centered around performance, and thus uses the special "one fragment shader call per triangle" method to increase performance by around 3.5X. Note that this demo is still WIP, and it being used as a bug fixing platform for XFDraw. Note that some shaders here weren't compiled for performance, so the final version should have better performance.
 
+Note: The object highlight effect should have been a seperate frame buffer which would have been blurred. For performance reasons, the current highlight effect is just a scaled version of the object in orange.
+
 ### Screenshots
 #### Plane
 ![](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/jetplane.png)
