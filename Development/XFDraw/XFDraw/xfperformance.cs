@@ -55,6 +55,7 @@ namespace xfcore.Performance
         {
             outputBuffer.RequestLock();
             inputBuffer.RequestLock();
+            tempBuffer.RequestLock();
 
             if (outputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
@@ -62,11 +63,14 @@ namespace xfcore.Performance
             if (inputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Width != outputBuffer.Width)
-                throw new Exception("Input and output buffer widths are not the same!");
+            if (tempBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Height != outputBuffer.Height)
-                throw new Exception("Input and output buffer heights are not the same!");
+            if (inputBuffer.Width != outputBuffer.Width || inputBuffer.Width != tempBuffer.Width)
+                throw new Exception("Input/output/temp buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height || inputBuffer.Height != tempBuffer.Height)
+                throw new Exception("Input/output/temp buffer heights are not the same!");
 
             int* addr1 = (int*)outputBuffer.GetAddress();
             int* addr2 = (int*)inputBuffer.GetAddress();
@@ -76,12 +80,14 @@ namespace xfcore.Performance
 
             outputBuffer.ReleaseLock();
             inputBuffer.ReleaseLock();
+            tempBuffer.ReleaseLock();
         }
 
         public static void BoxBlur5x5(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
         {
             outputBuffer.RequestLock();
             inputBuffer.RequestLock();
+            tempBuffer.RequestLock();
 
             if (outputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
@@ -89,11 +95,14 @@ namespace xfcore.Performance
             if (inputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Width != outputBuffer.Width)
-                throw new Exception("Input and output buffer widths are not the same!");
+            if (tempBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Height != outputBuffer.Height)
-                throw new Exception("Input and output buffer heights are not the same!");
+            if (inputBuffer.Width != outputBuffer.Width || inputBuffer.Width != tempBuffer.Width)
+                throw new Exception("Input/output/temp buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height || inputBuffer.Height != tempBuffer.Height)
+                throw new Exception("Input/output/temp buffer heights are not the same!");
 
             int* addr1 = (int*)outputBuffer.GetAddress();
             int* addr2 = (int*)inputBuffer.GetAddress();
@@ -103,12 +112,14 @@ namespace xfcore.Performance
 
             outputBuffer.ReleaseLock();
             inputBuffer.ReleaseLock();
+            tempBuffer.ReleaseLock();
         }
 
         public static void BoxBlur3x3Float(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
         {
             outputBuffer.RequestLock();
             inputBuffer.RequestLock();
+            tempBuffer.RequestLock();
 
             if (outputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
@@ -116,11 +127,14 @@ namespace xfcore.Performance
             if (inputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Width != outputBuffer.Width)
-                throw new Exception("Input and output buffer widths are not the same!");
+            if (tempBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Height != outputBuffer.Height)
-                throw new Exception("Input and output buffer heights are not the same!");
+            if (inputBuffer.Width != outputBuffer.Width || inputBuffer.Width != tempBuffer.Width)
+                throw new Exception("Input/output/temp buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height || inputBuffer.Height != tempBuffer.Height)
+                throw new Exception("Input/output/temp buffer heights are not the same!");
 
             float* addr1 = (float*)outputBuffer.GetAddress();
             float* addr2 = (float*)inputBuffer.GetAddress();
@@ -130,12 +144,14 @@ namespace xfcore.Performance
 
             outputBuffer.ReleaseLock();
             inputBuffer.ReleaseLock();
+            tempBuffer.ReleaseLock();
         }
 
         public static void BoxBlur5x5Float(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
         {
             outputBuffer.RequestLock();
             inputBuffer.RequestLock();
+            tempBuffer.RequestLock();
 
             if (outputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
@@ -143,11 +159,14 @@ namespace xfcore.Performance
             if (inputBuffer.Stride != 4)
                 throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Width != outputBuffer.Width)
-                throw new Exception("Input and output buffer widths are not the same!");
+            if (tempBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
 
-            if (inputBuffer.Height != outputBuffer.Height)
-                throw new Exception("Input and output buffer heights are not the same!");
+            if (inputBuffer.Width != outputBuffer.Width || inputBuffer.Width != tempBuffer.Width)
+                throw new Exception("Input/output/temp buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height || inputBuffer.Height != tempBuffer.Height)
+                throw new Exception("Input/output/temp buffer heights are not the same!");
 
             float* addr1 = (float*)outputBuffer.GetAddress();
             float* addr2 = (float*)inputBuffer.GetAddress();
@@ -157,6 +176,7 @@ namespace xfcore.Performance
 
             outputBuffer.ReleaseLock();
             inputBuffer.ReleaseLock();
+            tempBuffer.ReleaseLock();
         }
 
 

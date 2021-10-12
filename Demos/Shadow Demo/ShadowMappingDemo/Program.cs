@@ -48,6 +48,8 @@ namespace ShadowMappingDemo
         static GLCubemap reflect3;
         static GLCubemap reflect4;
 
+        static GLCubemap skybox;
+
         //Object Buffer
         static GLBuffer planeObject;
         static GLBuffer teapotObject;
@@ -147,6 +149,8 @@ namespace ShadowMappingDemo
             cobbleNormal = ObjectLoader.LoadTexture("textures/Cobblestone [Normal].png");
             cobbleHeight = ObjectLoader.LoadTexture("textures/Cobblestone [Occlusion].png");
             cobbleSpecular = ObjectLoader.LoadTexture("textures/Cobblestone [Specular].png");
+            skybox = ObjectLoader.LoadCubemap("textures/skybox", false);
+
 
             //Parse and Compile Shaders
             basicShader = LoadShader("basicVS.cpp", "basicFS.cpp", "basicShader");
@@ -244,6 +248,7 @@ namespace ShadowMappingDemo
             lightShader.SetValue("reflect4", reflect4);
 
 
+            
 
             //Preset camera position
             inputManager.cameraPosition = new Vector3(-52.6f, 52.1984f, -122.77f);
@@ -316,6 +321,13 @@ namespace ShadowMappingDemo
             SSAO.SetValue("cameraProj", projMatrix);
             SSAO.SetValue("FrameCount", (int)(FramesRendered % 2));
 
+
+            GLFast.DrawSkybox(colorBuffer, skybox, cameraRotation);
+            sw.Stop();
+            frametimeCount.Add("[Fast] Skybox: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
+            sw.Restart();
+
+
             sw.Restart();
             //Draw four Teapots:
             basicShader.SetValue("objectPos", new Vector3(0, 0, 0));
@@ -341,6 +353,8 @@ namespace ShadowMappingDemo
             basicShader.SetValue("specular_value", 0.3f);
             basicShader.SetValue("reflectionData", (int)4);
             GL.Draw(teapotObject, basicShader, depthBuffer, projMatrix, GLMode.Triangle);
+
+           
 
             sw.Stop();
             frametimeCount.Add("[Draw] Teapots: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
@@ -376,11 +390,19 @@ namespace ShadowMappingDemo
             volumetricFog.SetValue("noiseX", 4.0f * (float)FramesRendered);
             volumetricFog.SetValue("noiseY", 4.0f * (float)FramesRendered);
 
+
             SSAO.Pass();
 
             sw.Stop();
             frametimeCount.Add("[Pass] SSAO: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
             sw.Restart();
+
+            GLFast.BoxBlur5x5Float(ssaoBuffer, ssaoBuffer, fxaaBuffer);
+         //   GLFast.BoxBlur5x5Float(ssaoBuffer, ssaoBuffer, fxaaBuffer);
+            sw.Stop();
+            frametimeCount.Add("[Pass] SSAO Blur: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
+            sw.Restart();
+
 
             lightShader.AssignBuffer("FragColor", enableFXAA ? fxaaBuffer : colorBuffer);
 
@@ -416,7 +438,7 @@ namespace ShadowMappingDemo
          //   volumetricFog.SetValue("FrameCount", FramesRendered);
             volumetricFog.AssignBuffer("FragColor", colorBuffer);
             volumetricFog.SetValue("camera_pos", cameraPosition);
-         //   volumetricFog.Pass();
+          //  volumetricFog.Pass();
 
             sw.Stop();
             frametimeCount.Add("[Pass] Fog: " + sw.Elapsed.TotalMilliseconds.ToString("0.#") + "ms");
@@ -617,29 +639,36 @@ namespace ShadowMappingDemo
             };
 
             Matrix3x3 mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(0);
+            GLFast.DrawSkybox(front, skybox, mat3);
             drawFace(mat3, front);
             drawPlane(mat3, front);
 
             mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(180f);
+            GLFast.DrawSkybox(back, skybox, mat3);
             drawFace(mat3, back);
             drawPlane(mat3, back);
 
             mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(-90f);
+            GLFast.DrawSkybox(left, skybox, mat3);
             drawFace(mat3, left);
             drawPlane(mat3, left);
 
             mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(0) * Matrix3x3.PitchMatrix(90f);
+            GLFast.DrawSkybox(right, skybox, mat3);
             drawFace(mat3, right);
             drawPlane(mat3, right);
 
             mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(-90) * Matrix3x3.PitchMatrix(0);
+            GLFast.DrawSkybox(bottom, skybox, mat3);
             drawFace(mat3, bottom);
             drawPlane(mat3, bottom);
+            
 
             mat3 = Matrix3x3.YawMatrix(180) * Matrix3x3.RollMatrix(90) * Matrix3x3.PitchMatrix(0);
+            GLFast.DrawSkybox(top, skybox, mat3);
             drawFace(mat3, top);
             drawPlane(mat3, top);
-
+           
 
 
             return result;

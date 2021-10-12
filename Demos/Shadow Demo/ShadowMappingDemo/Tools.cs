@@ -315,14 +315,14 @@ namespace ShadowMappingDemo
 
     public static class ObjectLoader
     {
-        public static GLCubemap LoadCubemap(string folderPath)
+        public static GLCubemap LoadCubemap(string folderPath, bool isJPEG = true)
         {
-            Bitmap front = new Bitmap(folderPath + @"\FRONT.jpg");
-            Bitmap back = new Bitmap(folderPath + @"\BACK.jpg");
-            Bitmap top = new Bitmap(folderPath + @"\TOP.jpg");
-            Bitmap bottom = new Bitmap(folderPath + @"\BOTTOM.jpg");
-            Bitmap left = new Bitmap(folderPath + @"\LEFT.jpg");
-            Bitmap right = new Bitmap(folderPath + @"\RIGHT.jpg");
+            Bitmap front = new Bitmap(folderPath + @"\FRONT." + (isJPEG ? "jpg" : "png"));
+            Bitmap back = new Bitmap(folderPath + @"\BACK." + (isJPEG ? "jpg" : "png"));
+            Bitmap top = new Bitmap(folderPath + @"\TOP." + (isJPEG ? "jpg" : "png"));
+            Bitmap bottom = new Bitmap(folderPath + @"\BOTTOM." + (isJPEG ? "jpg" : "png"));
+            Bitmap left = new Bitmap(folderPath + @"\LEFT." + (isJPEG ? "jpg" : "png"));
+            Bitmap right = new Bitmap(folderPath + @"\RIGHT." + (isJPEG ? "jpg" : "png"));
 
             GLTexture gfront = new GLTexture(front.Width, front.Height, typeof(Color4));
             GLTexture gback = new GLTexture(back.Width, back.Height, typeof(Color4));
@@ -351,15 +351,11 @@ namespace ShadowMappingDemo
 
         public static GLTexture LoadTexture(string fileName)
         {
-            //   if (!File.Exists(fileName))
-            //      throw new Exception();
-
             Bitmap src = new Bitmap(fileName);
             GLTexture texture = new GLTexture(src.Width, src.Height, typeof(Color4));
 
             BitmapConvert(src, texture);
             return texture;
-
         }
 
         public static GLBuffer ImportSTL(string fileName, float interpolationAngle)
