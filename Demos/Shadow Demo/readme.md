@@ -21,3 +21,9 @@
 
 Without cubemap reflections the deferred pass should only take about 5ms:
 ![](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/screenshot1.png)
+
+Cubemap reflections tend to break at awkward angles:
+![](https://cdn.discordapp.com/attachments/545669301164703754/897608524664815666/unknown.png)
+
+The SSAO shader still needs some tweaking for both performance and quality.
+![](https://cdn.discordapp.com/attachments/545669301164703754/897608969701449758/unknown.png)
