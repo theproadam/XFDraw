@@ -450,6 +450,44 @@ namespace xfcore.Buffers
         }
     }
 
+    public unsafe class GLBufferIntData
+    {
+        bool disposed = false;
+        int* fptr;
+        int _size;
+
+        public GLBufferIntData(int size, int* ptr)
+        {
+            fptr = ptr;
+            _size = size / 4;
+        }
+
+        public int this[int i]
+        {
+            get
+            {
+                if (disposed)
+                    throw new Exception("buffer already disposed!");
+
+                if (i >= 0 && i < _size) return fptr[i];
+                else throw new IndexOutOfRangeException();
+            }
+            set
+            {
+                if (disposed)
+                    throw new Exception("buffer already disposed!");
+
+                if (i >= 0 && i < _size) fptr[i] = value;
+                else throw new IndexOutOfRangeException();
+            }
+        }
+
+        public void Dispose()
+        {
+            disposed = true;
+        }
+    }
+
     public unsafe class GLBuffer : IDisposable
     {
         internal IntPtr HEAP_ptr;
@@ -465,8 +503,10 @@ namespace xfcore.Buffers
 
         static int Buffer_RAM_Usage = 0;
         public delegate void ReadDataDelegate(GLBufferData data);
+        public delegate void ReadIntDataDelegate(GLBufferIntData data);
 
-        bool disposed = false;
+
+        internal bool disposed = false;
         internal object ThreadLock = new object();
         internal int stride;
 
@@ -574,6 +614,22 @@ namespace xfcore.Buffers
             bytes.Dispose();
 
             ReleaseLock();
+        }
+
+        public unsafe void LockBuffer(ReadIntDataDelegate del)
+        {
+            RequestLock();
+
+            GLBufferIntData bytes = new GLBufferIntData(_size, (int*)GetAddress());
+            del(bytes);
+            bytes.Dispose();
+
+            ReleaseLock();
+        }
+
+        public void Clear()
+        {
+            GL.RtlZeroMemory(GetAddress(), _size);
         }
 
         public GLBuffer(int sizeBytes, int Stride = 3)

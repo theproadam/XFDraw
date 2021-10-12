@@ -771,7 +771,7 @@ extern "C"
 	__declspec(dllexport) void VignettePass(long* TargetBuffer, float* SourceBuffer, long Width, long Height)
 	{
 		if (ForceUseOpenMP)
-		{ 
+		{
 #pragma omp parallel for
 			for (int h = 0; h < Height; ++h)
 			{
@@ -802,7 +802,7 @@ extern "C"
 					bptr[2] *= *fptr;
 				}
 			});
-		
+
 		}
 	}
 
@@ -833,12 +833,12 @@ extern "C"
 		for (int i = 0; i < 12; i++)
 			FillSkybox(i, tris, &rd, projData, rotMatrix, sptr, bsptr, sdptr);
 
-	//	parallel_for(0, projData.renderHeight, [&](int i){
-	//		SkyPass(i, iptr, projData.renderWidth, bsptr, skyBoxWidth, sptr, txptr);
-	//	});
+		//	parallel_for(0, projData.renderHeight, [&](int i){
+		//		SkyPass(i, iptr, projData.renderWidth, bsptr, skyBoxWidth, sptr, txptr);
+		//	});
 
-//#pragma omp parallel for
-	//	for (int i = 0; i < projData.renderHeight; i++)
+		//#pragma omp parallel for
+		//	for (int i = 0; i < projData.renderHeight; i++)
 
 
 		parallel_for(0, projData.renderHeight, [&](int i)
@@ -937,7 +937,7 @@ extern "C"
 
 	__declspec(dllexport) void SSR_PASS(int* TargetBuffer, vec3* norm_data, vec3* pos_data, long count, long Width, long Height)
 	{
-		
+
 	}
 
 	__declspec(dllexport) void ResizeFast(int* TargetBuffer, int* SourceBuffer, long wDest, long hDest, long wSrc, long hSrc, long mode)
@@ -978,9 +978,9 @@ extern "C"
 			int Ydelta;
 			int Xdelta;
 
-			for (int w = 1; w < width - 1; w++, bptr+=4, tBuf++, sBuf++)
+			for (int w = 1; w < width - 1; w++, bptr += 4, tBuf++, sBuf++)
 			{
-				vec3 rgbM = vec3(bptr[2] * 0.00392156862745f, bptr[1] * 0.00392156862745f, bptr[0] * 0.00392156862745f);	
+				vec3 rgbM = vec3(bptr[2] * 0.00392156862745f, bptr[1] * 0.00392156862745f, bptr[0] * 0.00392156862745f);
 				vec3 rgbNE = vec3(bptr[2 + 4] * byteToRGB, bptr[1 + 4] * byteToRGB, bptr[0 + 4] * byteToRGB);
 				vec3 rgbNW = vec3(bptr[2 - 4] * byteToRGB, bptr[1 - 4] * byteToRGB, bptr[0 - 4] * byteToRGB);
 				vec3 rgbSW = vec3(bptr[2 + wsD] * byteToRGB, bptr[1 + wsD] * byteToRGB, bptr[0 + wsD] * byteToRGB);
@@ -1096,9 +1096,9 @@ extern "C"
 					byte4 reslt = byte4(R, G, B);
 
 					tBuf[0] = reslt;
-				//	((unsigned char*)tBuf)[0] = val.z * 255.0f;
-				//	((unsigned char*)tBuf)[1] = val.y * 255.0f;
-				//	((unsigned char*)tBuf)[2] = val.x * 255.0f;
+					//	((unsigned char*)tBuf)[0] = val.z * 255.0f;
+					//	((unsigned char*)tBuf)[1] = val.y * 255.0f;
+					//	((unsigned char*)tBuf)[2] = val.x * 255.0f;
 
 					continue;
 				}
@@ -1126,4 +1126,270 @@ extern "C"
 
 	}
 
+	__declspec(dllexport) void BOX_BLUR(byte4* TargetBuffer, byte4* SourceBuffer, byte4* TempBuffer, long width, long height)
+	{
+		int wsD = width * 4;
+
+		//HORIZONTAL PASS
+#pragma omp parallel for
+		for (int h = 0; h < height; h++)
+		{
+			byte4* tBuf = TempBuffer + h * width;
+			byte4* sBuf = SourceBuffer + h * width;
+
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+
+			for (int w = 1; w < width - 1; w++, tBuf++, sBuf++)
+			{
+				byte4 rght = sBuf[-1];	
+				byte4 cntr = sBuf[0];
+				byte4 left = sBuf[1];
+
+				unsigned char R = (left.R + cntr.R + rght.R) * 0.3333333f;
+				unsigned char G = (left.G + cntr.G + rght.G) * 0.3333333f;
+				unsigned char B = (left.B + cntr.B + rght.B) * 0.3333333f;
+
+				tBuf[0] = byte4(R, G, B);
+			}
+
+			tBuf[0] = sBuf[0];
+		}
+
+		//VERTICAL PASS
+#pragma omp parallel for
+		for (int w = 0; w < width; w++)
+		{
+			byte4* tBuf = TargetBuffer + w;
+			byte4* sBuf = TempBuffer + w;
+
+			tBuf[0] = sBuf[0];
+
+			sBuf += width;
+			tBuf += width;
+
+			for (int h = 1; h < height - 1; h++, tBuf += width, sBuf += width)
+			{
+				byte4 down = sBuf[-width];
+				byte4 cntr = sBuf[0];
+				byte4 uppr = sBuf[width];
+
+				unsigned char R = (down.R + cntr.R + uppr.R) * 0.3333333f;
+				unsigned char G = (down.G + cntr.G + uppr.G) * 0.3333333f;
+				unsigned char B = (down.B + cntr.B + uppr.B) * 0.3333333f;
+
+				tBuf[0] = byte4(R, G, B);
+			}
+
+			tBuf[0] = sBuf[0];
+		}
+
+
+	}
+
+	__declspec(dllexport) void BOX_BLUR_FLOAT(float* TargetBuffer, float* SourceBuffer, float* TempBuffer, long width, long height)
+	{
+		int wsD = width * 4;
+
+		//HORIZONTAL PASS
+#pragma omp parallel for
+		for (int h = 0; h < height; h++)
+		{
+			float* tBuf = TempBuffer + h * width;
+			float* sBuf = SourceBuffer + h * width;
+
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+
+			for (int w = 1; w < width - 1; w++, tBuf++, sBuf++)
+			{
+				float rght = sBuf[-1];
+				float cntr = sBuf[0];
+				float left = sBuf[1];
+
+				tBuf[0] = (left + cntr + rght) * 0.3333333f;
+			}
+
+			tBuf[0] = sBuf[0];
+		}
+
+		//VERTICAL PASS
+#pragma omp parallel for
+		for (int w = 0; w < width; w++)
+		{
+			float* tBuf = TargetBuffer + w;
+			float* sBuf = TempBuffer + w;
+
+			tBuf[0] = sBuf[0];
+
+			sBuf += width;
+			tBuf += width;
+
+			for (int h = 1; h < height - 1; h++, tBuf += width, sBuf += width)
+			{
+				float down = sBuf[-width];
+				float cntr = sBuf[0];
+				float uppr = sBuf[width];
+
+				tBuf[0] = (down + cntr + uppr) * 0.3333333f;
+			}
+
+			tBuf[0] = sBuf[0];
+		}
+
+
+	}
+
+	__declspec(dllexport) void BOX_BLUR5(byte4* TargetBuffer, byte4* SourceBuffer, byte4* TempBuffer, long width, long height)
+	{
+		int width2 = width * 2;
+
+		//HORIZONTAL PASS
+#pragma omp parallel for
+		for (int h = 0; h < height; h++)
+		{
+			byte4* tBuf = TempBuffer + h * width;
+			byte4* sBuf = SourceBuffer + h * width;
+
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+
+			for (int w = 2; w < width - 2; w++, tBuf++, sBuf++)
+			{
+				byte4 rght2 = sBuf[-2];
+				byte4 rght = sBuf[-1];
+				byte4 cntr = sBuf[0];
+				byte4 left = sBuf[1];
+				byte4 left2 = sBuf[2];
+
+				unsigned char R = (left2.R + left.R + cntr.R + rght.R + rght2.R) * 0.2f;
+				unsigned char G = (left2.G + left.G + cntr.G + rght.G + rght2.G) * 0.2f;
+				unsigned char B = (left2.B + left.B + cntr.B + rght.B + rght2.B) * 0.2f;
+
+				tBuf[0] = byte4(R, G, B);
+			}
+
+			tBuf[0] = sBuf[0];
+			tBuf[1] = sBuf[1];
+		}
+
+		//VERTICAL PASS
+#pragma omp parallel for
+		for (int w = 0; w < width; w++)
+		{
+			byte4* tBuf = TargetBuffer + w;
+			byte4* sBuf = TempBuffer + w;
+
+			tBuf[0] = sBuf[0];
+
+			sBuf += width;
+			tBuf += width;
+
+			tBuf[0] = sBuf[0];
+			sBuf += width;
+			tBuf += width;
+
+			for (int h = 2; h < height - 2; h++, tBuf += width, sBuf += width)
+			{
+				byte4 down2 = sBuf[-width2];
+				byte4 down = sBuf[-width];
+				byte4 cntr = sBuf[0];
+				byte4 uppr = sBuf[width];
+				byte4 uppr2 = sBuf[width2];
+
+
+				unsigned char R = (down2.R + down.R + cntr.R + uppr.R + uppr2.R) * 0.2f;
+				unsigned char G = (down2.G + down.G + cntr.G + uppr.G + uppr2.G) * 0.2f;
+				unsigned char B = (down2.B + down.B + cntr.B + uppr.B + uppr2.B) * 0.2f;
+
+				tBuf[0] = byte4(R, G, B);
+			}
+
+			tBuf[0] = sBuf[0];
+			tBuf[width] = sBuf[width];
+		}
+
+
+	}
+
+
+	__declspec(dllexport) void BOX_BLUR5_FLOAT(float* TargetBuffer, float* SourceBuffer, float* TempBuffer, long width, long height)
+	{
+		int width2 = width * 2;
+
+		//HORIZONTAL PASS
+#pragma omp parallel for
+		for (int h = 0; h < height; h++)
+		{
+			float* tBuf = TempBuffer + h * width;
+			float* sBuf = SourceBuffer + h * width;
+
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+			tBuf[0] = sBuf[0];
+			tBuf++;
+			sBuf++;
+
+			for (int w = 2; w < width - 2; w++, tBuf++, sBuf++)
+			{
+				float rght2 = sBuf[-2];
+				float rght = sBuf[-1];
+				float cntr = sBuf[0];
+				float left = sBuf[1];
+				float left2 = sBuf[2];
+
+				tBuf[0] = (left2 + left + cntr + rght + rght2) * 0.2f;
+			}
+
+			tBuf[0] = sBuf[0];
+			tBuf[1] = sBuf[1];
+		}
+
+		//VERTICAL PASS
+#pragma omp parallel for
+		for (int w = 0; w < width; w++)
+		{
+			float* tBuf = TargetBuffer + w;
+			float* sBuf = TempBuffer + w;
+
+			tBuf[0] = sBuf[0];
+
+			sBuf += width;
+			tBuf += width;
+
+			tBuf[0] = sBuf[0];
+			sBuf += width;
+			tBuf += width;
+
+			for (int h = 2; h < height - 2; h++, tBuf += width, sBuf += width)
+			{
+				float down2 = sBuf[-width2];
+				float down = sBuf[-width];
+				float cntr = sBuf[0];
+				float uppr = sBuf[width];
+				float uppr2 = sBuf[width2];
+
+
+				tBuf[0] = (down2 + down + cntr + uppr + uppr2) * 0.2f;
+			}
+
+			tBuf[0] = sBuf[0];
+			tBuf[width] = sBuf[width];
+		}
+
+
+	}
+
+
+	__declspec(dllexport) void BLUR_MERGE(byte4* TargetBuffer, byte4* SourceBuffer, byte4* TempBuffer, long width, long height)
+	{
+
+	}
 }

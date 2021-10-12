@@ -21,6 +21,18 @@ namespace xfcore.Performance
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void FXAA_PASS(int* TargetBuffer, int* SourceBuffer, int width, int height);
 
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void BOX_BLUR(int* TargetBuffer, int* SourceBuffer, int* tempBuffer, int width, int height);
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void BOX_BLUR_FLOAT(float* TargetBuffer, float* SourceBuffer, float* tempBuffer, int width, int height);
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void BOX_BLUR5(int* TargetBuffer, int* SourceBuffer, int* tempBuffer, int width, int height);
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void BOX_BLUR5_FLOAT(float* TargetBuffer, float* SourceBuffer, float* tempBuffer, int width, int height);
+
 
         public static void VignetteMultiply(GLTexture Target, GLTexture Multiplier)
         {
@@ -38,6 +50,115 @@ namespace xfcore.Performance
             Target.ReleaseLock();
             Multiplier.ReleaseLock();
         }
+
+        public static void BoxBlur3x3(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
+        {
+            outputBuffer.RequestLock();
+            inputBuffer.RequestLock();
+
+            if (outputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Width != outputBuffer.Width)
+                throw new Exception("Input and output buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height)
+                throw new Exception("Input and output buffer heights are not the same!");
+
+            int* addr1 = (int*)outputBuffer.GetAddress();
+            int* addr2 = (int*)inputBuffer.GetAddress();
+            int* addr3 = (int*)tempBuffer.GetAddress();
+
+            BOX_BLUR(addr1, addr2, addr3, inputBuffer.Width, inputBuffer.Height);
+
+            outputBuffer.ReleaseLock();
+            inputBuffer.ReleaseLock();
+        }
+
+        public static void BoxBlur5x5(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
+        {
+            outputBuffer.RequestLock();
+            inputBuffer.RequestLock();
+
+            if (outputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Width != outputBuffer.Width)
+                throw new Exception("Input and output buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height)
+                throw new Exception("Input and output buffer heights are not the same!");
+
+            int* addr1 = (int*)outputBuffer.GetAddress();
+            int* addr2 = (int*)inputBuffer.GetAddress();
+            int* addr3 = (int*)tempBuffer.GetAddress();
+
+            BOX_BLUR5(addr1, addr2, addr3, inputBuffer.Width, inputBuffer.Height);
+
+            outputBuffer.ReleaseLock();
+            inputBuffer.ReleaseLock();
+        }
+
+        public static void BoxBlur3x3Float(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
+        {
+            outputBuffer.RequestLock();
+            inputBuffer.RequestLock();
+
+            if (outputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Width != outputBuffer.Width)
+                throw new Exception("Input and output buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height)
+                throw new Exception("Input and output buffer heights are not the same!");
+
+            float* addr1 = (float*)outputBuffer.GetAddress();
+            float* addr2 = (float*)inputBuffer.GetAddress();
+            float* addr3 = (float*)tempBuffer.GetAddress();
+
+            BOX_BLUR_FLOAT(addr1, addr2, addr3, inputBuffer.Width, inputBuffer.Height);
+
+            outputBuffer.ReleaseLock();
+            inputBuffer.ReleaseLock();
+        }
+
+        public static void BoxBlur5x5Float(GLTexture outputBuffer, GLTexture inputBuffer, GLTexture tempBuffer)
+        {
+            outputBuffer.RequestLock();
+            inputBuffer.RequestLock();
+
+            if (outputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Stride != 4)
+                throw new Exception("outputBuffer stride must be 32bpp!");
+
+            if (inputBuffer.Width != outputBuffer.Width)
+                throw new Exception("Input and output buffer widths are not the same!");
+
+            if (inputBuffer.Height != outputBuffer.Height)
+                throw new Exception("Input and output buffer heights are not the same!");
+
+            float* addr1 = (float*)outputBuffer.GetAddress();
+            float* addr2 = (float*)inputBuffer.GetAddress();
+            float* addr3 = (float*)tempBuffer.GetAddress();
+
+            BOX_BLUR5_FLOAT(addr1, addr2, addr3, inputBuffer.Width, inputBuffer.Height);
+
+            outputBuffer.ReleaseLock();
+            inputBuffer.ReleaseLock();
+        }
+
 
         public static void DrawSkybox(GLTexture colorBuffer, GLCubemap skybox, Matrix3x3 cameraRotation)
         {

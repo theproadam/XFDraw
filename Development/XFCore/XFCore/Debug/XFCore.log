@@ -1,8 +1,8 @@
-﻿Build started 2021-08-19 2:41:55 PM.
+﻿Build started 2021-09-24 8:05:33 PM.
      1>Project "C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\XFCore\XFCore.vcxproj" on node 2 (Build target(s)).
      1>ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Debug\XFCore.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt XFDebug.cpp
-         XFDebug.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _WINDOWS /D _USRDLL /D XFCORE_EXPORTS /D _WINDLL /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Yu"stdafx.h" /Fp"Debug\XFCore.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt XFPerf.cpp
+         XFPerf.cpp
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfcore.h(272): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfcore.h(280): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfcore.h(294): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
@@ -14,36 +14,36 @@
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfcore.h(471): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfcore.h(472): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
      1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfcore.h(473): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(66): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(66): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(67): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(67): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(69): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(69): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(70): warning C4244: 'argument' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(70): warning C4244: 'argument' : conversion from 'double' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(617): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(619): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(632): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(634): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1179): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1210): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1211): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1212): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1755): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1811): warning C4305: 'initializing' : truncation from 'double' to 'float'
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1817): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1824): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1829): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1830): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1831): warning C4244: '=' : conversion from 'double' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(1833): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2477): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2673): warning C4244: 'argument' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2688): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2698): warning C4244: 'initializing' : conversion from 'double' to 'float', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(2712): warning C4244: 'argument' : conversion from 'float' to 'unsigned char', possible loss of data
-     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfdebug.cpp(3238): warning C4244: '=' : conversion from 'float' to 'int', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(567): warning C4244: 'initializing' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(591): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(592): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(666): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(783): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(784): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(785): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(800): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(801): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(802): warning C4244: '*=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(906): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(907): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(908): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1012): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1013): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1014): warning C4244: '=' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(978): warning C4101: 'Ydelta' : unreferenced local variable
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(979): warning C4101: 'Xdelta' : unreferenced local variable
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1069): warning C4244: 'argument' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1092): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1093): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1094): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1057): warning C4101: 'Ydelta' : unreferenced local variable
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1058): warning C4101: 'Xdelta' : unreferenced local variable
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1150): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1151): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1152): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1178): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1179): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
+     1>c:\users\adam\documents\visual studio 2013\projects\xfcore\xfcore\xfperf.cpp(1180): warning C4244: 'initializing' : conversion from 'float' to 'unsigned char', possible loss of data
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.dll" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.pdb" /SUBSYSTEM:WINDOWS /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Adam\Documents\Visual Studio 2013\Projects\XFCore\Debug\XFCore.lib" /MACHINE:X86 /DLL Debug\stdafx.obj
          Debug\XF2D.obj
@@ -56,4 +56,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:00.69
+Time Elapsed 00:00:00.63

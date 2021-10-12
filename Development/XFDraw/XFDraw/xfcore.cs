@@ -163,6 +163,11 @@ namespace xfcore
                 if (shader.disposed)
                     throw new Exception("Cannot draw using a disposed shader!");
 
+                if (buffer.disposed)
+                    throw new Exception("Cannot draw using a disposed shader!");
+
+
+
                 if (shader.isScreenSpace)
                         throw new Exception("Draw() cannot be used with a screenspace shader!");
 

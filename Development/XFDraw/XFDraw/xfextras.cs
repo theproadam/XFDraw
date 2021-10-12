@@ -85,6 +85,9 @@ namespace xfcore.Extras
                 }
             }
 
+            sw.Stop();
+            sw.Reset();
+
             finished = true;
         }
     }
