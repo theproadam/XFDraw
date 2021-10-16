@@ -36,6 +36,9 @@ Just like renderXF, XFDraw has been also designed to be as simple and user frien
 #### XFDraw included demo. Parallax Mapping + Volumetric Fog + SSAO + FXAA + Deferred rendering
 ![XFDemo](https://github.com/theproadam/XFDraw/blob/main/Screenshots/Teapots.png)
 
+#### XFDraw updated demo. Parallax Mapping + SSAO + FXAA + Deferred Rendering + Cubemap reflections
+![XFDemo](https://cdn.discordapp.com/attachments/545669301164703754/898717815417229362/unknown.png)
+
 #### Skybox + Cubemap + Screenspace Reflection ~35ms (50 ray count + inefficient SSR shader)
 ![SSR Demo](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/TeapotScreenSpace.png)
 
