@@ -31,5 +31,5 @@ Cubemap reflections tend to break at awkward angles:
 The SSAO shader still needs some tweaking for both performance and quality.
 ![](https://cdn.discordapp.com/attachments/545669301164703754/897608969701449758/unknown.png)
 
-The cubemap blur can be easily seen here, as the edges are not interpolated over each cubemap side.
+The cubemap blur can be easily seen here, as the edges are not interpolated over each cubemap side. Also the lack of self shadowing parallax does not look good.
 ![](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/outside.png)
