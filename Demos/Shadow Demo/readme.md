@@ -19,6 +19,9 @@
 ### What still needs to be done
 - SSAO and Volumetric Fog needs to be rendered at 0.5x res as it is very expensive.
 
+With blurred cubemaps
+![](https://cdn.discordapp.com/attachments/545669301164703754/898717815417229362/unknown.png)
+
 Without cubemap reflections the deferred pass should only take about 5ms:
 ![](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/screenshot1.png)
 
