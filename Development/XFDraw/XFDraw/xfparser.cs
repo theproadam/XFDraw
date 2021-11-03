@@ -724,7 +724,7 @@ namespace xfcore.Shaders.Builder
             }
             else
             {
-                if (cOps.Contains(CompileOption.UseOMP))
+                if (cOps.Contains(CompileOption.UseOMP) || !cOps.Contains(CompileOption.UseFor))
                     shaderOutput.Add("#pragma omp parallel for");
 
                 shaderOutput.Add("\tfor (int h = 0; h < Height; ++h){");

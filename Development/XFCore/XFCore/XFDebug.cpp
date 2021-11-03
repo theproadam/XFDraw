@@ -3605,4 +3605,128 @@ extern "C"
 	
 		
 	}
+
+	DLL void Line3D_AA(int* iptr, float* dptr, long width, long height, vec3 from, vec3 to, GLData projData, int color, int lineThick, float zoffset)
+	{
+		float* VERTEX_DATA = (float*)alloca(12 * 4);
+		const int stride = 3;
+
+		VERTEX_DATA[0] = to.x;
+		VERTEX_DATA[1] = to.y;
+		VERTEX_DATA[2] = to.z;
+		VERTEX_DATA[3] = from.x;
+		VERTEX_DATA[4] = from.y;
+		VERTEX_DATA[5] = from.z;
+
+		bool A = false;
+		bool B = false;
+
+		A = VERTEX_DATA[2] < projData.nearZ;
+		B = VERTEX_DATA[2 + stride] < projData.nearZ;
+
+		if (A && B) return;
+
+		if (A) FIPA(VERTEX_DATA, 0, VERTEX_DATA, 0, 1, projData.nearZ, stride);
+		if (B) FIPA(VERTEX_DATA, stride, VERTEX_DATA, 0, 1, projData.nearZ, stride);
+
+
+		A = VERTEX_DATA[2] >= projData.farZ;
+		B = VERTEX_DATA[2 + stride] >= projData.farZ;
+
+		if (A && B) return;
+
+		if (A) FIPA(VERTEX_DATA, 0, VERTEX_DATA, 0, 1, projData.farZ, stride);
+		if (B) FIPA(VERTEX_DATA, stride, VERTEX_DATA, 0, 1, projData.farZ, stride);
+
+
+		//RightFOV
+		A = VERTEX_DATA[2] * projData.tanVert + projData.ow < VERTEX_DATA[0];
+		B = VERTEX_DATA[stride + 2] * projData.tanVert + projData.ow < VERTEX_DATA[stride];
+
+		if (A && B) return;
+
+		if (A) SIPA(VERTEX_DATA, 0, VERTEX_DATA, 0, 1, projData.tanVert, projData.ow, stride);
+		if (B) SIPA(VERTEX_DATA, stride, VERTEX_DATA, 0, 1, projData.tanVert, projData.ow, stride);
+
+		//LeftFOV
+		A = VERTEX_DATA[2] * -projData.tanVert - projData.ow > VERTEX_DATA[0];
+		B = VERTEX_DATA[stride + 2] * -projData.tanVert - projData.ow > VERTEX_DATA[stride];
+
+		if (A && B) return;
+
+		if (A) SIPA(VERTEX_DATA, 0, VERTEX_DATA, 0, 1, -projData.tanVert, -projData.ow, stride);
+		if (B) SIPA(VERTEX_DATA, stride, VERTEX_DATA, 0, 1, -projData.tanVert, -projData.ow, stride);
+
+		//TopFOV
+		A = VERTEX_DATA[2] * projData.tanHorz + projData.oh < VERTEX_DATA[1];
+		B = VERTEX_DATA[2 + stride] * projData.tanHorz + projData.oh < VERTEX_DATA[1 + stride];
+
+		if (A && B) return;
+
+		if (A) SIPHA(VERTEX_DATA, 0, VERTEX_DATA, 0, 1, projData.tanHorz, projData.oh, stride);
+		if (B) SIPHA(VERTEX_DATA, stride, VERTEX_DATA, 0, 1, projData.tanHorz, projData.oh, stride);
+
+		//BottomFOV
+		A = VERTEX_DATA[2] * -projData.tanHorz - projData.oh > VERTEX_DATA[1];
+		B = VERTEX_DATA[2 + stride] * -projData.tanHorz - projData.oh > VERTEX_DATA[1 + stride];
+
+		if (A && B) return;
+
+		if (A) SIPHA(VERTEX_DATA, 0, VERTEX_DATA, 0, 1, -projData.tanHorz, -projData.oh, stride);
+		if (B) SIPHA(VERTEX_DATA, stride, VERTEX_DATA, 0, 1, -projData.tanHorz, -projData.oh, stride);
+
+
+		float fwi = 1.0f / projData.fw;
+		float fhi = 1.0f / projData.fh;
+		float ox = 1.0f / projData.ox, oy = 1.0f / projData.oy;
+
+		//XYZ-> XY Transforms
+
+		float mMinOne = (1.0f - projData.matrixlerpv);
+		bool perspMat = projData.matrixlerpv != 1;
+		float oValue = projData.oValue;
+
+		if (projData.matrixlerpv == 0)
+		for (int im = 0; im < 2; im++)
+		{
+			VERTEX_DATA[im * stride + 0] = roundf(projData.rw + (VERTEX_DATA[im * stride + 0] / VERTEX_DATA[im * stride + 2]) * projData.fw);
+			VERTEX_DATA[im * stride + 1] = roundf(projData.rh + (VERTEX_DATA[im * stride + 1] / VERTEX_DATA[im * stride + 2]) * projData.fh);
+			VERTEX_DATA[im * stride + 2] = 1.0f / (VERTEX_DATA[im * stride + 2]);
+		}
+		else if (projData.matrixlerpv == 1)
+		for (int im = 0; im < 2; im++)
+		{
+			VERTEX_DATA[im * stride + 0] = roundf(projData.rw + VERTEX_DATA[im * stride + 0] * projData.iox);
+			VERTEX_DATA[im * stride + 1] = roundf(projData.rh + VERTEX_DATA[im * stride + 1] * projData.ioy);
+		}
+		else
+		for (int im = 0; im < 2; im++)
+		{
+			VERTEX_DATA[im * stride + 0] = roundf(projData.rw + VERTEX_DATA[im * stride + 0] / ((VERTEX_DATA[im * stride + 2] * fwi - ox) * mMinOne + ox));
+			VERTEX_DATA[im * stride + 1] = roundf(projData.rh + VERTEX_DATA[im * stride + 1] / ((VERTEX_DATA[im * stride + 2] * fhi - oy) * mMinOne + oy));
+			VERTEX_DATA[im * stride + 2] = 1.0f / (VERTEX_DATA[im * stride + 2] + projData.oValue);
+		}
+
+		//special effects here -> ideally a slope offset thing->
+
+		float* attribs = (float*)alloca((stride - 3) * 3 * sizeof(float));
+
+		int uppr = (int)((lineThick - 1.0f) / 2.0f);
+		int lwr = (int)(lineThick / 2.0f);
+
+		byte* col = (byte*)&color;
+
+		if (lineThick > 1)
+		for (int i = -lwr; i <= uppr; i++)
+		{
+			bool LWR = i == -lwr;
+			bool UPR = i == uppr;
+
+			DrawLineNoDATA_AA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, col[2], col[1], col[0], color, LWR, UPR, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, perspMat, oValue, i);
+			
+		}
+		else if (lineThick == 1)
+			DrawLineNoDATA_AA(VERTEX_DATA + 1 * stride, VERTEX_DATA, dptr, iptr, col[2], col[1], col[0], color, true, true, zoffset, stride, projData.renderWidth, projData.renderHeight, projData.farZ, perspMat, oValue, 0);
+	}
+
 }

@@ -1008,6 +1008,7 @@ extern "C"
 					delta2 *= norm;
 
 					vec3 val = (rgbNW * 0.5f + rgbNE * 0.5f) * delta2 + (rgbSW * 0.5f + rgbSE * 0.5f) * delta1;// +rgbM * 0.6f;
+					val.Clamp01();
 
 					((unsigned char*)tBuf)[0] = val.z * 255.0f;
 					((unsigned char*)tBuf)[1] = val.y * 255.0f;
@@ -1089,9 +1090,18 @@ extern "C"
 
 					//vec3 val = (rgbNW * 0.5f + rgbNE * 0.5f) * delta2 + (rgbSW * 0.5f + rgbSE * 0.5f) * delta1;// +rgbM * 0.6f;
 
-					unsigned char R = (rgbNW.R * 0.5f + rgbNE.R * 0.5f) * delta2 + (rgbSW.R * 0.5f + rgbSE.R * 0.5f) * delta1;
-					unsigned char G = (rgbNW.G * 0.5f + rgbNE.G * 0.5f) * delta2 + (rgbSW.G * 0.5f + rgbSE.G * 0.5f) * delta1;
-					unsigned char B = (rgbNW.B * 0.5f + rgbNE.B * 0.5f) * delta2 + (rgbSW.B * 0.5f + rgbSE.B * 0.5f) * delta1;
+					//unsigned char R = (rgbNW.R * 0.5f + rgbNE.R * 0.5f) * delta2 + (rgbSW.R * 0.5f + rgbSE.R * 0.5f) * delta1;
+					//unsigned char G = (rgbNW.G * 0.5f + rgbNE.G * 0.5f) * delta2 + (rgbSW.G * 0.5f + rgbSE.G * 0.5f) * delta1;
+					//unsigned char B = (rgbNW.B * 0.5f + rgbNE.B * 0.5f) * delta2 + (rgbSW.B * 0.5f + rgbSE.B * 0.5f) * delta1;
+
+					float R = (rgbNW.R * 0.5f + rgbNE.R * 0.5f) * delta2 + (rgbSW.R * 0.5f + rgbSE.R * 0.5f) * delta1;
+					float G = (rgbNW.G * 0.5f + rgbNE.G * 0.5f) * delta2 + (rgbSW.G * 0.5f + rgbSE.G * 0.5f) * delta1;
+					float B = (rgbNW.B * 0.5f + rgbNE.B * 0.5f) * delta2 + (rgbSW.B * 0.5f + rgbSE.B * 0.5f) * delta1;
+
+					if (R > 255.0f) R = 255;
+					if (G > 255.0f) G = 255;
+					if (B > 255.0f) B = 255;
+
 
 					byte4 reslt = byte4(R, G, B);
 

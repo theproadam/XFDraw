@@ -38,6 +38,10 @@ namespace xfcore
 
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void Line3D(int* iptr, float* dptr, int width, int height, Vector3 from, Vector3 to, GLData projData, int color, int thickness, float zoffset);
+
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void Line3D_AA(int* iptr, float* dptr, int width, int height, Vector3 from, Vector3 to, GLData projData, int color, int thickness, float zoffset);
+
         #endregion
 
         #region PInvokeXFCore
@@ -321,7 +325,7 @@ namespace xfcore
         }
         static int debugv = 0;
 
-        public static void Line3D(GLTexture targetBuffer, GLTexture depthBuffer, GLMatrix projectionMatrix, Vector3 From, Vector3 To, Color4 color, int thickness, float zoffset = 0)
+        public static void Line3D(GLTexture targetBuffer, GLTexture depthBuffer, GLMatrix projectionMatrix, Vector3 From, Vector3 To, Color4 color, int thickness, bool antiAlias = false, float zoffset = 0)
         {
             int col = ((((((byte)color.A << 8) | (byte)color.R) << 8) | (byte)color.G) << 8) | (byte)color.B;
 
@@ -349,8 +353,10 @@ namespace xfcore
 
             GLData gData = new GLData(targetBuffer.Width, targetBuffer.Height, projectionMatrix);
 
-
-            Line3D(iptr, dptr, targetBuffer.Width, targetBuffer.Height, From, To, gData, col, thickness, zoffset);
+            if (antiAlias)
+                Line3D_AA(iptr, dptr, targetBuffer.Width, targetBuffer.Height, From, To, gData, col, thickness, zoffset);
+            else
+                Line3D(iptr, dptr, targetBuffer.Width, targetBuffer.Height, From, To, gData, col, thickness, zoffset);
 
             targetBuffer.ReleaseLock();
             depthBuffer.ReleaseLock();

@@ -5,7 +5,7 @@ extern bool CountTriangles;
 extern bool CountPixels;
 extern bool ForceUseOpenMP;
 
-
+#define byte unsigned char
 struct vec2
 {
 	float x;
@@ -242,6 +242,13 @@ struct GLData
 	float matrixlerpv;
 };
 
+inline unsigned char clamp255(float input)
+{
+	if (input >= 255.0f)
+		return 255;
+	else return (unsigned char)input;
+}
+
 struct RenderSettings
 {
 	float farZ;
@@ -364,7 +371,7 @@ inline void DrawLineFast(int* iptr, int rw, int diValue, float fromX, float from
 inline void DrawLineDATA_OLD(float* FromDATA, float* ToDATA, float* dptr, unsigned char* bptr,
 	float* ScratchSpace, int Index, int Stride, float farZ, int renderHeight, int renderWidth, int wsD, int sD)
 {
-	if (FromDATA[0] == ToDATA[0] & FromDATA[1] == ToDATA[1])
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
 		return;
 
 	float oValue = 0; 
@@ -549,6 +556,138 @@ inline void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* ipt
 		}
 	}
 }
+
+inline void DrawLineNoDATA_AA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, byte dR, byte dG, byte dB, int col, bool AALWR, bool AAUPR, float zoffset, int Stride, int VW, int VH, float farZ, bool perspMat, float oValue, int offsetmod)
+{
+	if (FromDATA[0] == ToDATA[0] && FromDATA[1] == ToDATA[1])
+		return;
+	
+	float aa = (FromDATA[0] - ToDATA[0]);
+	float ba = (FromDATA[1] - ToDATA[1]);
+
+	if (aa * aa > ba * ba)
+	{
+		float slope = (FromDATA[1] - ToDATA[1]) / (FromDATA[0] - ToDATA[0]);
+		float b = -slope * FromDATA[0] + FromDATA[1];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[0] - ToDATA[0]);
+		float bZ = -slopeZ * FromDATA[0] + FromDATA[2];
+
+		if (FromDATA[0] > ToDATA[0])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[0]; i <= ToDATA[0]; i++)
+		{
+			float trueY = ((float)i * slope + b) + offsetmod;
+			int tY = (int)trueY;
+			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VH || i >= VW) continue;
+
+			int mem_addr = VW * tY + i;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+			//COLOR WRITE
+			float MB = (float)tY + 1.0f - trueY;
+			float MT = trueY - (float)tY;
+
+			unsigned char* lptr = (unsigned char*)(iptr + mem_addr);
+
+			if (AALWR)
+			{
+				*(lptr + 0) = clamp255((*(lptr + 0) * (1.0f - MB)) + MB * dB);
+				*(lptr + 1) = clamp255((*(lptr + 1) * (1.0f - MB)) + MB * dG);
+				*(lptr + 2) = clamp255((*(lptr + 2) * (1.0f - MB)) + MB * dR);
+			}
+			else
+			{
+				iptr[mem_addr] = col;
+			}
+
+			if (AAUPR)
+			{
+				if (tY + 1 >= VH) continue;
+				lptr = (unsigned char*)(iptr + mem_addr + VW);
+
+				*(lptr + 0) = clamp255(*(lptr + 0) * (1.0f - MT) + MT * dB);
+				*(lptr + 1) = clamp255(*(lptr + 1) * (1.0f - MT) + MT * dG);
+				*(lptr + 2) = clamp255(*(lptr + 2) * (1.0f - MT) + MT * dR);
+			}
+						
+		//	iptr[mem_addr] = color;
+		}
+	}
+	else
+	{
+		float slope = (FromDATA[0] - ToDATA[0]) / (FromDATA[1] - ToDATA[1]);
+		float b = -slope * FromDATA[1] + FromDATA[0];
+
+		float slopeZ = (FromDATA[2] - ToDATA[2]) / (FromDATA[1] - ToDATA[1]);
+		float bZ = -slopeZ * FromDATA[1] + FromDATA[2];
+
+		if (FromDATA[1] > ToDATA[1])
+		{
+			float* temp = ToDATA;
+			ToDATA = FromDATA;
+			FromDATA = temp;
+		}
+
+		for (int i = (int)FromDATA[1]; i <= ToDATA[1]; i++)
+		{
+			float trueY = ((float)i * slope + b) + offsetmod;
+			int tY = (int)trueY;
+			float depth = perspMat ? (1.0f / (slopeZ * (float)i + bZ) - oValue) : (slopeZ * (float)i + bZ);
+
+			float s = farZ - depth;
+			if (i < 0 || tY < 0 || tY >= VW || i >= VH) continue;
+
+			int mem_addr = VW * i + tY;
+
+			if (dptr[mem_addr] > s - zoffset) continue;
+			dptr[mem_addr] = s;
+
+
+			//COLOR WRITE
+			float MB = (float)tY + 1.0f - trueY;
+			float MT = trueY - (float)tY;
+
+			byte* lptr = (unsigned char*)(iptr + mem_addr);
+
+			if (AALWR)
+			{
+				*(lptr + 0) = clamp255(*(lptr + 0) * (1.0f - MB) + MB * dB);
+				*(lptr + 1) = clamp255(*(lptr + 1) * (1.0f - MB) + MB * dG);
+				*(lptr + 2) = clamp255(*(lptr + 2) * (1.0f - MB) + MB * dR);
+			}
+			else
+			{
+				iptr[mem_addr] = col;
+			}
+
+			if (AAUPR)
+			{
+				if (tY + 1 >= VW) continue;
+				lptr += 4;
+
+				*(lptr + 0) = clamp255(*(lptr + 0) * (1.0f - MT) + MT * dB);
+				*(lptr + 1) = clamp255(*(lptr + 1) * (1.0f - MT) + MT * dG);
+				*(lptr + 2) = clamp255(*(lptr + 2) * (1.0f - MT) + MT * dR);
+			}
+	
+
+			//iptr[mem_addr] = color;
+		}
+	}
+}
+
+
 
 struct byte4
 {
