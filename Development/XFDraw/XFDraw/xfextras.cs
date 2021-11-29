@@ -1417,6 +1417,10 @@ namespace xfcore
         [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void Copy32bpp(int* dest, int* src, int w1, int w2, int h1, int h2, int wSrc, int wDest, int wOffset, int hOffset, int hFlip);
 
+        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        static extern void Copy32bpp_Alpha(int* dest, int* src, int w1, int w2, int h1, int h2, int wSrc, int wDest, int wOffset, int hOffset, int hFlip);
+
+
         [DllImport("msvcrt.dll", EntryPoint = "memcpy", CallingConvention = CallingConvention.Cdecl, SetLastError = false)]
         static extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr count);
 
@@ -1485,7 +1489,7 @@ namespace xfcore
             TargetBitmap.UnlockBits(bmpData);
         }
 
-        public static void BlitFromBitmap(Bitmap SourceBitmap, GLTexture TargetTexture, Point TargetPoint, Rectangle SourceRectangle)
+        public static void BlitFromBitmap(Bitmap SourceBitmap, GLTexture TargetTexture, Point TargetPoint, Rectangle SourceRectangle, bool compareAlpha = false)
         {
             if (TargetTexture == null || SourceBitmap == null)
                 throw new Exception("Target and Sources cannot be null");
@@ -1540,8 +1544,12 @@ namespace xfcore
 
             //  FastCopy((int*)TargetTexture.HEAP_ptr, (int*)bmpData.Scan0, startXS, endXS, startYS, endYS, SourceBitmap.Width, TargetTexture.Width, offsetX, offsetY, hSample);
 
-
-            Copy32bpp((int*)TargetTexture.GetAddress(), (int*)bmpData.Scan0, startXS, endXS, startYS, endYS, SourceBitmap.Width, TargetTexture.Width, offsetX, offsetY, hSample);
+            if (!compareAlpha)
+                Copy32bpp((int*)TargetTexture.GetAddress(), (int*)bmpData.Scan0,
+                    startXS, endXS, startYS, endYS, SourceBitmap.Width, TargetTexture.Width, offsetX, offsetY, hSample);
+            else
+                Copy32bpp_Alpha((int*)TargetTexture.GetAddress(), (int*)bmpData.Scan0, 
+                    startXS, endXS, startYS, endYS, SourceBitmap.Width, TargetTexture.Width, offsetX, offsetY, hSample);
 
             TargetTexture.ReleaseLock();
 

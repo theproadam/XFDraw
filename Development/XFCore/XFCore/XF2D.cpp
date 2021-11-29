@@ -85,4 +85,33 @@ extern "C"
 			}
 		}
 	}
+
+	DLL void Copy32bpp_Alpha(int* dest, int* src, int w1, int w2, int h1, int h2, int wSrc, int wDest, int wOffset, int hOffset, int hFlip)
+	{
+		const float toFloat = 1.0f / 255.0f;
+
+#pragma omp parallel for
+		for (int h = h1; h < h2; ++h)
+		{
+			for (int w = w1; w < w2; ++w)
+			{
+				unsigned char* S = (unsigned char*)(src + ((hFlip - h) * wSrc + w));
+				unsigned char* D = (unsigned char*)(dest + ((h + hOffset) * wDest + w + wOffset));
+
+				if (S[3] != 255)
+				{
+					float mult = S[3] * toFloat;
+
+					D[0] = S[0] * mult + D[0] * (1.0f - mult);
+					D[1] = S[1] * mult + D[1] * (1.0f - mult);
+					D[2] = S[2] * mult + D[2] * (1.0f - mult);				
+				}
+				else
+				{
+					dest[(h + hOffset) * wDest + w + wOffset] = src[(hFlip - h) * wSrc + w];
+				}			
+			}
+		}
+	}
+
 }
