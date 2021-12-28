@@ -460,6 +460,98 @@ namespace xfcore.Extras
             }
         }
 
+        /// <summary>
+        /// Arrays start at zero. Same applies here. Unlike bitmaps, it goes ROW, COLUMN
+        /// </summary>
+        /// <param name="ROW"></param>
+        /// <param name="COLUMN"></param>
+        /// <returns></returns>
+        public float this[int ROW, int COLUMN]
+        {
+            get
+            {
+                if (ROW < 0 || ROW > 3) throw new Exception("Not in a valid row!");
+                if (COLUMN < 0 || COLUMN > 3) throw new Exception("Not in a valid row!");
+
+                float val = 0;
+
+                fixed (Matrix4x4* mat4 = &this)
+                {
+                    float* ptr = (float*)mat4;
+                    val = ptr[COLUMN + ROW * 4];
+                }
+
+                return val; 
+            }
+            set {
+                if (ROW < 0 || ROW > 3) throw new Exception("Not in a valid row!");
+                if (COLUMN < 0 || COLUMN > 3) throw new Exception("Not in a valid row!");
+
+                fixed (Matrix4x4* mat4 = &this)
+                {
+                    float* ptr = (float*)mat4;
+                    ptr[COLUMN + ROW * 4] = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reduced Row-Echelon Form of the Matrix. Takes a Vector4 argument to make it a augmented matrix, returns the resulting 1,1,1,1 form.
+        /// </summary>
+        /// <param name="RHS"></param>
+        /// <returns></returns>
+        public Vector4 RREF(Vector4 RHS)
+        {
+            Vector4 RHS_VAL = RHS;
+
+            AH_ROW(1, 0, 0, &RHS_VAL);
+            AH_ROW(2, 0, 0, &RHS_VAL);
+            AH_ROW(3, 0, 0, &RHS_VAL);
+
+            AH_ROW(3, 2, 1, &RHS_VAL);
+            AH_ROW(2, 1, 1, &RHS_VAL);
+
+            AH_ROW(3, 2, 2, &RHS_VAL);
+
+            // solve remain ->
+
+            AH_ROW(2, 3, 3, &RHS_VAL);
+            AH_ROW(1, 3, 3, &RHS_VAL);
+            AH_ROW(0, 3, 3, &RHS_VAL);
+
+
+            AH_ROW(0, 2, 2, &RHS_VAL);
+            AH_ROW(1, 2, 2, &RHS_VAL);
+
+
+            AH_ROW(0, 1, 1, &RHS_VAL);
+
+            //ensure it is in 1, 1, 1, 1 format
+
+            RHS_VAL.x = RHS_VAL.x / X0Y0;
+            RHS_VAL.y = RHS_VAL.y / X1Y1;
+            RHS_VAL.z = RHS_VAL.z / X2Y2;
+            RHS_VAL.w = RHS_VAL.w / X3Y3;
+
+            return RHS_VAL;
+        }
+
+        void AH_ROW(int r_target, int r_source, int column, Vector4* RHS)
+        {
+            fixed (Matrix4x4* mat4 = &this)
+            {
+                float* ptr = (float*)mat4;
+
+                float mult1 = ptr[column + r_target * 4] / ptr[column + r_source * 4];
+
+                ptr[r_target * 4] -= mult1 * ptr[r_source * 4];
+                ptr[r_target * 4 + 1] -= mult1 * ptr[r_source * 4 + 1];
+                ptr[r_target * 4 + 2] -= mult1 * ptr[r_source * 4 + 2];
+                ptr[r_target * 4 + 3] -= mult1 * ptr[r_source * 4 + 3];
+                ((float*)RHS)[r_target] -= mult1 * ((float*)RHS)[r_source];
+            }
+        }
+
         public Matrix4x4(bool makeIdentityMatrix)
         {
             fixed (Matrix4x4* mat4 = &this)
@@ -561,6 +653,15 @@ namespace xfcore.Extras
                 ptr[i] = ptra[i] + ptrb[i];
 
             return reslt;
+        }
+
+        public override string ToString()
+        {
+            return 
+                X0Y0 + " " + X1Y0 + " " + X2Y0 + " " + X3Y0 + "\n" + 
+                X0Y1 + " " + X1Y1 + " " + X2Y1 + " " + X3Y1 + "\n" +
+                X0Y2 + " " + X1Y2 + " " + X2Y2 + " " + X3Y2 + "\n" +
+                X0Y3 + " " + X1Y3 + " " + X2Y3 + " " + X3Y3 + "\n";
         }
 
         public static Matrix4x4 operator -(Matrix4x4 A, Matrix4x4 B)
@@ -914,6 +1015,15 @@ namespace xfcore.Extras
             y = vec3.y;
             z = vec3.z;
             w = W;
+        }
+
+        /// <summary>
+        /// Returns a string in the format of "Vector4
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            return "X: " + x.ToString() + ", Y: " + y.ToString() + ", Z:" + z.ToString() + ", W: " + w.ToString();
         }
     }
 
