@@ -33,3 +33,4 @@ The SSAO shader still needs some tweaking for both performance and quality.
 
 The cubemap blur can be easily seen here, as the edges are not interpolated over each cubemap side. Also the lack of self shadowing parallax does not look good.
 ![](https://raw.githubusercontent.com/theproadam/XFDraw/main/Screenshots/outside.png)
+Attempts have been made to implment the self shadowing parallax, however the demo does not use Tangent Bitangent mapping and thus it hard to correctly "march" the shadows.
