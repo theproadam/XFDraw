@@ -24,13 +24,25 @@ extern "C"
 		int* ptr = (int*)TargetBuffer;
 		int col = Color;
 
-#pragma omp parallel for
-		for (int h = 0; h < Height; ++h)
+		if (ForceUseOpenMP)
 		{
-			int* iptr = ptr + Width * h;
-			for (int w = 0; w < Width; ++w)
+#pragma omp parallel for
+			for (int h = 0; h < Height; ++h)
 			{
-				iptr[w] = col;
+				int* iptr = ptr + Width * h;
+				for (int w = 0; w < Width; ++w)
+				{
+					iptr[w] = col;
+				}
+			}
+		}
+		else
+		{
+			int size = Width * Height;
+
+			for (int i = 0; i < size; i++)
+			{
+				ptr[i] = col;
 			}
 		}
 	}
@@ -76,12 +88,26 @@ extern "C"
 
 	DLL void Copy32bpp(int* dest, int* src, int w1, int w2, int h1, int h2, int wSrc, int wDest, int wOffset, int hOffset, int hFlip)
 	{
-#pragma omp parallel for
-		for (int h = h1; h < h2; ++h)
+		if (ForceUseOpenMP)
 		{
-			for (int w = w1; w < w2; ++w)
+#pragma omp parallel for
+			for (int h = h1; h < h2; ++h)
 			{
-				dest[(h + hOffset) * wDest + w + wOffset] = src[(hFlip - h) * wSrc + w];
+				for (int w = w1; w < w2; ++w)
+				{
+					dest[(h + hOffset) * wDest + w + wOffset] = src[(hFlip - h) * wSrc + w];
+				}
+			}
+			
+		}
+		else
+		{
+			for (int h = h1; h < h2; ++h)
+			{
+				for (int w = w1; w < w2; ++w)
+				{
+					dest[(h + hOffset) * wDest + w + wOffset] = src[(hFlip - h) * wSrc + w];
+				}
 			}
 		}
 	}

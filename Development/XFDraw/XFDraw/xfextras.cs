@@ -10,6 +10,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using xfcore.Buffers;
 using xfcore.Extras;
+using System.IO;
 
 namespace xfcore.Extras
 {
@@ -121,6 +122,18 @@ namespace xfcore.Extras
         {
             return (float)Math.Sqrt(Math.Pow(From.x - To.x, 2) + Math.Pow(From.y - To.y, 2) + Math.Pow(From.z - To.z, 2));
         }
+
+        /// <summary>
+        /// Calculates the squared 3 dimensional distance between point A and Point B
+        /// </summary>
+        /// <param name="From">Point A</param>
+        /// <param name="To">Point B</param>
+        /// <returns></returns>
+        public static float DistanceSquared(Vector3 From, Vector3 To)
+        {
+            return (float)(Math.Pow(From.x - To.x, 2) + Math.Pow(From.y - To.y, 2) + Math.Pow(From.z - To.z, 2));
+        }
+
         /// <summary>
         /// Adds two Vector3 together
         /// </summary>
@@ -157,6 +170,8 @@ namespace xfcore.Extras
             return (A.x == B.x && A.y == B.y && A.z == B.z);
         }
 
+        public static Vector3 zero { get { return new Vector3(0, 0, 0);  } }
+
         public static Vector3 operator *(Vector3 A, Vector3 B)
         {
             return new Vector3(A.x * B.x, A.y * B.y, A.z * B.z);
@@ -180,6 +195,26 @@ namespace xfcore.Extras
         public static bool operator <(Vector3 A, float B)
         {
             return A.x < B & A.y < B & A.z < B;
+        }
+
+        public static bool operator ==(Vector3 A, Vector3 B)
+        {
+            return A.x == B.x && A.y == B.y && A.z == B.z;
+        }
+
+        public static bool operator !=(Vector3 A, Vector3 B)
+        {
+            return A.x != B.x || A.y != B.y || A.z != B.z;
+        }
+
+        public float sqrMagnitude()
+        {
+            return x * x + y * y + z * z;
+        }
+
+        public float Magnitude()
+        {
+            return (float)Math.Sqrt(x * x + y * y + z * z);
         }
 
         public void Clamp01()
@@ -281,6 +316,44 @@ namespace xfcore.Extras
             return Math.Abs(CompareTo.x - x) < EPSILON && Math.Abs(CompareTo.y - y) < EPSILON && Math.Abs(CompareTo.z - z) < EPSILON;
         }
 
+        public bool isExact(Vector3 CompareTo)
+        {
+            return this == CompareTo;
+        }
+
+        const float EPSILONM = 1E-4f;
+        public bool isApproximatelyM(Vector3 CompareTo)
+        {
+            return Math.Abs(CompareTo.x - x) < EPSILONM && Math.Abs(CompareTo.y - y) < EPSILONM && Math.Abs(CompareTo.z - z) < EPSILONM;
+        }
+
+        const float EPSILONT = 1E-5f;
+        public bool isApproximatelyT(Vector3 CompareTo)
+        {
+            return Math.Abs(CompareTo.x - x) < EPSILONT && Math.Abs(CompareTo.y - y) < EPSILONT && Math.Abs(CompareTo.z - z) < EPSILONT;
+        }
+
+        const float EPSILONL = 5E-3f;
+        public bool isApproximatelyL(Vector3 CompareTo)
+        {
+            return Math.Abs(CompareTo.x - x) < EPSILONL && Math.Abs(CompareTo.y - y) < EPSILONL && Math.Abs(CompareTo.z - z) < EPSILONL;
+        }
+
+        const float EPSILONLL = 1E-2f;
+        public bool isApproximatelyLL(Vector3 CompareTo)
+        {
+            return Math.Abs(CompareTo.x - x) < EPSILONLL && Math.Abs(CompareTo.y - y) < EPSILONLL && Math.Abs(CompareTo.z - z) < EPSILONLL;
+        }
+
+
+
+        const float EPSILONAE = 5E-7f;
+        public bool isApproximatelyAE(Vector3 CompareTo)
+        {
+            return Math.Abs(CompareTo.x - x) < EPSILONAE && Math.Abs(CompareTo.y - y) < EPSILONAE && Math.Abs(CompareTo.z - z) < EPSILONAE;
+        }
+
+
         /// <summary>
         /// Returns a string in the format of "Vector3 X: " + X + ", Y: " + Y + ", Z: " + Z
         /// </summary>
@@ -288,6 +361,11 @@ namespace xfcore.Extras
         public override string ToString()
         {
             return "X: " + x.ToString() + ", Y: " + y.ToString() + ", Z:" + z.ToString();
+        }
+
+        public string ToDebugString()
+        {
+            return "new Vector3(" + x + "f, " + y + "f, " + z + "f)";
         }
 
         public static Vector3 Reflect(Vector3 inDirection, Vector3 inNormal)
@@ -395,11 +473,31 @@ namespace xfcore.Extras
             return ((((((byte)color.A << 8) | (byte)color.R) << 8) | (byte)color.G) << 8) | (byte)color.B;
         }
 
+        public unsafe static implicit operator Color4(int intColor)
+        { 
+            Color4 b = new Color4();
+            *((int*)&b) = intColor;
+
+            return b;
+        }
+
+        public static Color4 Red { get { return new Color4(255, 0, 0); } }
+
+        public static Color4 Green { get { return new Color4(0, 255, 0); } }
+
+        public static Color4 Blue { get { return new Color4(0, 0, 255); } }
+
+        public static Color4 White { get { return new Color4(255, 255, 255); } }
+
+        public static Color4 Black { get { return new Color4(0, 0, 0); } }
+
+
     }
 
     [StructLayout(LayoutKind.Sequential)]
     public unsafe struct Matrix4x4
     {
+        //NOT SAME MEMORY LAYOUT AS OpenGL
         public float X0Y0;
         public float X1Y0;
         public float X2Y0;
@@ -496,7 +594,8 @@ namespace xfcore.Extras
         }
 
         /// <summary>
-        /// Reduced Row-Echelon Form of the Matrix. Takes a Vector4 argument to make it a augmented matrix, returns the resulting 1,1,1,1 form.
+        /// Reduced Row-Echelon Form of the Matrix. Takes a Vector4 argument to make it a augmented matrix, returns the resulting 1,1,1,1 form.3
+        /// Naive-Gauss (implementation) WILL BREAK ON ZERO!
         /// </summary>
         /// <param name="RHS"></param>
         /// <returns></returns>
@@ -751,6 +850,34 @@ namespace xfcore.Extras
         public float X0Y2;
         public float X1Y2;
         public float X2Y2;
+
+        public static Matrix3x3 Identity { get { return IdentityMatrix(); } }
+
+        public static Matrix3x3 IdentityMatrix()
+        {
+            Matrix3x3 mat = new Matrix3x3();
+            mat.SetIdentityMatrix();
+            return mat;
+        }
+
+        public Matrix3x3 Transposed()
+        {
+            Matrix3x3 ret = new Matrix3x3();
+
+            ret.X0Y0 = X0Y0;
+            ret.X1Y0 = X0Y1;
+            ret.X2Y0 = X0Y2;
+
+            ret.X0Y1 = X1Y0;
+            ret.X1Y1 = X1Y1;
+            ret.X2Y1 = X1Y2;
+
+            ret.X0Y2 = X2Y0;
+            ret.X1Y2 = X2Y1;
+            ret.X2Y2 = X2Y2;
+
+            return ret;
+        }
 
         public void SetZeroMatrix()
         {
@@ -1015,6 +1142,11 @@ namespace xfcore.Extras
             y = vec3.y;
             z = vec3.z;
             w = W;
+        }
+
+        public Vector3 xyz()
+        {
+            return new Vector3(x, y, z);
         }
 
         /// <summary>
@@ -1534,6 +1666,97 @@ namespace xfcore
         [DllImport("msvcrt.dll", EntryPoint = "memcpy", CallingConvention = CallingConvention.Cdecl, SetLastError = false)]
         static extern IntPtr memcpy(IntPtr dest, IntPtr src, UIntPtr count);
 
+        public static void BlitIntoGLTexture(GLTexture SourceTexture, GLTexture TargetTexture, Point TargetPoint, Rectangle SourceRectangle, bool compareAlpha = false)
+        {
+            if (TargetTexture == null || SourceTexture == null)
+                throw new Exception("Target and Sources cannot be null");
+
+            if (SourceTexture.Stride != 4 || TargetTexture.Stride != 4)
+                throw new Exception("not yet supported!");
+
+            SourceTexture.RequestLock();
+            TargetTexture.RequestLock();
+
+
+            int startXS = SourceRectangle.X;
+            int startYS = SourceRectangle.Y;
+
+            if (startXS >= SourceTexture.Width || SourceRectangle.X < 0) throw new Exception("SourceSize is not on SourceTexture!");
+            if (startYS >= SourceTexture.Height || SourceRectangle.Y < 0) throw new Exception("SourceSize is not on SourceTexture!");
+
+            if (SourceRectangle.Width < 0 || SourceRectangle.Height < 0) throw new Exception("SourceSize Width/Height cannot be negative!");
+
+            int endXS = SourceRectangle.X + SourceRectangle.Width;
+            int endYS = SourceRectangle.Y + SourceRectangle.Height;
+
+            if (endXS > SourceTexture.Width) throw new Exception("SourceSize Width is not on SourceTexture!");
+            if (endYS > SourceTexture.Height) throw new Exception("SourceSize Height is not on SourceTexture!");
+
+            int startXT = TargetPoint.X;
+            int startYT = TargetPoint.Y;
+
+            if (startXT >= TargetTexture.Width) throw new Exception("TargetPoint is not on Texture!");
+            if (startYT >= TargetTexture.Height) throw new Exception("TargetPoint is not on Texture!");
+
+            int endXT = TargetPoint.X + SourceRectangle.Width;
+            int endYT = TargetPoint.Y + SourceRectangle.Height;
+
+            if (endXT > TargetTexture.Width) throw new Exception("SourceSize Width is not on SourceTexture!");
+            if (endYT > TargetTexture.Height) throw new Exception("SourceSize Height is not on SourceTexture!");
+
+            int offsetX = TargetPoint.X - SourceRectangle.X;
+            int offsetY = TargetPoint.Y - SourceRectangle.Y;
+
+            int* sptr = (int*)SourceTexture.GetAddress();
+            int* tptr = (int*)TargetTexture.GetAddress();
+
+            int wSrc = SourceTexture.Width;
+            int wDest = TargetTexture.Width;
+            int hOffset = offsetY;
+            int wOffset = offsetX;
+
+            if (!compareAlpha)
+            {
+                for (int h = startYT; h < endYT; h++)
+                {
+                    for (int w = startXT; w < endXT; w++)
+                    {
+                        //int a = sptr[h * wSrc + w];
+                        //tptr[(h + hOffset) * wDest + w + wOffset] = a;
+
+                        int a = sptr[(h - hOffset) * wSrc + w - wOffset];
+                        tptr[h * wDest + w] = a;
+
+                    }
+                }
+            }
+            else
+            {
+                for (int h = startYT; h < endYT; h++)
+                {
+                    for (int w = startXT; w < endXT; w++)
+                    {
+                        //int a = sptr[h * wSrc + w];
+                        //tptr[(h + hOffset) * wDest + w + wOffset] = a;
+
+                        int a = sptr[(h - hOffset) * wSrc + w - wOffset];
+
+                        if (a >> 24 == 0)
+                            continue;
+
+                        tptr[h * wDest + w] = a;
+
+                    }
+                }
+            }
+
+
+
+
+            SourceTexture.ReleaseLock();
+            TargetTexture.ReleaseLock();
+        }
+
         public static void BlitIntoBitmap(GLTexture SourceTexture, Bitmap TargetBitmap, Point TargetPoint, Rectangle SourceRectangle)
         {
             if (TargetBitmap == null || SourceTexture == null)
@@ -1905,5 +2128,282 @@ namespace xfcore
             sampleMultiply = sMult;
         }
         
+    }
+}
+
+namespace xfcore.Extras.IO
+{
+    public class STLImporter
+    {
+        //WARNING: This STL Importer has issues importing ASCII Files on certain computers running Windows 10.
+        public string STLHeader { get; private set; }
+        public STLFormat STLType { get; private set; }
+        public uint TriangleCount { get; private set; }
+        public Triangle[] AllTriangles { get; private set; }
+
+        public STLImporter(string TargetFile)
+        {
+            // Verify That The File Exists
+            if (!File.Exists(TargetFile))
+                throw new System.IO.FileNotFoundException("Target File Does Not Exist!", "Error!");
+
+            // Load The File Into The Memory as ASCII
+            string[] allLinesASCII = File.ReadAllLines(TargetFile);
+
+            // Detect if STL File is ASCII or Binary
+            bool ASCII = isAscii(allLinesASCII);
+
+            // Insert Comment Here
+            if (ASCII)
+            {
+                STLType = STLFormat.ASCII;
+                AllTriangles = ASCIISTLOpen(allLinesASCII);
+            }
+            else
+            {
+                STLType = STLFormat.Binary;
+                AllTriangles = BinarySTLOpen(TargetFile);
+            }
+
+        }
+
+        Triangle[] BinarySTLOpen(string TargetFile)
+        {
+            List<Triangle> Triangles = new List<Triangle>();
+
+            byte[] fileBytes = File.ReadAllBytes(TargetFile);
+            byte[] header = new byte[80];
+
+            for (int b = 0; b < 80; b++)
+                header[b] = fileBytes[b];
+
+            STLHeader = System.Text.Encoding.UTF8.GetString(header);
+
+            uint NumberOfTriangles = System.BitConverter.ToUInt32(fileBytes, 80);
+            TriangleCount = NumberOfTriangles;
+
+            for (int i = 0; i < NumberOfTriangles; i++)
+            {
+                // Read The Normal Vector
+                float normalI = System.BitConverter.ToSingle(fileBytes, 84 + i * 50);
+                float normalJ = System.BitConverter.ToSingle(fileBytes, (1 * 4) + 84 + i * 50);
+                float normalK = System.BitConverter.ToSingle(fileBytes, (2 * 4) + 84 + i * 50);
+
+                // Read The XYZ Positions of The First Vertex
+                float vertex1x = System.BitConverter.ToSingle(fileBytes, 3 * 4 + 84 + i * 50);
+                float vertex1y = System.BitConverter.ToSingle(fileBytes, 4 * 4 + 84 + i * 50);
+                float vertex1z = System.BitConverter.ToSingle(fileBytes, 5 * 4 + 84 + i * 50);
+
+                // Read The XYZ Positions of The Second Vertex
+                float vertex2x = System.BitConverter.ToSingle(fileBytes, 6 * 4 + 84 + i * 50);
+                float vertex2y = System.BitConverter.ToSingle(fileBytes, 7 * 4 + 84 + i * 50);
+                float vertex2z = System.BitConverter.ToSingle(fileBytes, 8 * 4 + 84 + i * 50);
+
+                // Read The XYZ Positions of The Third Vertex
+                float vertex3x = System.BitConverter.ToSingle(fileBytes, 9 * 4 + 84 + i * 50);
+                float vertex3y = System.BitConverter.ToSingle(fileBytes, 10 * 4 + 84 + i * 50);
+                float vertex3z = System.BitConverter.ToSingle(fileBytes, 11 * 4 + 84 + i * 50);
+
+                // Read The Attribute Byte Count
+                int Attribs = System.BitConverter.ToInt16(fileBytes, 12 * 4 + 84 + i * 50);
+
+                // Create a Triangle
+                Triangle T = new Triangle();
+
+                // Save all the Data Into Said Triangle
+                T.normals = new Vector3(normalI, normalK, normalJ);
+                T.vertex1 = new Vector3(vertex1x, vertex1z, vertex1y);
+                T.vertex2 = new Vector3(vertex2x, vertex2z, vertex2y);//Possible Error?
+                T.vertex3 = new Vector3(vertex3x, vertex3z, vertex3y);
+
+                // Add The Triangle
+                Triangles.Add(T);
+            }
+
+            return Triangles.ToArray();
+        }
+
+        Triangle[] ASCIISTLOpen(string[] ASCIILines)
+        {
+            STLHeader = ASCIILines[0].Replace("solid ", "");
+
+            uint tCount = 0;
+            List<Triangle> Triangles = new List<Triangle>();
+
+            foreach (string s in ASCIILines)
+                if (s.Contains("facet normal"))
+                    tCount++;
+
+            TriangleCount = tCount;
+
+            for (int i = 0; i < tCount * 7; i += 7)
+            {
+                string n = ASCIILines[i + 1].Trim().Replace("facet normal", "").Replace("  ", " ");
+
+                // Read The Normal Vector
+                float normalI = float.Parse(n.Split(' ')[1]);
+                float normalJ = float.Parse(n.Split(' ')[2]);
+                float normalK = float.Parse(n.Split(' ')[3]);
+
+                string v1 = ASCIILines[i + 3].Split('x')[1].Replace("  ", " ");
+
+
+                // Read The XYZ Positions of The First Vertex
+                float vertex1x = float.Parse(v1.Split(' ')[1]);
+                float vertex1y = float.Parse(v1.Split(' ')[2]);
+                float vertex1z = float.Parse(v1.Split(' ')[3]);
+
+                string v2 = ASCIILines[i + 4].Split('x')[1].Replace("  ", " ");
+
+                // Read The XYZ Positions of The Second Vertex
+                float vertex2x = float.Parse(v2.Split(' ')[1]);
+                float vertex2y = float.Parse(v2.Split(' ')[2]);
+                float vertex2z = float.Parse(v2.Split(' ')[3]);
+
+                string v3 = ASCIILines[i + 5].Split('x')[1].Replace("  ", " ");
+
+                // Read The XYZ Positions of The Third Vertex
+                float vertex3x = float.Parse(v3.Split(' ')[1]);
+                float vertex3y = float.Parse(v3.Split(' ')[2]);
+                float vertex3z = float.Parse(v3.Split(' ')[3]);
+
+                // Create a Triangle
+                Triangle T = new Triangle();
+
+                // Save all the Data Into Said Triangle
+                T.normals = new Vector3(normalI, normalK, normalJ);
+                T.vertex1 = new Vector3(vertex1x, vertex1z, vertex1y);
+                T.vertex2 = new Vector3(vertex2x, vertex2z, vertex2y);
+                T.vertex3 = new Vector3(vertex3x, vertex3z, vertex3y);
+
+                // Add The Triangle
+                Triangles.Add(T);
+            }
+
+            return Triangles.ToArray();
+        }
+
+        bool isAscii(string[] Lines)
+        {
+            string[] Keywords = new string[] { "facet", "outer", "loop", "vertex", "endloop", "endfacet" };
+            int Det = 0;
+
+            foreach (string s in Lines)
+            {
+                foreach (string ss in Keywords)
+                {
+                    if (s.Contains(ss))
+                    {
+                        Det++;
+                    }
+                }
+            }
+
+            if (Det > 0)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public enum STLFormat
+        {
+            ASCII,
+            Binary
+        }
+
+        public static float[] AverageUpFaceNormalsAndOutputVertexBuffer(Triangle[] Input, float CutoffAngle)
+        {
+            Vector3[] VERTEX_DATA = new Vector3[Input.Length * 3];
+            Vector3[] VERTEX_NORMALS = new Vector3[Input.Length * 3];
+            int[] N_COUNT = new int[Input.Length * 3];
+
+            for (int i = 0; i < Input.Length; i++)
+            {
+                VERTEX_DATA[i * 3] = Input[i].vertex1;
+                VERTEX_DATA[i * 3 + 1] = Input[i].vertex2;
+                VERTEX_DATA[i * 3 + 2] = Input[i].vertex3;
+            }
+
+            CutoffAngle *= (float)(Math.PI / 180f);
+            CutoffAngle = (float)Math.Cos(CutoffAngle);
+
+            for (int i = 0; i < VERTEX_DATA.Length; i++)
+            {
+                for (int j = 0; j < VERTEX_DATA.Length; j++)
+                {
+                    if (Vector3.Compare(VERTEX_DATA[j], VERTEX_DATA[i]) && Vector3.Dot(Input[i / 3].normals, Input[j / 3].normals) > CutoffAngle)
+                    {
+                        VERTEX_NORMALS[i] += Input[j / 3].normals;
+                        N_COUNT[i]++;
+                    }
+                }
+            }
+
+            for (int i = 0; i < N_COUNT.Length; i++)
+            {
+                if (N_COUNT[i] != 0)
+                    VERTEX_NORMALS[i] /= N_COUNT[i];
+            }
+
+            float[] Output = new float[VERTEX_DATA.Length * 6];
+
+            for (int i = 0; i < VERTEX_DATA.Length; i++)
+            {
+                Output[i * 6 + 0] = VERTEX_DATA[i].x;
+                Output[i * 6 + 1] = VERTEX_DATA[i].y;
+                Output[i * 6 + 2] = VERTEX_DATA[i].z;
+                Output[i * 6 + 3] = VERTEX_NORMALS[i].x;
+                Output[i * 6 + 4] = VERTEX_NORMALS[i].y;
+                Output[i * 6 + 5] = VERTEX_NORMALS[i].z;
+
+            }
+
+            return Output;
+        }
+
+        public static float[] FaceNormalsToVertexNormals(Triangle[] Input)
+        {
+            Vector3[] VERTEX_DATA = new Vector3[Input.Length * 3];
+            Vector3[] VERTEX_NORMALS = new Vector3[Input.Length];
+            int[] N_COUNT = new int[Input.Length * 3];
+
+            for (int i = 0; i < Input.Length; i++)
+            {
+                VERTEX_DATA[i * 3] = Input[i].vertex1;
+                VERTEX_DATA[i * 3 + 1] = Input[i].vertex2;
+                VERTEX_DATA[i * 3 + 2] = Input[i].vertex3;
+                VERTEX_NORMALS[i] = Input[i].normals;
+            }
+
+
+            float[] Output = new float[VERTEX_DATA.Length * 6];
+
+            for (int i = 0; i < VERTEX_DATA.Length; i++)
+            {
+                Output[i * 6 + 0] = VERTEX_DATA[i].x;
+                Output[i * 6 + 1] = VERTEX_DATA[i].y;
+                Output[i * 6 + 2] = VERTEX_DATA[i].z;
+                Output[i * 6 + 3] = VERTEX_NORMALS[i / 3].x;
+                Output[i * 6 + 4] = VERTEX_NORMALS[i / 3].y;
+                Output[i * 6 + 5] = VERTEX_NORMALS[i / 3].z;
+
+            }
+
+            return Output;
+        }
+
+
+    }
+
+    public class Triangle
+    {
+        public Vector3 normals;
+        public Vector3 vertex1;
+        public Vector3 vertex2;
+        public Vector3 vertex3;
     }
 }

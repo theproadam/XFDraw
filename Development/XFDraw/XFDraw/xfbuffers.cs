@@ -363,7 +363,6 @@ namespace xfcore.Buffers
         }
     }
 
-
     public unsafe class GLBytes12
     {
         bool disposed = false;
@@ -418,6 +417,8 @@ namespace xfcore.Buffers
         float* fptr;
         int _size;
 
+        public int Length { get { return _size ;} }
+
         public GLBufferData(int size, float* ptr)
         {
             fptr = ptr;
@@ -455,6 +456,8 @@ namespace xfcore.Buffers
         bool disposed = false;
         int* fptr;
         int _size;
+
+        public int Length { get { return _size; } }
 
         public GLBufferIntData(int size, int* ptr)
         {

@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XFDemo", "XFDemo\XFDemo.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowMappingDemo", "ShadowMappingDemo\ShadowMappingDemo.csproj", "{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CADDemo", "CADDemo\CADDemo.csproj", "{A4BFC1E8-1EFA-447A-9A67-760CD09DACDA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0F4D9CC6-C595-4AA2-9240-EA0D357231A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4BFC1E8-1EFA-447A-9A67-760CD09DACDA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4BFC1E8-1EFA-447A-9A67-760CD09DACDA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4BFC1E8-1EFA-447A-9A67-760CD09DACDA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4BFC1E8-1EFA-447A-9A67-760CD09DACDA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

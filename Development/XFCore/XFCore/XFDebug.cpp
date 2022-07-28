@@ -3264,6 +3264,541 @@ void FillDepth(int index, float* p, float* dptr, int stride, int RW, int RH, vec
 }
 
 
+void FillDepthNOVS(int index, float* p, float* dptr, int stride, int RW, int RH, vec3 ca, vec3 co, vec3 si,
+	float nearZ, float farZ, float tanVert, float tanHorz, float rw, float rh, float fw, float fh, float oh, float ow, int s1, int FACE_CULL)
+{
+	float* VERTEX_DATA = (float*)alloca(12 * 4);
+
+
+	int BUFFER_SIZE = 3;
+
+	for (int b = 0; b < 3; ++b)
+	{
+		*(VERTEX_DATA + b * 3 + 0) = *(p + (index * s1 + b * stride)) - ca.x;
+		*(VERTEX_DATA + b * 3 + 1) = *(p + (index * s1 + b * stride + 1)) - ca.y;
+		*(VERTEX_DATA + b * 3 + 2) = *(p + (index * s1 + b * stride + 2)) - ca.z;
+	}
+	//TODO: Replace RTL_ZERO_MEMORY with a simple loop, it should be much faster
+
+	bool* AP = (bool*)alloca(BUFFER_SIZE + 12);
+	//bool* AP = (bool*)(VERTEX_DATA + 48);
+
+	//RtlZeroMemory(AP, BUFFER_SIZE);
+	frtlzeromem(AP, BUFFER_SIZE);
+
+#pragma region NearPlaneCFG
+
+	int v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * 3 + 2] < nearZ)
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	//	OutputDebugString(L"\n");
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region NearPlane
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+
+		int API = 0;
+
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, nearZ);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, i - 1, i, nearZ);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, nearZ);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, i - 1, i, nearZ);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * 3];
+					strFLT[API + 1] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * 3 + 2];
+					API += 3;
+				}
+			}
+		}
+
+		BUFFER_SIZE = API / 3;
+		VERTEX_DATA = strFLT;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+
+#pragma endregion
+
+#pragma region FarPlaneCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * 3 + 2] > farZ)
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region FarPlane
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, farZ);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, i - 1, i, farZ);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, farZ);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					FIP(strFLT, API, VERTEX_DATA, i - 1, i, farZ);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * 3];
+					strFLT[API + 1] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * 3 + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region RightFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * 3 + 2] * tanVert + ow < VERTEX_DATA[i * 3])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+#pragma endregion
+
+#pragma region RightFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanVert, ow);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, i - 1, i, tanVert, ow);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanVert, ow);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, i - 1, i, tanVert, ow);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * 3];
+					strFLT[API + 1] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * 3 + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region LeftFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * 3 + 2] * -tanVert - ow > VERTEX_DATA[i * 3])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+#pragma endregion
+
+#pragma region LeftFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanVert, -ow);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, i - 1, i, -tanVert, -ow);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanVert, -ow);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIP(strFLT, API, VERTEX_DATA, i - 1, i, -tanVert, -ow);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API] = VERTEX_DATA[i * 3];
+					strFLT[API + 1] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * 3 + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+	}
+#pragma endregion
+
+#pragma region TopFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * 3 + 2] * tanHorz + oh < VERTEX_DATA[i * 3 + 1])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region TopFOV
+
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanHorz, oh);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, i - 1, i, tanHorz, oh);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, tanHorz, oh);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, i - 1, i, tanHorz, oh);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * 3];
+					strFLT[API + 1] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * 3 + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+		RtlZeroMemory(AP, BUFFER_SIZE);
+
+
+	}
+
+#pragma endregion
+
+#pragma region BottomFOVCFG
+	v = 0;
+
+	for (int i = 0; i < BUFFER_SIZE; i++)
+	{
+		if (VERTEX_DATA[i * 3 + 2] * -tanHorz - oh > VERTEX_DATA[i * 3 + 1])
+		{
+			AP[i] = true;
+			v++;
+		}
+	}
+
+	if (v == BUFFER_SIZE)
+		return RETURN_VALUE;
+
+#pragma endregion
+
+#pragma region BottomFOV
+	if (v != 0)
+	{
+		float* strFLT = (float*)alloca(BUFFER_SIZE * 12 + 12);
+		int API = 0;
+		for (int i = 0; i < BUFFER_SIZE; i++)
+		{
+			if (AP[i])
+			{
+				if (i == 0 && !AP[BUFFER_SIZE - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanHorz, -oh);
+					API += 3;
+				}
+				else if (i > 0 && !AP[i - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, i - 1, i, -tanHorz, -oh);
+					API += 3;
+				}
+			}
+			else
+			{
+				if (i == 0 && AP[BUFFER_SIZE - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, BUFFER_SIZE - 1, i, -tanHorz, -oh);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else if (i > 0 && AP[i - 1])
+				{
+					SIPH(strFLT, API, VERTEX_DATA, i - 1, i, -tanHorz, -oh);
+					strFLT[API + 3] = VERTEX_DATA[i * 3];
+					strFLT[API + 4] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 5] = VERTEX_DATA[i * 3 + 2];
+					API += 6;
+				}
+				else
+				{
+					strFLT[API + 0] = VERTEX_DATA[i * 3];
+					strFLT[API + 1] = VERTEX_DATA[i * 3 + 1];
+					strFLT[API + 2] = VERTEX_DATA[i * 3 + 2];
+					API += 3;
+				}
+			}
+		}
+		VERTEX_DATA = strFLT;
+		BUFFER_SIZE = API / 3;
+	}
+#pragma endregion
+
+
+	int yMax = 0;
+	int yMin = RH;
+
+
+	for (int im = 0; im < BUFFER_SIZE; im++)
+	{
+		VERTEX_DATA[im * 3 + 2] = 1.0f / VERTEX_DATA[im * 3 + 2];
+		VERTEX_DATA[im * 3 + 0] = (rw + (VERTEX_DATA[im * 3 + 0] * VERTEX_DATA[im * 3 + 2]) * fw);
+		VERTEX_DATA[im * 3 + 1] = (rh + (VERTEX_DATA[im * 3 + 1] * VERTEX_DATA[im * 3 + 2]) * fh);
+
+		if (VERTEX_DATA[im * 3 + 1] > yMax) yMax = (int)(VERTEX_DATA[im * 3 + 1]);
+		if (VERTEX_DATA[im * 3 + 1] < yMin) yMin = (int)(VERTEX_DATA[im * 3 + 1]);
+	}
+
+	if (FACE_CULL == 1 || FACE_CULL == 2)
+	{
+		float A = BACKFACECULL3(VERTEX_DATA);
+		if (FACE_CULL == 2 && A > 0) return RETURN_VALUE;
+		else if (FACE_CULL == 1 && A < 0) return RETURN_VALUE;
+	}
+
+	if (yMax >= RH) yMax = RH - 1;
+	if (yMin < 0) yMin = 0;
+
+
+	float slopeZ, bZ, s;
+
+	float* Intersects = (float*)alloca(16);
+
+	float* FROM;
+	float* TO;
+
+	int FromX;
+	int ToX;
+
+	float* Z_fptr;
+
+	float zBegin;
+	float oValue = 0.0f;
+
+
+	for (int i = yMin; i <= yMax; ++i)
+	{
+		if (ScanLine(i, VERTEX_DATA, BUFFER_SIZE, Intersects))
+		{
+			if (Intersects[0] > Intersects[2])
+			{
+				TO = Intersects;
+				FROM = Intersects + 2;
+			}
+			else
+			{
+				FROM = Intersects;
+				TO = Intersects + 2;
+			}
+
+			FromX = (int)FROM[0] == 0 ? 0 : FROM[0] + 1;
+			ToX = (int)TO[0];
+
+#pragma region Z_Interpolation
+			slopeZ = (FROM[1] - TO[1]) / (FROM[0] - TO[0]);
+			bZ = -slopeZ * FROM[0] + FROM[1];
+#pragma endregion
+
+#pragma region BufferOverflowProtection
+			if (ToX >= RW) ToX = RW - 1;
+			if (FromX < 0) FromX = 0;
+#pragma endregion
+
+			Z_fptr = dptr + i * RW;
+			zBegin = slopeZ * (float)FromX + bZ;
+
+			for (int o = FromX; o <= ToX; ++o)
+			{
+				s = farZ - (1.0f / zBegin - oValue);
+				zBegin += slopeZ;
+
+				if (Z_fptr[o] > s) continue;
+				Z_fptr[o] = s;
+			}
+		}
+	}
+}
+
 
 
 

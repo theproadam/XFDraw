@@ -410,18 +410,21 @@ namespace xfcore.Shaders.Builder
 
             bool FSIReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "gl_InstanceID");
             bool VSIReq = ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "gl_InstanceID");
-
+            bool CBIReq = ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "checkerboard");
 
             if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
             if (ContainsName(vs.shaderMethods[vs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
             if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "VSExec")) throw new Exception("VSExec is a reserved name!");
             if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "FSExec")) throw new Exception("FSExec is a reserved name!");
 
+            if (ContainsName(fs.shaderMethods[fs.shaderMethods.Length - 1].contents, "checkerboard")) throw new Exception("Checkerboard not supported yet.");
+           
+
             string sign, exec;
             WriteVSSign(vs, vsIn, vsOut, VSIReq, out sign, out exec);
 
             string sign1, exec1, ptrs1;
-            WriteFSSign(fs, fsIn, fsOut, allowMSAA, XYReq, XYZReq, ZReq, FSIReq, out sign1, out exec1, out ptrs1);
+            WriteFSSign(fs, fsIn, fsOut, allowMSAA, XYReq, XYZReq, ZReq, FSIReq, CBIReq, out sign1, out exec1, out ptrs1);
 
             string shaderCode = "", entryCode = "";
 
@@ -457,7 +460,7 @@ namespace xfcore.Shaders.Builder
             entryCode += sign + "{\n" + WriteExecMethod(vs, true) + "\n}\n\n";
             entryCode += sign1 + "{\n" + WriteExecMethod(fs, false) + "\n}\n\n";
 
-            entryCode += WriteWireframe(fs, fsIn, fsOut, XYReq, XYZReq, ZReq, FSIReq) + "\n" + DrawWireFrame + "\n";
+            entryCode += WriteWireframe(fs, fsIn, fsOut, XYReq, XYZReq, ZReq, FSIReq, CBIReq) + "\n" + DrawWireFrame + "\n";
 
             shaderCode += "void MethodExec(int index, float* p, float* dptr, char* uData1, char* uData2, unsigned char** ptrPtrs, GLData projData, GLExtra wireData, MSAAConfig* msaa){\n";
             shaderCode += "const int stride = " + intS + ";\n";
@@ -513,6 +516,10 @@ namespace xfcore.Shaders.Builder
             
             
             shaderCode += "\n\t" + ScanLineStart;
+
+            if (CBIReq)
+                shaderCode += "\n\n\t\t\t" + "bool checker_data = (i % 2 == 0 ? 1 : 0) + FromX;";
+
             shaderCode += "\n\n\t\t\t" + "int wPos = renderWidth * i;\n" + "\t\t\t";
             shaderCode += Regex.Replace(ptrs1, "\n", "\n\t") + "\n";
 
@@ -534,12 +541,15 @@ namespace xfcore.Shaders.Builder
 				    if (usingZ) for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * depth + y_mxB[z]);
 				    else for (int z = 0; z < stride - 3; z++) attribs[z] = (y_Mxb[z] * (float)o + y_mxB[z]);";
 
-
+            if (CBIReq)
+            {
+                shaderCode += "\t\t\t\t" + "checker_data = !checker_data;" + "\n";
+            }
 
             if (XYZReq)
             {
-                shaderCode += "\t\t\t\tfloat X = ((depth * fwi - ox) * (1.0f - projData.matrixlerpv) + ox) * (o - projData.rw);";
-				shaderCode += "\t\t\t\tfloat Y = ((depth * fhi - oy) * (1.0f - projData.matrixlerpv) + oy) * (i - projData.rh);";
+                shaderCode += "\t\t\t\tfloat X = ((depth * fwi - ox) * (1.0f - projData.matrixlerpv) + ox) * (o - projData.rw);\n";
+				shaderCode += "\t\t\t\tfloat Y = ((depth * fhi - oy) * (1.0f - projData.matrixlerpv) + oy) * (i - projData.rh);\n";
             }
             
             if (allowMSAA)
@@ -3386,7 +3396,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
         //->
 
 
-        static string WriteWireframe(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool XY, bool XYZ, bool Z, bool I)
+        static string WriteWireframe(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool XY, bool XYZ, bool Z, bool I, bool C)
         {
             string entry = DrawLineCode;
 
@@ -3442,6 +3452,10 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
                 methodExec += "FaceIndex, ";
             }
 
+            if (C)
+            {
+                methodExec += "false, ";
+            }
 
             if (methodExec.Length > 2)
                 methodExec = methodExec.Substring(0, methodExec.Length - 2) + ");";
@@ -3745,7 +3759,7 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
             sign = methodSign.Substring(0, methodSign.Length - 2) + ")";
         }
 
-        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, bool XY, bool XYZ, bool Z, bool I, out string sign, out string exec, out string ptrs)
+        static void WriteFSSign(ShaderParser data, ShaderField[] fsIn, ShaderField[] fsOut, bool msaa, bool XY, bool XYZ, bool Z, bool I, bool C, out string sign, out string exec, out string ptrs)
         {
             string methodSign = "inline void FSExec(";
             string methodExec = "FSExec(";
@@ -3813,6 +3827,12 @@ void DrawLineNoDATA(float* FromDATA, float* ToDATA, float* dptr, int* iptr, int 
             {
                 methodExec += "index, ";
                 methodSign += "int gl_InstanceID, ";
+            }
+
+            if (C)
+            {
+                methodExec += "checker_data, ";
+                methodSign += "bool checkerboard, ";
             }
 
             if (methodExec.Length > 2)

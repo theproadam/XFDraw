@@ -1061,42 +1061,41 @@ extern "C"
 			for (int w = 1; w < width - 1; w++, bptr += 4, tBuf++, sBuf++)
 			{
 				byte4 rgbM = sBuf[0];
-				byte4 rgbNE = sBuf[1];
-				byte4 rgbNW = sBuf[-1];
-				byte4 rgbSW = sBuf[width];
-				byte4 rgbSE = sBuf[-width];
+				byte4 rgbE = sBuf[1];
+				byte4 rgbW = sBuf[-1];
+				byte4 rgbN = sBuf[width];
+				byte4 rgbS = sBuf[-width];
 
 				//vec3 luma = vec3(0.299f, 0.587f, 0.114f);
 				byte4 luma = byte4(0.299f * 255.0f, 0.587f * 255.0f, 0.114f * 255.0f);
-				float lumaNW = dotByte(rgbNW, luma);
-				float lumaNE = dotByte(rgbNE, luma);
-				float lumaSW = dotByte(rgbSW, luma);
-				float lumaSE = dotByte(rgbSE, luma);
+				float lumaW = dotByte(rgbW, luma);
+				float lumaE = dotByte(rgbE, luma);
+				float lumaN = dotByte(rgbN, luma);
+				float lumaS = dotByte(rgbS, luma);
 				float lumaM = dotByte(rgbM, luma);
 
-				float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
-				float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+				float lumaMin = min(lumaM, min(min(lumaW, lumaE), min(lumaN, lumaS)));
+				float lumaMax = max(lumaM, max(max(lumaW, lumaE), max(lumaN, lumaS)));
 
 				float range = lumaMax - lumaMin;
 
 				if (range <= 0.5f && range >= 0.06f)
 				{
-					float delta1 = absf(lumaNW - lumaNE); //horizontal smear
-					float delta2 = absf(lumaSW - lumaSE); //vertical smear
+					lumaW = absf(lumaW);
+					lumaS = absf(lumaS);
+					lumaN = absf(lumaN);
+					lumaE = absf(lumaE);
 
-					float norm = 1.0f / (delta1 + delta2);
-					delta1 *= norm;
-					delta2 *= norm;
+					float norm = 1.0f / (lumaW + lumaS + lumaN + lumaE);
+					
+					lumaW = (lumaW * norm);
+					lumaS = (lumaS * norm);
+					lumaN = (lumaN * norm);
+					lumaE = (lumaE * norm);
 
-					//vec3 val = (rgbNW * 0.5f + rgbNE * 0.5f) * delta2 + (rgbSW * 0.5f + rgbSE * 0.5f) * delta1;// +rgbM * 0.6f;
-
-					//unsigned char R = (rgbNW.R * 0.5f + rgbNE.R * 0.5f) * delta2 + (rgbSW.R * 0.5f + rgbSE.R * 0.5f) * delta1;
-					//unsigned char G = (rgbNW.G * 0.5f + rgbNE.G * 0.5f) * delta2 + (rgbSW.G * 0.5f + rgbSE.G * 0.5f) * delta1;
-					//unsigned char B = (rgbNW.B * 0.5f + rgbNE.B * 0.5f) * delta2 + (rgbSW.B * 0.5f + rgbSE.B * 0.5f) * delta1;
-
-					float R = (rgbNW.R * 0.5f + rgbNE.R * 0.5f) * delta2 + (rgbSW.R * 0.5f + rgbSE.R * 0.5f) * delta1;
-					float G = (rgbNW.G * 0.5f + rgbNE.G * 0.5f) * delta2 + (rgbSW.G * 0.5f + rgbSE.G * 0.5f) * delta1;
-					float B = (rgbNW.B * 0.5f + rgbNE.B * 0.5f) * delta2 + (rgbSW.B * 0.5f + rgbSE.B * 0.5f) * delta1;
+					float R = (rgbW.R * lumaW + rgbE.R * lumaE) + (rgbN.R * lumaN + rgbS.R * lumaS);
+					float G = (rgbW.G * lumaW + rgbE.G * lumaE) + (rgbN.G * lumaN + rgbS.G * lumaS);
+					float B = (rgbW.B * lumaW + rgbE.B * lumaE) + (rgbN.B * lumaN + rgbS.B * lumaS);
 
 					if (R > 255.0f) R = 255;
 					if (G > 255.0f) G = 255;
@@ -1104,11 +1103,7 @@ extern "C"
 
 
 					byte4 reslt = byte4(R, G, B);
-
 					tBuf[0] = reslt;
-					//	((unsigned char*)tBuf)[0] = val.z * 255.0f;
-					//	((unsigned char*)tBuf)[1] = val.y * 255.0f;
-					//	((unsigned char*)tBuf)[2] = val.x * 255.0f;
 
 					continue;
 				}

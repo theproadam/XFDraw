@@ -15,20 +15,20 @@ namespace xfcore.Debug
     public unsafe static class GLDebug
     {
         #region PINVOKE
-        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void WireframeDebug(int* iptr, float* p, int count, int stride, int iColor, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, int* P, int* T);
 
-        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void FillFlatDebug(int* iptr, float* dptr, float* p, int count, int stride, int iColor, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, int FC, int* P, int* T);
 
-        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void PhongBase(int* iptr, float* dptr, float* p, int count, int stride, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, PhongConfig pc, int FC);
 
-        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void DepthFill(float* dptr, float* p, int count, int stride, Vector3 co, Vector3 si, Vector3 ca, RenderSettings rconfig, int FC);
 
 
-        [DllImport("XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"XFCore.dll", CallingConvention = CallingConvention.Cdecl)]
         static extern void SetParallelizationMode(bool useOpenMP, int LongThreadCount);
 
         [DllImport("kernel32.dll")]
@@ -119,9 +119,29 @@ namespace xfcore.Debug
             depth.RequestLock();
         }
 
-        public static void DrawDepth(GLBuffer Buffer, GLTexture depth, Vector3 camPos, Vector3 camRot)
+        public static void DrawDepth(GLBuffer Buffer, GLTexture depth, GLAssistant.VertexShaderDelegate VS)
         {
+            throw new NotImplementedException();
 
+            int trisCount = Buffer.Size / Buffer.stride / 4 / 3;
+            int sD = Buffer.Size / 4;
+
+            Vector3[] tC = new Vector3[trisCount * 3];
+
+            depth.RequestLock();
+            Buffer.LockBuffer(delegate(GLBufferData d) {
+                for (int i = 0; i < trisCount; i++)
+                {
+                    tC[i * 3 + 0] = new Vector3(d[i * sD], d[i * sD + 1], d[i * sD + 2]);
+                    tC[i * 3 + 1] = new Vector3(d[i * sD + 3], d[i * sD + 4], d[i * sD + 5]);
+                    tC[i * 3 + 2] = new Vector3(d[i * sD + 6], d[i * sD + 7], d[i * sD + 8]);
+                }
+            });
+
+
+
+            depth.RequestLock();
+           
         }
 
         public static void DrawPhong(GLBuffer Buffer, GLTexture target, GLTexture depth, Vector3 camPos, Vector3 camRot, PhongConfig pc)

@@ -59,7 +59,7 @@ namespace xfcore
             if (!File.Exists("XFCore.dll"))
                 throw new Exception("XFCore.dll was not found!");
 
-            if (sizeof(int*) != 4) throw new Exception("Error: renderXF2 only supports 32bit applications!");
+            if (sizeof(int*) != 4) throw new Exception("Error: XFDraw only supports 32bit applications!");
             if (SizeCheck() != 4) throw new Exception("Error: XFCore.dll is not 32bit!");
         }
 
@@ -477,6 +477,13 @@ namespace xfcore
         internal float hFOV;
         internal float vFOV;
 
+        public float verticalFOV { get { return vFOV; } }
+        public float horizontalFOV { get { return hFOV; } }
+
+        public float verticalSize { get { return vSize; } }
+        public float horizontalSize { get { return hSize; } }
+
+
         internal float hSize;
         internal float vSize;
 
@@ -641,12 +648,37 @@ namespace xfcore
             }
         }
 
-        public Vector3 ScreenToCameraPoint(Vector2 coord, GLTexture depthBuffer)
+        public Vector3 ScreenToCameraPoint_Perspective(Vector2 coord, int viewporWidth, int viewportHeight, float anyZ = 10)
         {
-            GLData projData = new GLData(depthBuffer.Width, depthBuffer.Height, this);
-            
-            throw new NotImplementedException();
-           
+            if (iValue != 0)
+                throw new Exception("Perspective Only");
+            GLData projData = new GLData(viewporWidth, viewportHeight, this);
+
+            return new Vector3(((coord.x - projData.rw) / projData.fw) * anyZ, ((coord.y - projData.rh) / projData.fh) * anyZ, anyZ);
+        }
+
+        public Vector3 ScreenToCameraPoint_Orthographic(Vector2 coord, int viewporWidth, int viewportHeight, float anyZ = 10)
+        {
+            if (iValue != 1)
+                throw new Exception("Orthographic Only");
+            GLData projData = new GLData(viewporWidth, viewportHeight, this);
+
+            return new Vector3((coord.x - projData.rw) / projData.iox, (coord.y - projData.rh) / projData.ioy, anyZ);
+        }
+
+        public Vector3 ScreenToCameraPoint(Vector2 coord, int viewporWidth, int viewportHeight, float anyZ = 10)
+        {
+            GLData projData = new GLData(viewporWidth, viewportHeight, this);
+
+            if (iValue == 0)
+            {
+                return new Vector3(((coord.x - projData.rw) / projData.fw) * anyZ, ((coord.y - projData.rh) / projData.fh) * anyZ, anyZ);
+            }
+            else if (iValue == 1)
+            {
+                return new Vector3((coord.x - projData.rw) / projData.iox, (coord.y - projData.rh) / projData.ioy, anyZ);
+            }
+            else throw new Exception("Mixed Mode Not Supported Only");           
         }
     }
 
